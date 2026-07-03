@@ -1,36 +1,106 @@
-# Dotfiles for MangoWM and Zebar
+# labwc + Zebar + crystal-dock Dotfiles
 
-This repository contains a starter configuration for `mangowm` (a Wayland compositor) and `zebar` (a taskbar/widget tool).
+Starter configuration for [labwc](https://labwc.github.io/) (Wayland compositor), [zebar](https://github.com/nicholasgasior/zebar) (widget tool), and [crystal-dock](https://github.com/nicholasgasior/crystal-dock) (Wayland dock).
 
-## Structure
+## Directory Structure
 
-- `dotfiles/mango/`: Configuration for MangoWM.
-- `dotfiles/zebar/`: Widget files for Zebar.
-- `dotfiles/install.sh`: Script to symlink configurations to `~/.config`.
-
-## Installation
-
-Run the following command to install the dotfiles:
-
-```bash
-./dotfiles/install.sh
+```
+dotfiles/
+├── install.sh              # Installation script
+├── wallpaper               # Wallpaper manager script
+├── wallpaper-sources.txt   # Wallpaper download sources
+├── labwc/                  # labwc configuration
+│   ├── rc.xml              # Keybindings, window rules, themes
+│   ├── autostart           # Startup commands (shell script)
+│   ├── environment         # Environment variables
+│   ├── menu.xml            # Root menu
+│   ├── themerc-override    # Theme overrides
+│   └── startup-wallpaper.sh
+└── zebar/                  # Zebar widget files
+    ├── main/               # Main status bar
+    │   ├── index.html
+    │   └── style.css
+    ├── launcher.sh         # Widget launcher script
+    └── widgets/            # Additional widget themes
+        ├── compact/
+        ├── detailed/
+        ├── minimalist/
+        └── system/
 ```
 
-## Configuration
+## Quick Start
 
-### MangoWM
+```bash
+# Install all dotfiles
+./dotfiles/install.sh
 
-The MangoWM configuration is located at `dotfiles/mango/config.conf`. It uses an INI-like format.
+# Launch labwc from TTY
+./scripts/start-labwc.sh
+```
 
-Keybindings:
-- `SUPER+Q`: Kill focused client
-- `SUPER+Return`: Spawn terminal (foot)
-- `SUPER+D`: Spawn launcher (rofi)
-- `SUPER+R`: Reload config
-- `SUPER+M`: Quit MangoWM
+## labwc Configuration
 
-### Zebar
+The labwc config is in `dotfiles/labwc/`. It uses XML format (Openbox-compatible):
 
-The Zebar widget is located at `dotfiles/zebar/main/`. It uses standard HTML, CSS, and JavaScript.
+- **rc.xml** - Keybindings, window rules, themes, menus
+- **autostart** - Shell script run at startup (starts crystal-dock, zebar, wallpaper)
+- **environment** - Environment variables
+- **menu.xml** - Right-click desktop menu
+- **themerc-override** - Theme customization
 
-To add more widgets, create a new directory in `dotfiles/zebar/` and update your `exec-once` in `mango/config.conf` to include `zebar start-widget <name>`.
+### Key Keybindings
+
+| Key | Action |
+|-----|--------|
+| `Super+Return` | Terminal (foot) |
+| `Super+D` | App launcher (rofi) |
+| `Super+Q` | Close window |
+| `Super+M` | Exit labwc |
+| `Super+R` | Reload config |
+| `Alt+1-9` | Switch workspace |
+| `Super+Alt+Arrow` | Swap windows |
+| `Print` | Screenshot (grim + slurp) |
+
+## Zebar Widgets
+
+Widget HTML files are in `dotfiles/zebar/widgets/`. Each widget is a standalone HTML file that zebar renders as a panel.
+
+### Widget Types
+
+- **main** - Classic status bar with clock, CPU, memory, battery
+- **minimalist** - Minimal gradient design
+- **compact** - Space-optimized single-line bar
+- **detailed** - 3x2 grid with comprehensive system info
+- **system** - Full dashboard with all metrics
+
+### Using Widgets
+
+```bash
+# Start all configured widgets
+zebar startup
+
+# Launch specific widget
+zebar start-widget main
+zebar start-widget minimalist
+```
+
+## crystal-dock Integration
+
+crystal-dock is configured as the primary dock in the autostart file:
+
+```bash
+crystal-dock --start --overlay
+```
+
+It provides application launching and dock functionality while zebar handles status widgets.
+
+## Wallpaper
+
+The wallpaper script supports random selection, syncing from sources, and daemon mode:
+
+```bash
+wallpaper random    # Set random wallpaper
+wallpaper sync      # Download from wallpaper-sources.txt
+wallpaper daemon    # Auto-rotate every hour
+wallpaper set PATH  # Set specific wallpaper
+```

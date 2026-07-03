@@ -1,0 +1,10 @@
+# Catppuccin Macchiato theme profile (requires download-themes.sh)
+labwc_theme=Catppuccin-Macchiato-Mauve
+gtk3_theme=Catppuccin-Macchiato-Mauve
+gtk4_theme=Catppuccin-Macchiato-Mauve
+icon_theme=Papirus-Dark
+cursor_theme=Catppuccin-Macchiato-Dark
+cursor_size=24
+font=Noto Sans, 10
+font_mono=Noto Sans Mono, 10
+prefer_dark=true

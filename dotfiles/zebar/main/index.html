@@ -1,42 +1,329 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <link rel="stylesheet" href="style.css">
-    <title>Main Widget</title>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <link rel="stylesheet" href="./style.css" />
+  <title>labwc Status Bar</title>
 </head>
 <body>
-    <div id="bar">
-        <div id="left">
-            <span id="workspaces"></span>
-        </div>
-        <div id="center">
-            <span id="clock"></span>
-        </div>
-        <div id="right">
-            <span id="battery"></span>
-            <span id="cpu"></span>
-            <span id="memory"></span>
-        </div>
+  <div id="root">
+    <div class="left">
+      <div class="workspaces" id="workspaces"></div>
     </div>
 
-    <script>
-        function updateClock() {
-            const now = new Date();
-            document.getElementById('clock').innerText = now.toLocaleTimeString();
-        }
-        setInterval(updateClock, 1000);
-        updateClock();
+    <div class="center">
+      <div class="module clock" id="clock">
+        <span class="time" id="clock-time"></span>
+        <span class="date" id="clock-date"></span>
+      </div>
+    </div>
 
-        // In a real Zebar widget, you'd use Zebar's API to get system info.
-        // For now, let's just simulate some data.
-        function updateSystemInfo() {
-            document.getElementById('cpu').innerText = 'CPU: 15%';
-            document.getElementById('memory').innerText = 'MEM: 2.4GB';
-        }
-        updateSystemInfo();
-        setInterval(updateSystemInfo, 5000);
-    </script>
+    <div class="right" id="right-modules">
+      <div class="module media" id="media" style="display:none">
+        <i class="nf nf-md-music"></i>
+        <span class="title" id="media-title"></span>
+      </div>
+
+      <div class="module volume clickable" id="volume" onclick="toggleMute()">
+        <i class="nf nf-md-volume_high" id="volume-icon"></i>
+        <span class="val" id="volume-val"></span>
+      </div>
+
+      <div class="module network" id="network">
+        <i class="nf nf-md-wifi_strength_4" id="net-icon"></i>
+        <span class="ssid" id="net-ssid"></span>
+      </div>
+
+      <div class="module cpu" id="cpu">
+        <i class="nf nf-oct-cpu"></i>
+        <span class="val" id="cpu-val"></span>
+      </div>
+
+      <div class="module memory" id="memory">
+        <i class="nf nf-fae-chip"></i>
+        <span class="val" id="mem-val"></span>
+      </div>
+
+      <div class="module battery" id="battery">
+        <i class="nf nf-fa-battery_3" id="bat-icon"></i>
+        <span class="val" id="bat-val"></span>
+      </div>
+
+      <div class="module weather" id="weather">
+        <i class="nf nf-weather-day_sunny" id="weather-icon"></i>
+        <span class="val" id="weather-val"></span>
+      </div>
+
+      <div class="module action" id="night-mode" onclick="toggleNightMode()" title="Toggle night mode">
+        <i class="nf nf-md-weather_night"></i>
+      </div>
+
+      <div class="module action" id="power-menu" onclick="showPowerMenu()" title="Power menu">
+        <i class="nf nf-md-power"></i>
+      </div>
+    </div>
+  </div>
+
+  <script type="module">
+    import * as zebar from 'https://esm.sh/zebar@3.0';
+
+    const providers = zebar.createProviderGroup({
+      cpu: { type: 'cpu' },
+      memory: { type: 'memory' },
+      network: { type: 'network' },
+      date: { type: 'date', formatting: 'EEE d MMM  HH:mm:ss' },
+      battery: { type: 'battery' },
+      weather: { type: 'weather' },
+    });
+
+    // ---- State ----
+    let currentWs = 0;
+    let mediaTitle = '';
+    let mediaPlaying = false;
+    let hostname = '';
+
+    // ---- Helpers ----
+    function $(id) { return document.getElementById(id); }
+
+    async function run(cmd) {
+      try { return await zebar.shell.exec(cmd); }
+      catch { return ''; }
+    }
+
+    // ---- Workspaces ----
+    async function updateWorkspaces() {
+      try {
+        const out = await run('xdotool get_desktop 2>/dev/null');
+        currentWs = parseInt(out.trim()) || 0;
+      } catch { currentWs = 0; }
+
+      const ws = $('workspaces');
+      ws.innerHTML = '';
+      for (let i = 1; i <= 9; i++) {
+        const btn = document.createElement('button');
+        btn.className = 'ws-btn' + (i - 1 === currentWs ? ' active' : '');
+        btn.textContent = i;
+        btn.onclick = () => switchWs(i);
+        ws.appendChild(btn);
+      }
+    }
+
+    async function switchWs(n) {
+      if (n - 1 === currentWs) return;
+      const cmd = `xdotool key Alt+${n} 2>/dev/null || wlr-ctl workspace ${n} 2>/dev/null || true`;
+      await run(cmd);
+      await updateWorkspaces();
+    }
+
+    // ---- Clock ----
+    function updateClock(d) {
+      if (!d) return;
+      $('clock-time').textContent = d.formatted?.split('  ')[1] || d.formatted || '';
+      $('clock-date').textContent = d.formatted?.split('  ')[0] || '';
+    }
+
+    // ---- CPU ----
+    function updateCPU(cpu) {
+      if (!cpu) return;
+      const val = Math.round(cpu.usage);
+      const el = $('cpu');
+      el.className = 'module cpu' + (val > 85 ? ' critical' : val > 70 ? ' high' : '');
+      $('cpu-val').textContent = val + '%';
+    }
+
+    // ---- Memory ----
+    function updateMemory(mem) {
+      if (!mem) return;
+      const val = Math.round(mem.usage);
+      const el = $('memory');
+      el.className = 'module memory' + (val > 90 ? ' high' : '');
+      $('mem-val').textContent = val + '%';
+    }
+
+    // ---- Network ----
+    function updateNetwork(net) {
+      if (!net) return;
+      const iface = net.defaultInterface;
+      const gw = net.defaultGateway;
+      const icon = $('net-icon');
+
+      if (iface?.type === 'wifi' && gw) {
+        const sig = gw.signalStrength || 0;
+        icon.className = 'nf ' + (
+          sig >= 80 ? 'nf-md-wifi_strength_4' :
+          sig >= 65 ? 'nf-md-wifi_strength_3' :
+          sig >= 40 ? 'nf-md-wifi_strength_2' :
+          sig >= 25 ? 'nf-md-wifi_strength_1' :
+          'nf-md-wifi_strength_outline'
+        );
+        $('net-ssid').textContent = gw.ssid || 'WiFi';
+      } else if (iface?.type === 'ethernet') {
+        icon.className = 'nf nf-md-ethernet_cable';
+        $('net-ssid').textContent = 'Eth';
+      } else {
+        icon.className = 'nf nf-md-wifi_strength_off_outline';
+        $('net-ssid').textContent = 'Offline';
+      }
+    }
+
+    // ---- Battery ----
+    function updateBattery(bat) {
+      if (!bat) return;
+      const pct = Math.round(bat.chargePercent);
+      const el = $('battery');
+      const icon = $('bat-icon');
+
+      el.style.display = bat.chargePercent < 0 ? 'none' : 'flex';
+      el.className = 'module battery' +
+        (bat.isCharging ? ' charging' : '') +
+        (pct < 20 ? ' low' : '');
+
+      icon.className = 'nf ' + (
+        pct > 90 ? 'nf-fa-battery_4' :
+        pct > 70 ? 'nf-fa-battery_3' :
+        pct > 40 ? 'nf-fa-battery_2' :
+        pct > 20 ? 'nf-fa-battery_1' :
+        'nf-fa-battery_0'
+      );
+      if (bat.isCharging) icon.className += ' nf-md-power_plug';
+
+      $('bat-val').textContent = pct + '%';
+    }
+
+    // ---- Weather ----
+    function updateWeather(w) {
+      if (!w) return;
+      const icon = $('weather-icon');
+      const status = w.status || '';
+      icon.className = 'nf ' + (
+        status.startsWith('clear_day') ? 'nf-weather-day_sunny' :
+        status.startsWith('clear_night') ? 'nf-weather-night_clear' :
+        status.includes('cloudy') ? 'nf-weather-cloudy' :
+        status.includes('rain') ? 'nf-weather-rain' :
+        status.includes('snow') ? 'nf-weather-snow' :
+        status.includes('thunder') ? 'nf-weather-lightning' :
+        status.startsWith('cloudy_day') ? 'nf-weather-day_cloudy' :
+        status.startsWith('cloudy_night') ? 'nf-weather-night_alt_cloudy' :
+        status.startsWith('light_rain_day') ? 'nf-weather-day_sprinkle' :
+        status.startsWith('light_rain_night') ? 'nf-weather-night_alt_sprinkle' :
+        status.startsWith('heavy_rain_day') ? 'nf-weather-day_rain' :
+        status.startsWith('heavy_rain_night') ? 'nf-weather-night_alt_rain' :
+        status.startsWith('snow_day') ? 'nf-weather-day_snow' :
+        status.startsWith('snow_night') ? 'nf-weather-night_alt_snow' :
+        status.startsWith('thunder_day') ? 'nf-weather-day_lightning' :
+        status.startsWith('thunder_night') ? 'nf-weather-night_alt_lightning' :
+        'nf-weather-na'
+      );
+
+      const temp = w.celsiusTemp != null ? Math.round(w.celsiusTemp) + '°C' : '';
+      $('weather-val').textContent = temp;
+      $('weather').style.display = temp ? 'flex' : 'none';
+    }
+
+    // ---- Volume ----
+    let muted = false;
+    let volPct = 0;
+
+    async function updateVolume() {
+      const out = await run('wpctl get-volume @DEFAULT_SINK@ 2>/dev/null');
+      const match = out.match(/([\d.]+)/);
+      volPct = match ? Math.round(parseFloat(match[1]) * 100) : 0;
+      muted = out.includes('MUTED');
+
+      const icon = $('volume-icon');
+      icon.className = 'nf ' + (
+        muted ? 'nf-md-volume_mute' :
+        volPct > 66 ? 'nf-md-volume_high' :
+        volPct > 33 ? 'nf-md-volume_medium' :
+        volPct > 0 ? 'nf-md-volume_low' :
+        'nf-md-volume_off'
+      );
+      $('volume-val').textContent = muted ? 'Mute' : volPct + '%';
+      const el = $('volume');
+      el.className = 'module volume clickable' + (muted ? ' muted' : '');
+    }
+
+    window.toggleMute = async () => {
+      await run('wpctl set-mute @DEFAULT_SINK@ toggle 2>/dev/null');
+      await updateVolume();
+    };
+
+    // ---- Media ----
+    async function updateMedia() {
+      const status = (await run('playerctl status 2>/dev/null')).trim();
+      const title = (await run('playerctl metadata title 2>/dev/null')).trim();
+      const artist = (await run('playerctl metadata artist 2>/dev/null')).trim();
+
+      const el = $('media');
+      if (status === 'Playing' && title) {
+        el.style.display = 'flex';
+        $('media-title').textContent = title + (artist ? ' — ' + artist : '');
+      } else {
+        el.style.display = 'none';
+      }
+    }
+
+    // ---- Night Mode ----
+    window.toggleNightMode = async () => {
+      const running = await run('pgrep -x gammastep 2>/dev/null || pgrep -x redshift 2>/dev/null');
+      if (running.trim()) {
+        await run('pkill -x gammastep 2>/dev/null; pkill -x redshift 2>/dev/null');
+      } else {
+        await run('gammastep -m randr -t 6500:3500 -g 1.0 -r & 2>/dev/null || redshift -m randr -t 6500:3500 -g 1.0 -r & 2>/dev/null');
+      }
+    };
+
+    // ---- Power Menu ----
+    window.showPowerMenu = () => {
+      const actions = [
+        { label: 'Lock', cmd: 'loginctl lock-session 2>/dev/null || swaylock 2>/dev/null' },
+        { label: 'Logout', cmd: 'labwc --exit 2>/dev/null || pkill -x labwc' },
+        { label: 'Suspend', cmd: 'systemctl suspend 2>/dev/null' },
+        { label: 'Reboot', cmd: 'systemctl reboot 2>/dev/null' },
+        { label: 'Shutdown', cmd: 'systemctl poweroff 2>/dev/null' },
+      ];
+
+      const menu = document.createElement('div');
+      menu.style.cssText = 'position:fixed;top:34px;right:8px;background:var(--bg);border:1px solid var(--border);border-radius:8px;padding:4px;z-index:999;box-shadow:0 4px 20px rgba(0,0,0,0.5);';
+
+      actions.forEach(a => {
+        const btn = document.createElement('button');
+        btn.textContent = a.label;
+        btn.style.cssText = 'display:block;width:100%;padding:6px 16px;border:none;background:transparent;color:var(--fg);font-family:inherit;font-size:12px;text-align:left;cursor:pointer;border-radius:4px;';
+        btn.onmouseenter = () => btn.style.background = 'var(--surface-hover)';
+        btn.onmouseleave = () => btn.style.background = 'transparent';
+        btn.onclick = async () => { document.body.removeChild(menu); await run(a.cmd); };
+        menu.appendChild(btn);
+      });
+
+      document.body.appendChild(menu);
+
+      const close = (e) => { if (!menu.contains(e.target)) { document.body.removeChild(menu); document.removeEventListener('click', close); } };
+      setTimeout(() => document.addEventListener('click', close), 10);
+    };
+
+    // ---- Main loop ----
+    providers.onOutput(output => {
+      updateClock(output.date);
+      updateCPU(output.cpu);
+      updateMemory(output.memory);
+      updateNetwork(output.network);
+      updateBattery(output.battery);
+      updateWeather(output.weather);
+    });
+
+    // Poll-based updates (for shell-command-driven modules)
+    async function poll() {
+      await updateWorkspaces();
+      await updateVolume();
+      await updateMedia();
+    }
+
+    updateWorkspaces();
+    updateVolume();
+    updateMedia();
+    setInterval(poll, 2000);
+  </script>
 </body>
 </html>

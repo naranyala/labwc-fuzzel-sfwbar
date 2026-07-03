@@ -1,0 +1,10 @@
+# Nordic theme profile
+labwc_theme=Clearlooks
+gtk3_theme=Nordic
+gtk4_theme=Nordic
+icon_theme=Papirus-Dark
+cursor_theme=Bibata-Modern-Ice
+cursor_size=24
+font=Noto Sans, 10
+font_mono=Noto Sans Mono, 10
+prefer_dark=true

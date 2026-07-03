@@ -1,0 +1,10 @@
+# Pocillo Dark theme profile
+labwc_theme=Pocillo-dark
+gtk3_theme=Pocillo-dark
+gtk4_theme=Pocillo-dark
+icon_theme=Papirus-Dark
+cursor_theme=Bibata-Modern-Ice
+cursor_size=24
+font=Noto Sans, 10
+font_mono=Noto Sans Mono, 10
+prefer_dark=true

@@ -1,0 +1,10 @@
+# Catppuccin Mocha theme profile (requires download-themes.sh)
+labwc_theme=Catppuccin-Mocha-Mauve
+gtk3_theme=Catppuccin-Mocha-Mauve
+gtk4_theme=Catppuccin-Mocha-Mauve
+icon_theme=Papirus-Dark
+cursor_theme=Catppuccin-Mocha-Dark
+cursor_size=24
+font=Noto Sans, 10
+font_mono=Noto Sans Mono, 10
+prefer_dark=true

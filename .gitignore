@@ -3,14 +3,16 @@ build/
 result
 result-*
 
-mango
-
-# Nix
-result
-result-*
+# Source clones
+labwc/
 
 # Debian packages
 *.deb
+
+# Archives
+*.tar.gz
+*.tar.xz
+*.zip
 
 # Compiled objects
 *.o
@@ -20,14 +22,17 @@ result-*
 # Editor/IDE
 .vscode/
 .idea/
+.vscode-test/
 *.swp
 *.swo
 *~
 .cache/
+*.bak
 
 # OS files
 .DS_Store
 Thumbs.db
+desktop.ini
 
 # Logs
 *.log
@@ -35,3 +40,28 @@ Thumbs.db
 # Environment
 .env
 .env.*
+
+# Node (if used for widget dev)
+node_modules/
+package-lock.json
+
+# Python
+__pycache__/
+*.pyc
+
+# Temp files
+/tmp/
+*.tmp
+*.temp
+
+# Download cache
+/tmp/theme-downloads/
+
+# User-specific configs
+current-theme
+
+# Downloaded theme resources (use download-themes.sh)
+themes/download-cache/
+*.tar.gz
+*.tar.xz
+*.zip

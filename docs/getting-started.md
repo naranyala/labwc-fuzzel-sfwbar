@@ -1,166 +1,142 @@
-# Getting Started with MangoWM and Zebar
-
-## Overview
-
-This guide provides comprehensive setup instructions for MangoWM and Zebar widget integration, with crystal-dock as the primary dock.
+# Getting Started with labwc + Zebar + crystal-dock
 
 ## Prerequisites
 
-- Wayland compositor (MangoWM)
-- Zebar widget framework
-- crystal-dock installation (/usr/bin/crystal-dock)
-- Wayland terminal (foot)
-- Application launcher (rofi)
+- **labwc** - Lab Wayland Compositor ([build from source](../download-labwc.sh) or install via package manager)
+- **zebar** - HTML/CSS/JS widget tool
+- **crystal-dock** - Wayland dock
+- **foot** - Wayland terminal
+- **rofi** - Application launcher
+- **swaybg** - Wallpaper setter
 
-## Installation
+## Quick Install
 
-### Step 1: Automated Installation
+```bash
+# 1. Build labwc from source (if not installed)
+./download-labwc.sh --install
 
-Run the enhanced installation script:
+# 2. Install dotfiles
+./dotfiles/install.sh
+
+# 3. Launch from TTY (Ctrl+Alt+F2, then login)
+./scripts/start-labwc.sh
+```
+
+## Step-by-Step Setup
+
+### 1. Install labwc
+
+**From source:**
+```bash
+./download-labwc.sh --install
+```
+
+**Or via package manager:**
+```bash
+# Debian/Ubuntu
+sudo apt install labwc
+
+# Arch
+sudo pacman -S labwc
+
+# Fedora
+sudo dnf install labwc
+```
+
+### 2. Install Dependencies
+
+```bash
+# Required
+sudo apt install swaybg foot rofi
+
+# Optional (for full experience)
+sudo apt install crystal-dock grim slurp wl-copy playerctl wpctl mako
+```
+
+### 3. Install Configuration
 
 ```bash
 ./dotfiles/install.sh
 ```
 
-This script will:
-- Create necessary configuration directories
-- Symlink MangoWM configuration to ~/.config/mango/config.conf
-- Set up Zebar widget system
-- Configure crystal-dock integration
-- Validate all configurations
+This copies:
+- `rc.xml` → `~/.config/labwc/rc.xml` (keybindings, window rules)
+- `autostart` → `~/.config/labwc/autostart` (startup commands)
+- `environment` → `~/.config/labwc/environment` (env vars)
+- `menu.xml` → `~/.config/labwc/menu.xml` (desktop menu)
+- Zebar widgets → `~/.config/zebar/main/`
+- Wallpaper script → `~/.local/bin/wallpaper`
 
-### Step 2: Manual Configuration
+### 4. Launch labwc
 
-If you prefer manual setup, create the following directories:
-
+**From TTY:**
 ```bash
-mkdir -p ~/.config/mango
-mkdir -p ~/.config/zebar/main
+# Switch to TTY: Ctrl+Alt+F2
+# Login and run:
+./scripts/start-labwc.sh
 ```
 
-### Step 3: Apply Configurations
+**From display manager:**
+Log out and select "labwc" from your login screen.
 
-Copy the configuration files:
+## What Gets Installed
+
+| Component | Config Location | Purpose |
+|-----------|----------------|---------|
+| labwc | `~/.config/labwc/` | Compositor config |
+| crystal-dock | autostart | Primary dock |
+| zebar | `~/.config/zebar/` | Widget panels |
+| wallpaper | `~/.local/bin/wallpaper` | Wallpaper manager |
+
+## Verifying Installation
 
 ```bash
-cp dotfiles/mango/config.conf ~/.config/mango/config.conf
-cp -r dotfiles/zebar/main ~/.config/zebar/
+# Check labwc is installed
+labwc --version
+
+# Check config exists
+ls ~/.config/labwc/
+
+# Check autostart has crystal-dock and zebar
+grep -E "crystal-dock|zebar" ~/.config/labwc/autostart
 ```
 
-## Configuration Details
+## Customizing
 
-### MangoWM Configuration
+### Keybindings
+Edit `~/.config/labwc/rc.xml`. See [configuration.md](configuration.md) for keybinding reference.
 
-The MangoWM configuration includes:
+### Autostart
+Edit `~/.config/labwc/autostart` to add/remove startup programs.
 
-- **Primary Dock**: crystal-dock (`exec-once=/usr/bin/crystal-dock --start --overlay`)
-- **Terminal**: foot (`bind=SUPER,Return,spawn,foot`)
-- **Launcher**: rofi (`bind=SUPER,D,spawn,rofi -show drun`)
-- **Window Management**: Full keyboard navigation support
-- **Media Controls**: Volume and playback controls
+### Widgets
+Widget themes are in `dotfiles/zebar/widgets/`. Edit or create HTML files there.
 
-### Zebar Widget System
-
-The Zebar widget system includes:
-
-- **Main Widget**: Classic status bar with clock, CPU, memory, network, battery
-- **Additional Widgets**: Minimalist, compact, detailed, system monitoring
-- **Responsive Design**: Optimized for different screen sizes
-- **Real-time Updates**: Live system statistics
-
-## Quick Start
-
-1. **Install dotfiles** (`./dotfiles/install.sh`)
-2. **Restart MangoWM** or reload configuration
-3. **Launch crystal-dock** as primary dock
-4. **Start Zebar widgets** for additional functionality
-
-## Configuration Validation
-
-Validate your setup with:
-
+### Wallpaper
 ```bash
-mango -p  # Test MangoWM configuration syntax
-./dotfiles/install.sh --validate  # Validate all configurations
+wallpaper random    # Set random wallpaper
+wallpaper sync      # Download wallpapers from sources
+wallpaper set PATH  # Set specific wallpaper
+wallpaper daemon    # Auto-rotate wallpapers
 ```
 
 ## Troubleshooting
 
-Common issues and solutions:
+### labwc won't start
+- Make sure you're on a TTY, not inside another Wayland session
+- Check dependencies: `labwc --version`
+- Check config syntax: validate `rc.xml` with `xmllint --noout ~/.config/labwc/rc.xml`
 
-### MangoWM Won't Start
-```bash
-# Check configuration syntax
-mango -p
+### crystal-dock not appearing
+- Check it's in autostart: `grep crystal-dock ~/.config/labwc/autostart`
+- Launch manually: `crystal-dock --start --overlay`
 
-# View logs
-journalctl -u mango
-```
+### Zebar widgets not loading
+- Check zebar is installed: `zebar --version`
+- Check widget dir exists: `ls ~/.config/zebar/main/`
 
-### Zebar Widgets Not Displaying
-```bash
-# Check Zebar installation
-/usr/bin/zebar --help
+## References
 
-# Verify widget paths
-ls ~/.config/zebar/main/
-```
-
-### crystal-dock Issues
-```bash
-# Start crystal-dock manually
-/usr/bin/crystal-dock --start --overlay
-
-# Check crystal-dock status
-pgrep crystal-dock
-```
-
-## Advanced Configuration
-
-### Custom Keybindings
-
-Edit `~/.config/mango/config.conf` and add:
-
-```ini
-bind=SUPER,F12,reload_config
-bind=SUPER+F11,toggleoverview
-```
-
-### Additional Widgets
-
-Launch additional Zebar widgets:
-
-```bash
-./dotfiles/zebar/launcher.sh minimalist left
-./dotfiles/zebar/launcher.sh system center
-```
-
-### Widget Customization
-
-Customize widget appearance in:
-- `~/.config/zebar/main/style.css` - Main styles
-- `~/.config/zebar/widgets/*/style.css` - Widget-specific styles
-
-## Support
-
-For support, visit:
-- [MangoWM Documentation](https://mangowm.github.io/)
-- [Zebar GitHub](https://github.com/zebar)
-- [crystal-dock Documentation](https://github.com/crystal-project/crystal-dock)
-
-## Contributing
-
-Contributions are welcome! Please:
-1. Fork the repository
-2. Create a feature branch
-3. Submit a pull request
-4. Document your changes
-
-## License
-
-This configuration is provided under the terms specified in the LICENSE file.
-
----
-
-*Last Updated: $(date -u +'%Y-%m-%d %H:%M:%S UTC')*
-*Version: $(git describe --tags --abbrev=0 2>/dev/null || echo 'dev')*
+- [labwc documentation](https://labwc.github.io/)
+- [labwc getting started](https://labwc.github.io/getting-started.html)
+- [configuration guide](configuration.md)

@@ -23,26 +23,48 @@ sync_wallpapers() {
             git)
                 echo "  Syncing repo: $value"
                 tmp_dir=$(mktemp -d)
-                # Try to clone shallowly. Redirect errors to /dev/null to keep output clean.
                 if git clone --depth 1 "$value" "$tmp_dir" 2>/dev/null; then
-                    find "$tmp_dir" -type f \( -iname "*.jpg" -o -iname "*.jpeg" -o -iname "*.png" -o -iname "*.webp" \) -exec cp -n {} "$WALLPAPER_DIR" \;
-                    echo "    Success."
+                    count=$(find "$tmp_dir" -type f \( -iname "*.jpg" -o -iname "*.jpeg" -o -iname "*.png" -o -iname "*.webp" \) -exec cp -n {} "$WALLPAPER_DIR" \; -print | wc -l)
+                    echo "    Copied $count wallpapers."
                 else
-                    echo "    Error: Could not clone (Repo might be private or URL is wrong)."
+                    echo "    Error: Could not clone $value"
                 fi
+                rm -rf "$tmp_dir"
+                ;;
+            zip)
+                echo "  Downloading zip: $value"
+                tmp_dir=$(mktemp -d)
+                zip_file="$tmp_dir/archive.zip"
+                if ! curl -sL "$value" -o "$zip_file"; then
+                    echo "    Error: Download failed."
+                    rm -rf "$tmp_dir"
+                    continue
+                fi
+                if ! unzip -qo "$zip_file" -d "$tmp_dir" 2>/dev/null; then
+                    echo "    Error: Failed to extract zip."
+                    rm -rf "$tmp_dir"
+                    continue
+                fi
+                count=$(find "$tmp_dir" -type f \( -iname "*.jpg" -o -iname "*.jpeg" -o -iname "*.png" -o -iname "*.webp" \) -exec cp -n {} "$WALLPAPER_DIR" \; -print | wc -l)
+                echo "    Copied $count wallpapers."
                 rm -rf "$tmp_dir"
                 ;;
             http|https)
                 echo "  Downloading: $value"
                 filename=$(echo "$value" | awk -F'/' '{print $NF}' | cut -d'?' -f1)
                 [[ ! "$filename" =~ \.[a-zA-Z0-9]+$ ]] && filename="${filename}.jpg"
-                if [[ ! -f "$WALLPAPER_DIR/$filename" ]]; then
-                    curl -sL "$value" -o "$WALLPAPER_DIR/$filename"
+                if [[ -f "$WALLPAPER_DIR/$filename" ]]; then
+                    echo "    Already exists, skipping."
+                elif curl -sL "$value" -o "$WALLPAPER_DIR/$filename"; then
+                    echo "    Saved as $filename."
+                else
+                    echo "    Error: Download failed."
+                    rm -f "$WALLPAPER_DIR/$filename"
                 fi
                 ;;
         esac
     done < "$SOURCES_FILE"
-    echo "Sync complete."
+    echo "Sync complete. ($(ls -1 "$WALLPAPER_DIR" | wc -l) wallpapers total)"
 }
 
 set_wallpaper() {
@@ -50,8 +72,8 @@ set_wallpaper() {
     if [[ -z "$img" ]]; then
         img=$(find "$WALLPAPER_DIR" -type f \( -iname "*.jpg" -o -iname "*.jpeg" -o -iname "*.png" -o -iname "*.webp" \) | shuf -n 1)
     fi
-    [[ -z "$img" || ! -f "$img" ]] && { echo "Error: Invalid wallpaper: $img"; return 1; }
-    
+    [[ -z "$img" || ! -f "$img" ]] && { echo "Error: No wallpapers found in $WALLPAPER_DIR"; return 1; }
+
     img=$(realpath "$img")
     echo "Setting: $img"
 
@@ -64,9 +86,9 @@ set_wallpaper() {
     elif [[ "$XDG_CURRENT_DESKTOP" == "Hyprland" ]] || command -v hyprctl >/dev/null 2>&1 && hyprctl version >/dev/null 2>&1; then
         hyprctl hyprpaper preload "$img" && hyprctl hyprpaper wallpaper ",$img"
 
-    # 3. Sway
-    elif [[ "$XDG_CURRENT_DESKTOP" == "sway" ]] || command -v swaybg >/dev/null 2>&1; then
-        pkill swaybg
+    # 3. Sway/labwc
+    elif command -v swaybg >/dev/null 2>&1; then
+        pkill swaybg 2>/dev/null
         swaybg -i "$img" -m fill &
 
     # 4. swww (Generic Wayland)
@@ -82,19 +104,27 @@ set_wallpaper() {
         nitrogen --set-geometry "$img"
 
     else
-        echo "Error: No supported wallpaper setter found."
+        echo "Error: No supported wallpaper setter found (try installing swaybg)."
         return 1
     fi
 }
 
 # --- Main Logic ---
 
-case "$1" in
+case "${1:-}" in
     sync)
         sync_wallpapers
         ;;
     set)
-        set_wallpaper "$2"
+        if [[ -n "$2" ]]; then
+            set_wallpaper "$2"
+        else
+            echo "No path given, picking random wallpaper..."
+            set_wallpaper
+        fi
+        ;;
+    random)
+        set_wallpaper
         ;;
     daemon)
         interval="${2:-3600}"
@@ -105,7 +135,7 @@ case "$1" in
         done
         ;;
     *)
-        echo "Usage: wallpaper {sync|set [path]|daemon [seconds]}"
+        echo "Usage: wallpaper {sync|set [path]|random|daemon [seconds]}"
         exit 1
         ;;
 esac

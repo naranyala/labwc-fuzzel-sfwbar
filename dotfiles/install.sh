@@ -1,239 +1,381 @@
 #!/bin/bash
 
-# MangoWM and Zebar Dotfiles Installation Script
-# Updated to use crystal-dock as primary dock
+# labwc + Zebar + crystal-dock Dotfiles Installation Script
+# Complete installation with all scripts and configurations
 
-Set -euo pipefail
+set -euo pipefail
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
+GTK3_DIR="${HOME}/.config/gtk-3.0"
+GTK4_DIR="${HOME}/.config/gtk-4.0"
 
-echo "=== Installing MangoWM and Zebar Dotfiles (with crystal-dock as primary dock) ==="
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+CYAN='\033[0;36m'
+BOLD='\033[1m'
+NC='\033[0m'
 
-# Function to create configuration directory
-create_config_dir() {
-    local config_path="$1"
-    if [[ ! -d "$config_path" ]]; then
-        mkdir -p "$config_path"
-        echo "Created directory: $config_path"
-    fi
-}
-
-# Function to create symlink
-create_symlink() {
-    local source="$1"
-    local target="$2"
-    
-    # Backup existing if present
-    if [[ -L "$target" ]]; then
-        echo "Removing existing symlink: $target"
-        rm -f "$target"
-    elif [[ -e "$target" ]]; then
-        echo "Warning: Non-symlink file exists at $target, backing up..."
-        mv "$target" "${target}.backup"
-    fi
-    
-    # Create symlink
-    ln -sf "$source" "$target"
-    echo "Symlink created: $target -> $source"
-}
-
-# Create config directories
-create_config_dir "$HOME/.config/mango"
-create_config_dir "$HOME/.config/zebar/main"
-
-# Copy MangoWM configuration
-MANGO_CONFIG_SOURCE="$(pwd)/dotfiles/mango/config.conf"
-MANGO_CONFIG_TARGET="$HOME/.config/mango/config.conf"
+pass()  { echo -e "  ${GREEN}✓${NC} $1"; }
+fail()  { echo -e "  ${RED}✗${NC} $1"; exit 1; }
+warn()  { echo -e "  ${YELLOW}⚠${NC} $1"; }
+info()  { echo -e "  ${CYAN}→${NC} $1"; }
+section() { echo -e "\n${BOLD}[$1]${NC}"; }
 
 echo ""
-echo "=== MangoWM Configuration ==="
-echo "Source: $MANGO_CONFIG_SOURCE"
-echo "Target: $MANGO_CONFIG_TARGET"
-
-# Create symlink for MangoWM config
-cat > "$MANGO_CONFIG_TARGET" << 'CONFIG_EOF'
-# MangoWM Configuration
-# crystal-dock is the primary dock for the desktop environment
-
-# Autostart
-exec-once=crystal-dock --start --overlay
-exec-once=swaybg -i /usr/share/backgrounds/sway/Sway_Wallpaper_Blue_Large.png
-
-# Keybindings - Common
-keymode=common
-bind=SUPER,R,reload_config
-bind=SUPER+Q,killclient
-bind=SUPER+M,quit
-
-# Keybindings - Default
-keymode=default
-bind=SUPER,Return,spawn,foot
-bind=SUPER,D,spawn,rofi -show drun
-bind=SUPER,E,togglefloating
-bind=SUPER,F,togglefullscreen
-bind=SUPER,Space,toggleoverview
-
-# Focus and Movement
-bind=SUPER,Left,focusdir,left
-bind=SUPER,Right,focusdir,right
-bind=SUPER,Up,focusdir,up
-bind=SUPER,Down,focusdir,down
-
-bind=SUPER+SHIFT,Left,exchange_client,left
-bind=SUPER+SHIFT,Right,exchange_client,right
-bind=SUPER+SHIFT,Up,exchange_client,up
-bind=SUPER+SHIFT,Down,exchange_client,down
-
-# Tags and Workspaces
-bind=ALT,1,view,1
-bind=ALT,2,view,2
-bind=ALT,3,view,3
-bind=ALT,4,view,4
-bind=ALT,5,view,5
-bind=ALT,6,view,6
-bind=ALT,7,view,7
-bind=ALT,8,view,8
-bind=ALT,9,view,9
-
-bind=SUPER+SHIFT,1,tag,1
-bind=SUPER+SHIFT,2,tag,2
-bind=SUPER+SHIFT,3,tag,3
-bind=SUPER+SHIFT,4,tag,4
-bind=SUPER+SHIFT,5,tag,5
-bind=SUPER+SHIFT,6,tag,6
-bind=SUPER+SHIFT,7,tag,7
-bind=SUPER+SHIFT,8,tag,8
-bind=SUPER+SHIFT,9,tag,9
-
-# Layouts
-bind=SUPER,S,switch_layout
-bind=SUPER,comma,incgaps,+5
-bind=SUPER,period,incgaps,-5
-
-# Media Controls
-bind=NONE,XF86AudioRaiseVolume,spawn,wpctl set-volume @DEFAULT_SINK@ 5%+
-bind=NONE,XF86AudioLowerVolume,spawn,wpctl set-volume @DEFAULT_SINK@ 5%-
-bind=NONE,XF86AudioMute,spawn,wpctl set-mute @DEFAULT_SINK@ toggle
-bind=NONE,XF86AudioNext,spawn,playerctl next
-bind=NONE,XF86AudioPrev,spawn,playerctl previous
-bind=NONE,XF86AudioPlay,spawn,playerctl play-pause
-CONFIG_EOF
-
-# Create symlink for MangoWM config
-create_symlink "$MANGO_CONFIG_SOURCE" "$MANGO_CONFIG_TARGET"
-
-# Validate MangoWM config
+echo -e "${BOLD}== labwc Dotfiles Installer ==${NC}"
 echo ""
-echo "=== Validating MangoWM Configuration ==="
-if [[ -f "$MANGO_CONFIG_TARGET" ]]; then
-    if grep -q "exec-once=" "$MANGO_CONFIG_TARGET"; then
-        echo "✅ MangoWM configuration contains exec-once directives"
-        
-        # Check for crystal-dock
-        if grep -q "crystal-dock" "$MANGO_CONFIG_TARGET"; then
-            echo "✅ crystal-dock is configured as the primary dock"
-        else
-            echo "⚠️  crystal-dock not found in MangoWM config"
-            echo "   Current autostart commands:"
-            grep "exec-once=" "$MANGO_CONFIG_TARGET" | sed 's/^/   /'
-        fi
-    else
-        echo "❌ MangoWM configuration missing exec-once directives"
-    fi
+
+# ============================================================
+section "1. Pre-flight Checks"
+# ============================================================
+
+# Check labwc
+LABWC_BIN="$(command -v labwc 2>/dev/null || true)"
+if [[ -z "$LABWC_BIN" ]]; then
+  fail "labwc not found. Run: ./download-labwc.sh --install"
+fi
+pass "labwc: $LABWC_BIN"
+
+# Check zebar
+if command -v zebar &>/dev/null; then
+  pass "zebar: $(command -v zebar)"
 else
-    echo "❌ MangoWM configuration file not found"
+  warn "zebar not found (widgets will need manual launch)"
 fi
 
-# Copy Zebar widget files
-ZEBAR_WIDGET_SOURCE_DIR="$(pwd)/dotfiles/zebar/main"
-ZEBAR_WIDGET_TARGET_DIR="$HOME/.config/zebar/main"
-
-# Remove existing directory if present
-if [[ -d "$ZEBAR_WIDGET_TARGET_DIR" && ! -L "$ZEBAR_WIDGET_TARGET_DIR" ]]; then
-    echo ""
-    echo "Warning: Non-symlink directory exists at $ZEBAR_WIDGET_TARGET_DIR"
-    echo "It will be replaced with the new widget directory"
-    rm -rf "$ZEBAR_WIDGET_TARGET_DIR"
+# Check crystal-dock
+if command -v crystal-dock &>/dev/null; then
+  pass "crystal-dock: $(command -v crystal-dock)"
+else
+  warn "crystal-dock not found (dock will be skipped)"
 fi
 
-# Recreate target directory as symlink
-if [[ -e "$ZEBAR_WIDGET_TARGET_DIR" || -L "$ZEBAR_WIDGET_TARGET_DIR" ]]; then
-    rm -f "$ZEBAR_WIDGET_TARGET_DIR"
+# ============================================================
+section "2. Create Directories"
+# ============================================================
+
+DIRS=(
+  "$HOME/.config/labwc"
+  "$HOME/.config/zebar"
+  "$HOME/.config/zebar/widgets"
+  "$HOME/.glzr/zebar"
+  "$HOME/.glzr/zebar/widgets"
+  "$HOME/.local/bin"
+  "$HOME/Pictures/screenshots"
+)
+
+for dir in "${DIRS[@]}"; do
+  mkdir -p "$dir"
+  pass "$dir"
+done
+
+# ============================================================
+section "3. Install labwc Config"
+# ============================================================
+
+LABWC_SRC="$PROJECT_DIR/dotfiles/labwc"
+LABWC_DST="$HOME/.config/labwc"
+
+for cfg in rc.xml autostart environment menu.xml themerc-override startup-wallpaper.sh; do
+  if [[ -f "$LABWC_SRC/$cfg" ]]; then
+    cp "$LABWC_SRC/$cfg" "$LABWC_DST/$cfg"
+    pass "$cfg"
+  fi
+done
+
+chmod +x "$LABWC_DST/autostart" 2>/dev/null || true
+chmod +x "$LABWC_DST/startup-wallpaper.sh" 2>/dev/null || true
+
+# ============================================================
+section "4. Install Scripts"
+# ============================================================
+
+SCRIPTS_DST="$HOME/.local/bin"
+mkdir -p "$SCRIPTS_DST/actions"
+
+# Install scripts from dotfiles/
+for script in "$SCRIPT_DIR"/*.sh; do
+  if [[ -f "$script" ]]; then
+    name=$(basename "$script")
+    [[ "$name" == "install.sh" ]] || continue
+    cp "$script" "$SCRIPTS_DST/$name"
+    chmod +x "$SCRIPTS_DST/$name"
+    pass "$name"
+  fi
+done
+
+# Install main tool scripts from scripts/
+SCRIPTS_SRC="$PROJECT_DIR/scripts"
+for script in "$SCRIPTS_SRC"/*.sh; do
+  if [[ -f "$script" ]]; then
+    name=$(basename "$script")
+    cp "$script" "$SCRIPTS_DST/$name"
+    chmod +x "$SCRIPTS_DST/$name"
+    pass "$name"
+  fi
+done
+
+# Install action scripts
+if [[ -d "$SCRIPTS_SRC/actions" ]]; then
+  for script in "$SCRIPTS_SRC/actions"/*.sh; do
+    if [[ -f "$script" ]]; then
+      name=$(basename "$script")
+      cp "$script" "$SCRIPTS_DST/actions/$name"
+      chmod +x "$SCRIPTS_DST/actions/$name"
+      pass "actions/$name"
+    fi
+  done
 fi
 
-ln -sf "$ZEBAR_WIDGET_SOURCE_DIR" "$ZEBAR_WIDGET_TARGET_DIR"
+# ============================================================
+section "5. Install Zebar Widgets (v3)"
+# ============================================================
+
+ZEBAR_SRC="$PROJECT_DIR/dotfiles/zebar"
+ZEBAR_V1="$HOME/.config/zebar"
+ZEBAR_V3="$HOME/.glzr/zebar"
+
+# Install main widget pack to v3 path
+if [[ -d "$ZEBAR_SRC/main" ]]; then
+  rm -rf "$ZEBAR_V3/main"
+  cp -r "$ZEBAR_SRC/main" "$ZEBAR_V3/main"
+  pass "main statusbar → $ZEBAR_V3/main"
+fi
+
+# Copy zebar settings.json to v3 path
+if [[ -f "$ZEBAR_SRC/settings.json" ]]; then
+  cp "$ZEBAR_SRC/settings.json" "$ZEBAR_V3/settings.json"
+  pass "settings.json → $ZEBAR_V3/settings.json"
+fi
+
+# Copy to v1 path as fallback
+if [[ -d "$ZEBAR_SRC/main" ]]; then
+  rm -rf "$ZEBAR_V1/main"
+  cp -r "$ZEBAR_SRC/main" "$ZEBAR_V1/main"
+fi
+if [[ -f "$ZEBAR_SRC/settings.json" ]]; then
+  cp "$ZEBAR_SRC/settings.json" "$ZEBAR_V1/settings.json"
+fi
+pass "fallback: ~/.config/zebar/"
+
+# Additional widgets
+if [[ -d "$ZEBAR_SRC/widgets" ]]; then
+  for widget_dir in "$ZEBAR_SRC/widgets"/*/; do
+    if [[ -d "$widget_dir" ]]; then
+      name=$(basename "$widget_dir")
+      cp -r "$widget_dir" "$ZEBAR_V3/widgets/$name"
+      cp -r "$widget_dir" "$ZEBAR_V1/widgets/$name" 2>/dev/null || true
+      pass "widget: $name"
+    fi
+  done
+fi
+
+# ============================================================
+section "6. Install GTK Theme Config"
+# ============================================================
+
+GTK_SRC="$PROJECT_DIR/dotfiles/gtk"
+
+mkdir -p "$GTK3_DIR" "$GTK4_DIR"
+
+# GTK3 settings
+if [[ -f "$GTK_SRC/gtk3-settings.ini" ]]; then
+  cp "$GTK_SRC/gtk3-settings.ini" "$GTK3_DIR/settings.ini"
+  pass "GTK3 settings.ini"
+fi
+
+# GTK4 settings
+if [[ -f "$GTK_SRC/gtk4-settings.ini" ]]; then
+  cp "$GTK_SRC/gtk4-settings.ini" "$GTK4_DIR/settings.ini"
+  pass "GTK4 settings.ini"
+fi
+
+# GTK CSS overrides
+if [[ -f "$GTK_SRC/gtk.css" ]]; then
+  cp "$GTK_SRC/gtk.css" "$GTK3_DIR/gtk.css"
+  cp "$GTK_SRC/gtk.css" "$GTK4_DIR/gtk.css"
+  pass "gtk.css (GTK3 + GTK4)"
+fi
+
+# ============================================================
+section "7. Install Wallpaper"
+# ============================================================
+
+WALLPAPER_SRC="$PROJECT_DIR/dotfiles/wallpaper"
+WALLPAPER_DST="$HOME/.local/bin/wallpaper"
+
+if [[ -f "$WALLPAPER_SRC" ]]; then
+  cp "$WALLPAPER_SRC" "$WALLPAPER_DST"
+  chmod +x "$WALLPAPER_DST"
+  pass "wallpaper script"
+fi
+
+cp "$PROJECT_DIR/dotfiles/wallpaper-sources.txt" "$HOME/.local/bin/wallpaper-sources.txt" 2>/dev/null || true
+
+# ============================================================
+section "8. Create Session File"
+# ============================================================
+
+SESSION_DIR="/usr/share/wayland-sessions"
+SESSION_FILE="$SESSION_DIR/labwc.desktop"
+
+if [[ -d "$SESSION_DIR" ]]; then
+  cat > /tmp/labwc.desktop << EOF
+[Desktop Entry]
+Name=labwc
+Comment=Lab Wayland Compositor
+Exec=$LABWC_BIN
+Type=Application
+DesktopNames=labwc
+Keywords=wayland;compositor;labwc;
+EOF
+  sudo cp /tmp/labwc.desktop "$SESSION_FILE" 2>/dev/null && \
+    sudo chmod 644 "$SESSION_FILE" && \
+    pass "labwc.desktop" || warn "Could not create session file (need sudo)"
+  rm -f /tmp/labwc.desktop
+else
+  warn "Session directory not found"
+fi
+
+# ============================================================
+section "9. Update PATH"
+# ============================================================
+
+PROFILE=""
+for f in "$HOME/.bashrc" "$HOME/.profile" "$HOME/.zshrc"; do
+  if [[ -f "$f" ]]; then
+    PROFILE="$f"
+    break
+  fi
+done
+
+if [[ -n "$PROFILE" ]]; then
+  if ! grep -q '\.local/bin' "$PROFILE" 2>/dev/null; then
+    echo '' >> "$PROFILE"
+    echo '# labwc - add local bin to PATH' >> "$PROFILE"
+    echo 'export PATH="$HOME/.local/bin:$PATH"' >> "$PROFILE"
+    pass "PATH updated in $PROFILE"
+  else
+    pass "PATH already configured"
+  fi
+fi
+
+# ============================================================
+section "10. Validate"
+# ============================================================
+
+ERRORS=0
+
+# Check autostart
+if [[ -f "$LABWC_DST/autostart" ]]; then
+  grep -q "crystal-dock" "$LABWC_DST/autostart" && pass "autostart: crystal-dock" || warn "autostart: missing crystal-dock"
+  grep -q "zebar" "$LABWC_DST/autostart" && pass "autostart: zebar" || warn "autostart: missing zebar"
+  grep -q "gammastep\|redshift" "$LABWC_DST/autostart" && pass "autostart: screen protection" || warn "autostart: no screen protection"
+fi
+
+# Check scripts
+for script in validate.sh fix.sh clean.sh dotfiles-sync.sh keybind-presets.sh themes.sh widget-actions.sh quick.sh setup.sh update.sh status.sh backup.sh diagnostics.sh start-labwc.sh widget-manager.sh keybinds.sh; do
+  if [[ -f "$SCRIPTS_DST/$script" ]]; then
+    pass "script: $script"
+  else
+    warn "missing script: $script"
+    ((ERRORS++))
+  fi
+done
+
+# Check actions
+for script in audio.sh brightness.sh clipboard.sh launcher.sh network.sh power-menu.sh quick-settings.sh screenshot.sh window.sh workspace.sh; do
+  if [[ -f "$SCRIPTS_DST/actions/$script" ]]; then
+    pass "actions/$script"
+  else
+    warn "missing action: $script"
+    ((ERRORS++))
+  fi
+done
+
+# Check statusbar (v3 path)
+if [[ -f "$ZEBAR_V3/main/index.html" ]]; then
+  pass "statusbar (v3): installed"
+elif [[ -f "$ZEBAR_V1/main/index.html" ]]; then
+  pass "statusbar (v1 fallback): installed"
+else
+  warn "statusbar: missing"
+  ((ERRORS++))
+fi
+
+# Check settings.json
+if [[ -f "$ZEBAR_V3/settings.json" ]]; then
+  pass "zebar settings: installed"
+else
+  warn "zebar settings: missing"
+  ((ERRORS++))
+fi
+
+# Check GTK config
+if [[ -f "$GTK3_DIR/settings.ini" ]]; then
+  pass "GTK3 settings: installed"
+else
+  warn "GTK3 settings: missing"
+  ((ERRORS++))
+fi
+if [[ -f "$GTK4_DIR/settings.ini" ]]; then
+  pass "GTK4 settings: installed"
+else
+  warn "GTK4 settings: missing"
+  ((ERRORS++))
+fi
+if [[ -f "$GTK3_DIR/gtk.css" ]]; then
+  pass "GTK3 CSS: installed"
+else
+  warn "GTK3 CSS: missing"
+  ((ERRORS++))
+fi
+if [[ -f "$GTK4_DIR/gtk.css" ]]; then
+  pass "GTK4 CSS: installed"
+else
+  warn "GTK4 CSS: missing"
+  ((ERRORS++))
+fi
+
+# ============================================================
+section "11. Summary"
+# ============================================================
 
 echo ""
-echo "=== Zebar Widget Setup ==="
-echo "Source: $ZEBAR_WIDGET_SOURCE_DIR"
-echo "Target: $ZEBAR_WIDGET_TARGET_DIR"
-echo "✅ Zebar widget files symlinked successfully"
-
-# Update launcher script to work with crystal-dock
-cat > "./${HOME}/zebar_launcher.sh" << 'LAUNCHER_EOF'
-#!/bin/bash
-
-# Enhanced Zebar Widget Launcher
-# Works with crystal-dock as primary dock
-
-ZEBAR_BIN="/usr/bin/zebar"
-WIDGET_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-
-echo "=== Zebar Widget Launcher (with crystal-dock support) ==="
+echo -e "${GREEN}${BOLD}Installation Complete!${NC}"
 echo ""
-echo "🎯 crystal-dock is your primary dock"
-echo "💡 Zebar widgets run as additional panels"
+echo "Components installed:"
+echo "  • labwc config    → ~/.config/labwc/"
+echo "  • Statusbar       → ~/.glzr/zebar/main/ (v3)"
+echo "  • Statusbar       → ~/.config/zebar/main/ (v1 fallback)"
+echo "  • GTK3 config     → ~/.config/gtk-3.0/"
+echo "  • GTK4 config     → ~/.config/gtk-4.0/"
+echo "  • Scripts         → ~/.local/bin/"
+echo "  • Actions         → ~/.local/bin/actions/"
+echo "  • Wallpaper       → ~/.local/bin/wallpaper"
 echo ""
-echo "Available Zebar widget styles:"
-echo "  1. main       - Classic status bar"
-echo "  2. minimalist  - Minimalist design"
-echo "  3. compact    - Space-optimized"
-echo "  4. detailed   - Comprehensive display"
-echo "  5. system     - System monitoring"
+echo "Available commands:"
+echo "  quick.sh                    Hub for all operations"
+echo "  quick.sh reconfigure        Interactive reinstall/reconfigure CLI"
+echo "  setup.sh                    Full install chain"
+echo "  update.sh                   Update labwc"
+echo "  clean.sh                    Clean build artifacts"
+echo "  validate.sh                 Check setup"
+echo "  fix.sh                      Auto-fix issues"
+echo "  dotfiles-sync.sh            Sync dotfiles"
+echo "  keybind-presets.sh          Manage keybinding presets"
+echo "  widget-actions.sh           Zebar shell actions"
 echo ""
-
-echo "Usage:"
-echo "  ${0##*/} [widget-style] [position]"
+echo "Theme management:"
+echo "  themes.sh list                        Show all themes"
+echo "  themes.sh set <name>                  Set labwc theme"
+echo "  themes.sh gtk-set <name>              Set GTK3 + GTK4 theme"
+echo "  themes.sh icon-set <name>             Set icon theme"
+echo "  themes.sh cursor-set <name>           Set cursor theme"
+echo "  themes.sh profile apply <name>        Apply full profile"
+echo "  themes.sh profile list                List profiles"
 echo ""
-echo "Examples:"
-echo "  ${0##*/} minimalist left"
-echo "  ${0##*/} system center"
-echo "  ${0##*/} detailed right"
-echo ""
-echo "Managing with crystal-dock:"
-echo "  - crystal-dock provides primary panel functionality"
-echo "  - Zebar widgets add additional functionality"
-echo "  - Work together seamlessly for a unified desktop"
-LAUNCHER_EOF
-chmod +x "${HOME}/zebar_launcher.sh"
-
-echo ""
-echo "=== Crystal-Dock Integration ==="
-echo "✅ crystal-dock is installed and available:"
-echo "  Path: /usr/bin/crystal-dock"
-echo "  Description: Wayland dock with cross-desktop support"
-echo ""
-echo "🔧 Setup Instructions:"
-echo "1. Add crystal-dock to MangoWM config:"
-echo "   exec-once=/usr/bin/crystal-dock --start --overlay"
-echo ""
-echo "2. Launch crystal-dock:"
-echo "   /usr/bin/crystal-dock --start --overlay"
-echo ""
-echo "3. Launch Zebar widgets for additional functionality:"
-echo "   ${HOME}/zebar_launcher.sh minimalist left"
-echo ""
-echo "=== Installation Complete ==="
-echo ""
-echo "📋 Current Configuration Summary:"
-echo "-------------------------"
-echo "• Primary Dock: crystal-dock (cross-desktop Wayland dock)"
-echo "• Widget System: Zebar (HTML/CSS/JS widgets)"
-echo "• Terminal: foot ( Wayland terminal )"
-echo "• Launcher: rofi (application launcher)"
-echo ""
-echo "🎉 Dotfiles installation successful with crystal-dock support!"
-echo ""
-echo "💡 Key Features:"
-echo "  • crystal-dock provides modern, cross-desktop dock functionality"
-echo "  • Zebar widgets offer flexible, customizable panels"
-echo "  • Integrated system for maximum desktop productivity"
+echo "Launch from TTY:"
+echo "  $PROJECT_DIR/scripts/start-labwc.sh"
 echo ""

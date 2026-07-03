@@ -1,0 +1,10 @@
+# Arc-Dark theme profile
+labwc_theme=Arc-Dark
+gtk3_theme=Arc-Dark
+gtk4_theme=Arc-Dark
+icon_theme=Papirus-Dark
+cursor_theme=Bibata-Modern-Ice
+cursor_size=24
+font=Noto Sans, 10
+font_mono=Noto Sans Mono, 10
+prefer_dark=true

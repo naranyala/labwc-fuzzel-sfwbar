@@ -1,0 +1,10 @@
+# Breeze theme profile
+labwc_theme=Breeze-ob
+gtk3_theme=Breeze
+gtk4_theme=Breeze
+icon_theme=breeze
+cursor_theme=breeze_cursors
+cursor_size=24
+font=Noto Sans, 10
+font_mono=Noto Sans Mono, 10
+prefer_dark=false

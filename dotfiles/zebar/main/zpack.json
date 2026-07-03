@@ -1,0 +1,48 @@
+{
+  "$schema": "https://github.com/glzr-io/zebar/raw/v3.0.0/resources/zpack-schema.json",
+  "name": "labwc-zebar",
+  "version": "1.0.0",
+  "description": "Full-featured status bar for labwc + crystal-dock",
+  "tags": ["topbar", "statusbar", "labwc", "linux"],
+  "previewImages": [],
+  "repositoryUrl": "",
+  "widgets": [
+    {
+      "name": "main",
+      "htmlPath": "./index.html",
+      "zOrder": "normal",
+      "shownInTaskbar": false,
+      "focused": false,
+      "resizable": false,
+      "transparent": true,
+      "includeFiles": ["*.html", "*.css"],
+      "caching": { "defaultDuration": 0, "rules": [] },
+      "privileges": {
+        "shellCommands": [
+          "wpctl",
+          "brightnessctl",
+          "playerctl",
+          "xdotool",
+          "wlr-ctl",
+          "grim",
+          "slurp",
+          "wl-copy",
+          "nmcli",
+          "systemctl",
+          "loginctl"
+        ]
+      },
+      "presets": [
+        {
+          "name": "default",
+          "anchor": "top_left",
+          "offsetX": "0px",
+          "offsetY": "0px",
+          "width": "100%",
+          "height": "32px",
+          "monitorSelection": { "type": "all" }
+        }
+      ]
+    }
+  ]
+}

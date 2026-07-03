@@ -5,7 +5,7 @@
 
 ZEBAR_BIN="/usr/bin/zebar"
 WIDGET_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-MANGO_CONFIG="$WIDGET_DIR/../mango/config.conf"
+LABWC_CONFIG="$WIDGET_DIR/../labwc/rc.xml"
 
 echo "=== Zebar Widget Launcher Enhanced ==="
 echo "Available widget styles:"
