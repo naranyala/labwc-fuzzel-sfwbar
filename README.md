@@ -6,6 +6,60 @@ A complete Wayland desktop environment built on **labwc** (Openbox-inspired comp
 
 ---
 
+## Upstream Projects
+
+### Core Desktop
+
+| Component | Repository | Description |
+|-----------|------------|-------------|
+| **labwc** | [github.com/labwc/labwc](https://github.com/labwc/labwc) | Openbox-inspired Wayland compositor using wlroots |
+| **sfwbar** | [github.com/LBCrion/sfwbar](https://github.com/LBCrion/sfwbar) | GTK3-based flexible taskbar/panel for Wayland compositors |
+| **crystal-dock** | [github.com/nicoh88/crystal-dock](https://github.com/nicoh88/crystal-dock) | Wayland dock with smooth animations and icon support |
+| **wlroots** | [gitlab.freedesktop.org/wlroots/wlroots](https://gitlab.freedesktop.org/wlroots/wlroots) | Modular Wayland compositor library (labwc dependency) |
+
+### Runtime Tools
+
+| Component | Repository | Description |
+|-----------|------------|-------------|
+| **foot** | [codeberg.org/dnkl/foot](https://codeberg.org/dnkl/foot) | Fast, lightweight Wayland terminal emulator |
+| **rofi** / **rofi-wayland** | [github.com/lbonn/rofi](https://github.com/lbonn/rofi) | Application launcher, window switcher (Wayland fork) |
+| **swaybg** | [github.com/swaywm/swaybg](https://github.com/swaywm/swaybg) | Wallpaper setter for Wayland |
+| **grim** | [sr.ht/~emersion/grim](https://sr.ht/~emersion/grim) | Screenshot tool for Wayland |
+| **slurp** | [github.com/emersion/slurp](https://github.com/emersion/slurp) | Region selector for Wayland (pairs with grim) |
+| **wl-clipboard** | [github.com/bugaevc/wl-clipboard](https://github.com/bugaevc/wl-clipboard) | Clipboard utilities for Wayland (`wl-copy`, `wl-paste`) |
+| **cliphist** | [github.com/sentriz/cliphist](https://github.com/sentriz/cliphist) | Clipboard history manager for Wayland |
+| **playerctl** | [github.com/altdesktop/playerctl](https://github.com/altdesktop/playerctl) | MPRIS media player controller |
+
+### Notifications & Screen Protection
+
+| Component | Repository | Description |
+|-----------|------------|-------------|
+| **mako** | [github.com/emersion/mako](https://github.com/emersion/mako) | Lightweight Wayland notification daemon |
+| **dunst** | [github.com/dunst-project/dunst](https://github.com/dunst-project/dunst) | Notification daemon (alternative to mako) |
+| **gammastep** | [gitlab.com/chinstrap/gammastep](https://gitlab.com/chinstrap/gammastep) | Screen color temperature adjuster (Wayland-native) |
+| **redshift** | [github.com/jonls/redshift](https://github.com/jonls/redshift) | Screen temperature adjuster (alternative to gammastep) |
+| **swayidle** | [github.com/swaywm/swayidle](https://github.com/swaywm/swayidle) | Idle management daemon for Wayland |
+| **swaylock** | [github.com/swaywm/swaylock](https://github.com/swaywm/swaylock) | Screen locker for Wayland |
+
+### Desktop Integration
+
+| Component | Repository | Description |
+|-----------|------------|-------------|
+| **blueman** | [github.com/blueman-project/blueman](https://github.com/blueman-project/blueman) | Bluetooth manager with system tray |
+| **brightnessctl** | [github.com/Hummer12007/brightnessctl](https://github.com/Hummer12007/brightnessctl) | Backlight brightness control |
+| **NetworkManager** | [gitlab.freedesktop.org/NetworkManager](https://gitlab.freedesktop.org/NetworkManager/NetworkManager) | Network management (used via `nmcli` and tray applet) |
+| **xdg-desktop-portal-wlr** | [github.com/emersion/xdg-desktop-portal-wlr](https://github.com/emersion/xdg-desktop-portal-wlr) | XDG desktop portal for wlroots compositors |
+
+### Build Toolchain
+
+| Component | Repository | Description |
+|-----------|------------|-------------|
+| **meson** | [github.com/mesonbuild/meson](https://github.com/mesonbuild/meson) | Build system used by labwc, sfwbar, and C components |
+| **ninja** | [github.com/ninja-build/ninja](https://github.com/ninja-build/ninja) | Fast build executor (meson backend) |
+| **cairo** | [cairographics.org](https://www.cairographics.org/) | 2D graphics library (C widget rendering) |
+| **pango** | [pango.gnome.org](https://pango.gnome.org/) | Text layout and rendering (C widget text) |
+| **wayland-protocols** | [gitlab.freedesktop.org/wayland/wayland-protocols](https://gitlab.freedesktop.org/wayland/wayland-protocols) | Wayland extension protocol definitions |
+
 ## Quick Start
 
 ```bash
