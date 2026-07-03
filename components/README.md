@@ -108,17 +108,19 @@ Themes are loaded from:
 
 ## Integration with Existing Setup
 
-The C-based components can coexist with zebar widgets:
+The C-based components can coexist with sfwbar:
 
 ```bash
 # Use C statusbar
 widget-manager.sh swap statusbar main
 widget-manager.sh start
 
-# Or use zebar (existing)
+# Or use sfwbar (default)
 pkill -f statusbar-
-zebar startup
+sfwbar &
 ```
+
+*Note: sfwbar (GTK3-native) is the default statusbar. Zebar (HTML/CSS/JS) widgets are legacy fallback options not started by default.*
 
 ## Dependencies
 

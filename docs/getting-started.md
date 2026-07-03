@@ -1,4 +1,4 @@
-# Getting Started with labwc + Zebar + crystal-dock
+# Getting Started with labwc + sfwbar + crystal-dock
 
 ## Prerequisites
 
@@ -64,7 +64,9 @@ This copies:
 - `autostart` → `~/.config/labwc/autostart` (startup commands)
 - `environment` → `~/.config/labwc/environment` (env vars)
 - `menu.xml` → `~/.config/labwc/menu.xml` (desktop menu)
-- Zebar widgets → `~/.config/zebar/main/`
+- SFWBar config → `~/.config/sfwbar/` (sfwbar.config, CSS, widget files)
+- GTK settings → `~/.config/gtk-3.0/` and `~/.config/gtk-4.0/`
+- Scripts → `~/.local/bin/` (including actions/)
 - Wallpaper script → `~/.local/bin/wallpaper`
 
 ### 4. Launch labwc
@@ -84,8 +86,8 @@ Log out and select "labwc" from your login screen.
 | Component | Config Location | Purpose |
 |-----------|----------------|---------|
 | labwc | `~/.config/labwc/` | Compositor config |
+| sfwbar | `~/.config/sfwbar/` | Statusbar/taskbar/panel |
 | crystal-dock | autostart | Primary dock |
-| zebar | `~/.config/zebar/` | Widget panels |
 | wallpaper | `~/.local/bin/wallpaper` | Wallpaper manager |
 
 ## Verifying Installation
@@ -97,8 +99,8 @@ labwc --version
 # Check config exists
 ls ~/.config/labwc/
 
-# Check autostart has crystal-dock and zebar
-grep -E "crystal-dock|zebar" ~/.config/labwc/autostart
+# Check autostart has crystal-dock and sfwbar
+grep -E "crystal-dock|sfwbar" ~/.config/labwc/autostart
 ```
 
 ## Customizing
@@ -109,8 +111,11 @@ Edit `~/.config/labwc/rc.xml`. See [configuration.md](configuration.md) for keyb
 ### Autostart
 Edit `~/.config/labwc/autostart` to add/remove startup programs.
 
-### Widgets
-Widget themes are in `dotfiles/zebar/widgets/`. Edit or create HTML files there.
+### Statusbar
+Edit `~/.config/sfwbar/sfwbar.config` to customize the statusbar layout and widgets.
+
+### GTK Themes
+Theme profiles are in `dotfiles/gtk/theme-profiles/`. Use `theme-picker` to switch themes.
 
 ### Wallpaper
 ```bash
@@ -131,9 +136,10 @@ wallpaper daemon    # Auto-rotate wallpapers
 - Check it's in autostart: `grep crystal-dock ~/.config/labwc/autostart`
 - Launch manually: `crystal-dock --start --overlay`
 
-### Zebar widgets not loading
-- Check zebar is installed: `zebar --version`
-- Check widget dir exists: `ls ~/.config/zebar/main/`
+### SFWBar not appearing
+- Check sfwbar is installed: `sfwbar --version`
+- Check config exists: `ls ~/.config/sfwbar/`
+- Start manually: `sfwbar &`
 
 ## References
 

@@ -1,6 +1,6 @@
 # labwc Configuration Guide
 
-This guide covers configuring labwc (Lab Wayland Compositor) with zebar widgets and crystal-dock.
+This guide covers configuring labwc (Lab Wayland Compositor) with sfwbar and crystal-dock.
 
 ## Configuration Files
 
@@ -95,8 +95,8 @@ wallpaper random &
 # crystal-dock
 crystal-dock --start --overlay &
 
-# zebar widgets
-zebar startup &
+# SFWBar (primary panel/statusbar/taskbar)
+sfwbar &
 
 # Notification daemon
 mako &
@@ -174,21 +174,22 @@ labwc --reconfigure
 # Default: SUPER+R
 ```
 
-## Zebar Widgets
+## SFWBar Statusbar
 
-Zebar widgets are HTML/CSS/JS files that run as panels:
+SFWBar is the primary panel/statusbar/taskbar, configured in `~/.config/sfwbar/`:
 
 ```bash
-# Start all configured widgets
-zebar startup
+# Start SFWBar (runs at startup via autostart)
+sfwbar &
 
-# Start specific widget
-zebar start-widget main
+# Start with minimal config
+sfwbar -c ~/.config/sfwbar/sfwbar-simple.config
 ```
 
-Widget directories:
-- `~/.config/zebar/main/` - Main status bar
-- Widget themes in `dotfiles/zebar/widgets/`
+SFWBar config files:
+- `~/.config/sfwbar/sfwbar.config` — Main config with all widgets
+- `~/.config/sfwbar/catppuccin-mocha.css` — GTK CSS theme
+- `~/.config/sfwbar/*.widget` — Individual widget files
 
 ## crystal-dock Integration
 
