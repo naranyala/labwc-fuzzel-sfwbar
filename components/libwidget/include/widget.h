@@ -43,7 +43,7 @@ typedef struct widget_ops_t {
     /* Optional: handle input events */
     void (*on_click)(widget_context_t *ctx, int x, int y);
     void (*on_scroll)(widget_context_t *ctx, int delta);
-} widget_ops_t;
+    void (*on_key)(widget_context_t *ctx, uint32_t keycode, bool pressed);
 
 /* Widget instance */
 struct widget_t {
@@ -52,6 +52,7 @@ struct widget_t {
     int x, y, width, height;
     bool visible;
     bool needs_redraw;
+    bool focused;
 };
 
 /* ============================================================================
@@ -309,6 +310,9 @@ void render_text(cairo_t *cr, PangoLayout *layout,
 void render_icon(cairo_t *cr, PangoLayout *layout,
                  int x, int y, const char *icon,
                  const char *color, int font_size);
+
+/* Find nerd icon by name */
+const char *nerd_find_icon(const char *name);
 
 /* Render rounded rectangle */
 void render_rounded_rect(cairo_t *cr,

@@ -31,8 +31,8 @@ section() { echo -e "\n${BOLD}[$1]${NC}"; }
 # ============================================================
 section "1. Binaries"
 # ============================================================
-REQUIRED_BINS=(labwc swaybg)
-OPTIONAL_BINS=(crystal-dock zebar foot rofi grim slurp wl-copy playerctl wpctl gammastep redshift mako dunst libinput gsettings)
+REQUIRED_BINS=(labwc sfwbar swaybg)
+OPTIONAL_BINS=(crystal-dock foot rofi grim slurp wl-copy playerctl wpctl gammastep redshift mako dunst libinput gsettings)
 
 for bin in "${REQUIRED_BINS[@]}"; do
   if command -v "$bin" &>/dev/null; then
@@ -89,6 +89,26 @@ if command -v xmllint &>/dev/null && [ -f "$CONFIG_DIR/rc.xml" ]; then
   fi
 fi
 
+# Check for broken Client mouse context (Left Press consumes clicks)
+if [ -f "$CONFIG_DIR/rc.xml" ]; then
+  CLIENT_CTX=$(sed -n '/<context name="Client">/,/<\/context>/p' "$CONFIG_DIR/rc.xml")
+  if echo "$CLIENT_CTX" | grep -q 'button="Left" action="Press"'; then
+    fail "rc.xml: Client context has 'Left Press' binding — breaks click forwarding to apps"
+  else
+    pass "rc.xml: Client mouse context OK (no Left Press)"
+  fi
+fi
+
+# Check for unescaped & in XML (causes parse errors)
+if [ -f "$CONFIG_DIR/rc.xml" ]; then
+  UNESCAPED=$(grep -n '&&' "$CONFIG_DIR/rc.xml" 2>/dev/null | grep -v '&amp;' | head -1)
+  if [ -n "$UNESCAPED" ]; then
+    fail "rc.xml: unescaped '&' at $(echo "$UNESCAPED" | cut -d: -f1) — use &amp; in XML"
+  else
+    pass "rc.xml: XML entities OK"
+  fi
+fi
+
 # Check for crystal-dock in autostart
 if [ -f "$CONFIG_DIR/autostart" ]; then
   if grep -q "crystal-dock" "$CONFIG_DIR/autostart"; then
@@ -130,18 +150,16 @@ else
   warn "sfwbar not installed"
 fi
 
-# Check for additional widgets
+# Check for widget files
 WIDGET_COUNT=0
-for widget_dir in "$ZEBAR_DIR"/widgets/*/; do
-  if [ -d "$widget_dir" ]; then
-    widget_name=$(basename "$widget_dir")
-    if [ -f "$widget_dir/index.html" ]; then
-      pass "Widget '$widget_name': ready"
-      ((WIDGET_COUNT++))
-    fi
+for widget_file in "$SFWBAR_DIR"/*.widget; do
+  if [ -f "$widget_file" ]; then
+    widget_name=$(basename "$widget_file" .widget)
+    pass "Widget '$widget_name': installed"
+    ((WIDGET_COUNT++))
   fi
 done 2>/dev/null
-info "Total widget themes found: $WIDGET_COUNT"
+info "Total widget files found: $WIDGET_COUNT"
 
 # ============================================================
 section "4. Wallpaper"
@@ -217,7 +235,7 @@ fi
 # ============================================================
 section "8. Permissions"
 # ============================================================
-for dir in "$CONFIG_DIR" "$ZEBAR_DIR" "$HOME/.local/bin"; do
+for dir in "$CONFIG_DIR" "$SFWBAR_DIR" "$HOME/.local/bin"; do
   if [ -d "$dir" ]; then
     PERMS=$(stat -c "%a" "$dir" 2>/dev/null || stat -f "%Lp" "$dir" 2>/dev/null || echo "???")
     if [ "$PERMS" = "700" ] || [ "$PERMS" = "755" ] || [ "$PERMS" = "775" ]; then

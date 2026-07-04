@@ -3,8 +3,10 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
+#include <time.h>
 #include <wayland-client.h>
 #include "widget.h"
+#include "lifecycle.h"
 
 /* ============================================================================
  * Navigation System
@@ -51,6 +53,7 @@ static navigation_system_t nav_system;
 
 /* Initialize navigation system */
 void init_navigation_system(int workspace_count, int max_windows) {
+    srand(time(NULL));
     nav_system.workspaces = calloc(workspace_count, sizeof(workspace_t));
     nav_system.workspace_count = workspace_count;
     nav_system.current_workspace = 1;
@@ -59,7 +62,7 @@ void init_navigation_system(int workspace_count, int max_windows) {
     for (int i = 0; i < workspace_count; i++) {
         nav_system.workspaces[i].id = i + 1;
         nav_system.workspaces[i].name = calloc(16, sizeof(char));
-        snprintf(nav_system.workspaces[i].name, 16, "Workspace %d", i + 1);
+        snprintf(nav_system.workspaces[i].name, 16, "%d", i + 1);
         nav_system.workspaces[i].active = (i == 0);
         nav_system.workspaces[i].layout_mode = 0;
     }
@@ -67,16 +70,17 @@ void init_navigation_system(int workspace_count, int max_windows) {
 
 /* Add a window to history */
 void add_window_to_history(window_t *window) {
-    if (nav_system.history[nav_system.current_workspace].window_count >= MAX_WORKSPACE_HISTORY) {
-        for (int i = 0; i < nav_system.history[nav_system.current_workspace].window_count - 1; i++) {
-            nav_system.history[nav_system.current_workspace].windows[i] = 
-                nav_system.history[nav_system.current_workspace].windows[i + 1];
+    int ws_idx = nav_system.current_workspace - 1;
+    if (nav_system.history[ws_idx].window_count >= MAX_WORKSPACE_HISTORY) {
+        for (int i = 0; i < nav_system.history[ws_idx].window_count - 1; i++) {
+            nav_system.history[ws_idx].windows[i] = 
+                nav_system.history[ws_idx].windows[i + 1];
         }
-        nav_system.history[nav_system.current_workspace].window_count--;
+        nav_system.history[ws_idx].window_count--;
     }
     
-    nav_system.history[nav_system.current_workspace].windows
-        [nav_system.history[nav_system.current_workspace].window_count++] = window;
+    nav_system.history[ws_idx].windows
+        [nav_system.history[ws_idx].window_count++] = window;
 }
 
 /* Switch to workspace */
@@ -234,6 +238,8 @@ window_t* create_window(const char *title, const char *app_id) {
     window->fullscreen = false;
     window->workspace = nav_system.current_workspace;
     window->focused = false;
+    
+    trigger_window_creation(window->title, window->app_id);
     
     return window;
 }

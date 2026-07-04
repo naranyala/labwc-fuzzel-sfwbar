@@ -1,29 +1,15 @@
-/* systems/lifecycle.c - System lifecycle and callback management */
-
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
 #include <wayland-client.h>
 #include "widget.h"
+#include "lifecycle.h"
 
 /* ============================================================================
  * Lifecycle Management
  * ============================================================================ */
 
 #define MAX_LIFECYCLE_CALLBACKS 64
-
-typedef enum {
-    LIFECYCLE_EVENT_START,
-    LIFECYCLE_EVENT_STOP,
-    LIFECYCLE_EVENT_UPDATE,
-    LIFECYCLE_EVENT_RENDER,
-    LIFECYCLE_EVENT_FOCUS,
-    LIFECYCLE_EVENT_THEME,
-    LIFECYCLE_EVENT_CONFIG,
-    LIFECYCLE_EVENT_MAX
-} lifecycle_event_t;
-
-typedef void (*lifecycle_callback)(lifecycle_event_t event, const char *data, void *user_data);
 
 typedef struct {
     lifecycle_event_t event;
@@ -72,14 +58,7 @@ void emit_lifecycle_event_with_data(lifecycle_event_t event, const char *data, v
 /* Setup window creation callback */
 void setup_window_creation_callback(void (*callback)(const char *title, const char *app_id, void *user_data), void *user_data) {
     if (!callback) return;
-    
-    /* Create a window */
-    widget_context_t *ctx = widget_context_create(NULL, 0, 0);  /* Placeholder */
-    if (!ctx) return;
-    
-    register_lifecycle_callback(LIFECYCLE_EVENT_START, 
-        (lifecycle_callback)(void(*)(lifecycle_event_t, const char*, void*))callback, 
-        user_data);
+    register_window_creation_callback(callback, user_data);
 }
 
 /* Setup widget focus callback */

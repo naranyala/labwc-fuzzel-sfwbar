@@ -59,10 +59,28 @@ static void render_dock_widget(cairo_t *cr, PangoLayout *layout, const char *nam
         cairo_fill(cr);
     }
     
-    /* Icon placeholder (could be loaded from icon theme) */
-    cairo_set_source_rgba(cr, 0.6, 0.6, 0.6, 1.0);
-    cairo_rectangle(cr, x + 8, y + 8, width - 16, height - 16);
-    cairo_fill(cr);
+    /* Icon */
+    const char *icon_name = nerd_find_icon(name);
+    if (icon_name) {
+        PangoFontDescription *icon_desc = pango_font_description_from_string("JetBrainsMono Nerd Font");
+        pango_font_description_set_size(icon_desc, 24 * PANGO_SCALE);
+        pango_layout_set_font_description(layout, icon_desc);
+        pango_font_description_free(icon_desc);
+
+        char color_str[32];
+        snprintf(color_str, sizeof(color_str), "%s", theme->fg);
+        
+        /* Center icon */
+        pango_layout_set_text(layout, icon_name, -1);
+        PangoRectangle ink;
+        pango_layout_get_pixel_extents(layout, &ink, NULL);
+        render_icon(cr, layout, x + (width - ink.width) / 2, y + (height - 24) / 2, icon_name, color_str, 24);
+    } else {
+        /* Icon placeholder (could be loaded from icon theme) */
+        cairo_set_source_rgba(cr, 0.6, 0.6, 0.6, 1.0);
+        cairo_rectangle(cr, x + 8, y + 8, width - 16, height - 16);
+        cairo_fill(cr);
+    }
     
     /* Application name */
     PangoFontDescription *desc = pango_font_description_from_string("JetBrains Mono");
@@ -110,7 +128,7 @@ static void render_dock(crystal_dock_t *dock) {
     for (int i = 0; i < dock->widget_count; i++) {
         int widget_width = 64;
         render_dock_widget(cr, layout, dock->widgets[i].name, dock->widgets[i].focused,
-                          x, 12, widget_width, height - 24);
+                          x, 12, widget_width, height - 24, &dock->theme);
         x += widget_width + 8;
     }
     
@@ -165,7 +183,7 @@ static int init_crystal_dock(crystal_dock_t *dock) {
     dock->widgets = calloc(dock->widget_count, sizeof(*dock->widgets));
     
     if (dock->widgets) {
-        const char *names[] = {"foot", "foot", "thunar", "rofi"};
+        const char *names[] = {"terminal", "settings", "power", "music"};
         for (int i = 0; i < dock->widget_count; i++) {
             dock->widgets[i].name = strdup(names[i]);
             dock->widgets[i].class = NULL;

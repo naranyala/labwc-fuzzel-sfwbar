@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# labwc + Zebar + crystal-dock Dotfiles Installation Script
+# labwc + sfwbar + crystal-dock Dotfiles Installation Script
 # Complete installation with all scripts and configurations
 
 set -euo pipefail
@@ -37,11 +37,11 @@ if [[ -z "$LABWC_BIN" ]]; then
 fi
 pass "labwc: $LABWC_BIN"
 
-# Check zebar
-if command -v zebar &>/dev/null; then
-  pass "zebar: $(command -v zebar)"
+# Check sfwbar
+if command -v sfwbar &>/dev/null; then
+  pass "sfwbar: $(command -v sfwbar)"
 else
-  warn "zebar not found (widgets will need manual launch)"
+  warn "sfwbar not found (statusbar will need manual launch)"
 fi
 
 # Check crystal-dock
@@ -57,10 +57,8 @@ section "2. Create Directories"
 
 DIRS=(
   "$HOME/.config/labwc"
-  "$HOME/.config/zebar"
-  "$HOME/.config/zebar/widgets"
-  "$HOME/.glzr/zebar"
-  "$HOME/.glzr/zebar/widgets"
+  "$HOME/.config/labwc-widgets"
+  "$HOME/.config/sfwbar"
   "$HOME/.local/bin"
   "$HOME/Pictures/screenshots"
 )
@@ -76,6 +74,14 @@ section "3. Install labwc Config"
 
 LABWC_SRC="$PROJECT_DIR/dotfiles/labwc"
 LABWC_DST="$HOME/.config/labwc"
+
+# Pre-validate rc.xml — abort if source has broken Client context
+if [[ -f "$LABWC_SRC/rc.xml" ]]; then
+  CLIENT_CTX=$(sed -n '/<context name="Client">/,/<\/context>/p' "$LABWC_SRC/rc.xml")
+  if echo "$CLIENT_CTX" | grep -q 'button="Left" action="Press"'; then
+    fail "SOURCE rc.xml has broken Client context (Left Press). Fix dotfiles/labwc/rc.xml first."
+  fi
+fi
 
 for cfg in rc.xml autostart environment menu.xml themerc-override startup-wallpaper.sh; do
   if [[ -f "$LABWC_SRC/$cfg" ]]; then
@@ -94,20 +100,18 @@ section "4. Install Scripts"
 SCRIPTS_DST="$HOME/.local/bin"
 mkdir -p "$SCRIPTS_DST/actions"
 
-# Install scripts from dotfiles/
-for script in "$SCRIPT_DIR"/*.sh; do
-  if [[ -f "$script" ]]; then
-    name=$(basename "$script")
-    [[ "$name" == "install.sh" ]] || continue
-    cp "$script" "$SCRIPTS_DST/$name"
-    chmod +x "$SCRIPTS_DST/$name"
-    pass "$name"
-  fi
+# Install scripts from dotfiles/ (including subdirectories)
+find "$SCRIPT_DIR" -name "*.sh" -type f | while read -r script; do
+  name=$(basename "$script")
+  [[ "$name" == "install.sh" ]] || continue
+  cp "$script" "$SCRIPTS_DST/$name"
+  chmod +x "$SCRIPTS_DST/$name"
+  pass "$name"
 done
 
 # Install main tool scripts from scripts/
 SCRIPTS_SRC="$PROJECT_DIR/scripts"
-for script in "$SCRIPTS_SRC"/*.sh; do
+find "$SCRIPTS_SRC" -name "*.sh" -type f | while read -r script; do
   if [[ -f "$script" ]]; then
     name=$(basename "$script")
     cp "$script" "$SCRIPTS_DST/$name"
@@ -135,18 +139,20 @@ section "5. Install SFWBar Configuration"
 SFWBAR_SRC="$PROJECT_DIR/dotfiles/sfwbar"
 SFWBAR_DST="$HOME/.config/sfwbar"
 
-# Install sfwbar config
+# Install sfwbar config and widget files
 mkdir -p "$SFWBAR_DST"
 if [[ -d "$SFWBAR_SRC" ]]; then
-  for cfg in sfwbar.config catppuccin-mocha.css; do
-    if [[ -f "$SFWBAR_SRC/$cfg" ]]; then
-      cp "$SFWBAR_SRC/$cfg" "$SFWBAR_DST/$cfg"
-      pass "$cfg"
-    fi
+  for cfg in sfwbar.config catppuccin-mocha.css *.widget *.source; do
+    for f in "$SFWBAR_SRC/$cfg"; do
+      if [[ -f "$f" ]]; then
+        cp "$f" "$SFWBAR_DST/"
+        pass "$(basename "$f")"
+      fi
+    done
   done
 fi
 
-# Copy widget files from installed sfwbar
+# Copy widget files from installed sfwbar if not already present
 if [[ -d "$HOME/.local/share/sfwbar" ]]; then
   for f in "$HOME/.local/share/sfwbar"/*.widget "$HOME/.local/share/sfwbar"/*.source; do
     if [[ -f "$f" ]]; then
@@ -261,12 +267,12 @@ ERRORS=0
 # Check autostart
 if [[ -f "$LABWC_DST/autostart" ]]; then
   grep -q "crystal-dock" "$LABWC_DST/autostart" && pass "autostart: crystal-dock" || warn "autostart: missing crystal-dock"
-  grep -q "zebar" "$LABWC_DST/autostart" && pass "autostart: zebar" || warn "autostart: missing zebar"
+  grep -q "sfwbar" "$LABWC_DST/autostart" && pass "autostart: sfwbar" || warn "autostart: missing sfwbar"
   grep -q "gammastep\|redshift" "$LABWC_DST/autostart" && pass "autostart: screen protection" || warn "autostart: no screen protection"
 fi
 
 # Check scripts
-for script in validate.sh fix.sh clean.sh dotfiles-sync.sh keybind-presets.sh themes.sh widget-actions.sh quick.sh setup.sh update.sh status.sh backup.sh diagnostics.sh start-labwc.sh widget-manager.sh keybinds.sh; do
+for script in validate.sh fix.sh clean.sh dotfiles-sync.sh keybind-presets.sh themes.sh widget-actions.sh quick.sh setup.sh update.sh status.sh backup.sh diagnostics.sh start-labwc.sh widget-manager.sh keybinds.sh relaunch-status-bars.sh reset.sh; do
   if [[ -f "$SCRIPTS_DST/$script" ]]; then
     pass "script: $script"
   else
@@ -285,21 +291,11 @@ for script in audio.sh brightness.sh clipboard.sh launcher.sh network.sh power-m
   fi
 done
 
-# Check statusbar (v3 path)
-if [[ -f "$ZEBAR_V3/main/index.html" ]]; then
-  pass "statusbar (v3): installed"
-elif [[ -f "$ZEBAR_V1/main/index.html" ]]; then
-  pass "statusbar (v1 fallback): installed"
+# Check sfwbar config
+if [[ -f "$HOME/.config/sfwbar/sfwbar.config" ]]; then
+  pass "sfwbar config: installed"
 else
-  warn "statusbar: missing"
-  ((ERRORS++))
-fi
-
-# Check settings.json
-if [[ -f "$ZEBAR_V3/settings.json" ]]; then
-  pass "zebar settings: installed"
-else
-  warn "zebar settings: missing"
+  warn "sfwbar config: missing"
   ((ERRORS++))
 fi
 
@@ -338,8 +334,7 @@ echo -e "${GREEN}${BOLD}Installation Complete!${NC}"
 echo ""
 echo "Components installed:"
 echo "  • labwc config    → ~/.config/labwc/"
-echo "  • Statusbar       → ~/.glzr/zebar/main/ (v3)"
-echo "  • Statusbar       → ~/.config/zebar/main/ (v1 fallback)"
+echo "  • SFWBar config   → ~/.config/sfwbar/"
 echo "  • GTK3 config     → ~/.config/gtk-3.0/"
 echo "  • GTK4 config     → ~/.config/gtk-4.0/"
 echo "  • Scripts         → ~/.local/bin/"
@@ -347,25 +342,12 @@ echo "  • Actions         → ~/.local/bin/actions/"
 echo "  • Wallpaper       → ~/.local/bin/wallpaper"
 echo ""
 echo "Available commands:"
-echo "  quick.sh                    Hub for all operations"
-echo "  quick.sh reconfigure        Interactive reinstall/reconfigure CLI"
-echo "  setup.sh                    Full install chain"
-echo "  update.sh                   Update labwc"
-echo "  clean.sh                    Clean build artifacts"
-echo "  validate.sh                 Check setup"
-echo "  fix.sh                      Auto-fix issues"
-echo "  dotfiles-sync.sh            Sync dotfiles"
-echo "  keybind-presets.sh          Manage keybinding presets"
-echo "  widget-actions.sh           Zebar shell actions"
-echo ""
-echo "Theme management:"
-echo "  themes.sh list                        Show all themes"
-echo "  themes.sh set <name>                  Set labwc theme"
-echo "  themes.sh gtk-set <name>              Set GTK3 + GTK4 theme"
-echo "  themes.sh icon-set <name>             Set icon theme"
-echo "  themes.sh cursor-set <name>           Set cursor theme"
-echo "  themes.sh profile apply <name>        Apply full profile"
-echo "  themes.sh profile list                List profiles"
+echo "  relaunch-status-bars.sh    Restart sfwbar + crystal-dock"
+echo "  reset.sh                   Full reset with defaults (non-interactive)"
+echo "  quick.sh                   Hub for all operations"
+echo "  setup.sh                   Full install chain"
+echo "  validate.sh                Check setup"
+echo "  fix.sh                     Auto-fix issues"
 echo ""
 echo "Launch from TTY:"
 echo "  $PROJECT_DIR/scripts/start-labwc.sh"

@@ -31,6 +31,9 @@ static preferences_t global_preferences;
 
 /* Initialize preferences */
 void init_preferences(int max_prefs) {
+    if (global_preferences.preferences) {
+        free(global_preferences.preferences);
+    }
     global_preferences.max_preferences = max_prefs;
     global_preferences.preference_count = 0;
     global_preferences.preferences = calloc(max_prefs, sizeof(preference_t));

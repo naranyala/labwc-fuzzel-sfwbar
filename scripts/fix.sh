@@ -123,7 +123,40 @@ if [ -d "$SFWBAR_SRC" ]; then
 fi
 
 # ============================================================
-section "7. Fix Environment Variables"
+section "7. Fix rc.xml Client Context"
+# ============================================================
+RC_XML="$CONFIG_DIR/rc.xml"
+if [ -f "$RC_XML" ]; then
+  CLIENT_CTX=$(sed -n '/<context name="Client">/,/<\/context>/p' "$RC_XML")
+  if echo "$CLIENT_CTX" | grep -q 'button="Left" action="Press"'; then
+    # Replace entire Client context — plain Left/Right Drag and Middle Press
+    # consume click events and prevent apps from receiving clicks.
+    # Only keep Alt+Left (Move) and Alt+Right (Resize).
+    GOOD_CTX='      <context name="Client">
+        <mousebind button="A-Left" action="Drag">
+          <action name="Move" />
+        </mousebind>
+        <mousebind button="A-Right" action="Drag">
+          <action name="Resize" />
+        </mousebind>
+      </context>'
+    python3 -c "
+import re, sys
+with open('$RC_XML', 'r') as f:
+    content = f.read()
+pattern = r'<context name=\"Client\">.*?</context>'
+replacement = '''$GOOD_CTX'''
+content = re.sub(pattern, replacement, content, flags=re.DOTALL)
+with open('$RC_XML', 'w') as f:
+    f.write(content)
+" && pass "Fixed Client context: removed Left Press binding" || warn "Could not fix Client context"
+  else
+    skip "Client context OK"
+  fi
+fi
+
+# ============================================================
+section "8. Fix Environment Variables"
 # ============================================================
 ENV_FILE="$CONFIG_DIR/environment"
 if [ -f "$ENV_FILE" ]; then

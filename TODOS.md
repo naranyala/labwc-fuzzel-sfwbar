@@ -290,22 +290,22 @@ cd ../..
 
 Priority-ordered list of script fixes required before cross-distro validation:
 
-| Priority | # | Script | Fix |
-|----------|---|--------|-----|
-| **P0** | 1 | `dotfiles/install.sh` | Replace zebar pre-flight check (L41-44) with sfwbar check |
-| **P0** | 2 | `dotfiles/install.sh` | Remove zebar directory creation (L58-63), keep only sfwbar paths |
-| **P0** | 3 | `dotfiles/install.sh` | Fix validation section (L286-301) — remove `$ZEBAR_V3`/`$ZEBAR_V1` refs, validate sfwbar config |
-| **P0** | 4 | `scripts/validate.sh` | Fix `$ZEBAR_DIR` → `$SFWBAR_DIR` at L135 and L220 |
-| **P1** | 5 | `scripts/setup-sfwbar.sh` | Fix module path detection (L129-133) — use dynamic arch detection instead of hardcoded `x86_64-linux-gnu` |
-| **P1** | 6 | `scripts/setup-sfwbar.sh` | Fix Arch instructions (L47) — sfwbar is NOT in AUR, suggest build from source |
-| **P1** | 7 | `scripts/setup-sfwbar.sh` | Add Fedora-specific instructions (sfwbar is in repos via `dnf install sfwbar`) |
-| **P1** | 8 | `scripts/install-deps.sh` | Fix Debian runtime pkg names: `gsettings` → correct package, `xmllint` → `libxml2-utils` |
-| **P1** | 9 | `scripts/install-deps.sh` | Fix Fedora runtime pkg `libxml2-utils` → `libxml2` |
-| **P1** | 10 | `scripts/install-deps.sh` | Fix Arch build pkg `ninja-build` → `ninja` (already correct in current, but verify) |
-| **P2** | 11 | `dotfiles/install.sh` | Update summary text (L338-339) — remove zebar paths |
-| **P2** | 12 | `dotfiles/install.sh` | Update help text (L356) — "Zebar shell actions" → "Widget shell actions" |
-| **P2** | 13 | `scripts/install-deps.sh` | Update header (L3) — "zebar" → "sfwbar" |
-| **P2** | 14 | `scripts/validate.sh` | Remove `zebar` from `OPTIONAL_BINS` list (L35), add `sfwbar` |
+| Priority | # | Script | Fix | Status |
+|----------|---|--------|-----|--------|
+| **P0** | 1 | `dotfiles/install.sh` | Replace zebar pre-flight check with sfwbar check | ✅ Fixed |
+| **P0** | 2 | `dotfiles/install.sh` | Remove zebar directory creation, keep only sfwbar paths | ✅ Fixed |
+| **P0** | 3 | `dotfiles/install.sh` | Fix validation section — remove zebar refs, validate sfwbar config | ✅ Fixed |
+| **P0** | 4 | `scripts/validate.sh` | Fix `$ZEBAR_DIR` → `$SFWBAR_DIR` | ✅ Fixed |
+| **P1** | 5 | `scripts/setup-sfwbar.sh` | Fix module path detection — use dynamic arch detection | ✅ Fixed |
+| **P1** | 6 | `scripts/setup-sfwbar.sh` | Fix Arch instructions — sfwbar NOT in AUR, build from source | ✅ Fixed |
+| **P1** | 7 | `scripts/setup-sfwbar.sh` | Add Fedora-specific instructions | ✅ Fixed |
+| **P1** | 8 | `scripts/install-deps.sh` | Fix Debian runtime pkg names | ✅ Fixed |
+| **P1** | 9 | `scripts/install-deps.sh` | Fix Fedora runtime pkg names | ✅ Fixed |
+| **P1** | 10 | `scripts/install-deps.sh` | Fix Arch build pkg names | ✅ Fixed |
+| **P2** | 11 | `dotfiles/install.sh` | Update summary text — remove zebar paths | ✅ Fixed |
+| **P2** | 12 | `dotfiles/install.sh` | Update help text — "Widget shell actions" | ✅ Fixed |
+| **P2** | 13 | `scripts/install-deps.sh` | Update header — "sfwbar" | ✅ Fixed |
+| **P2** | 14 | `scripts/validate.sh` | Remove `zebar` from `OPTIONAL_BINS`, add `sfwbar` | ✅ Fixed |
 
 ---
 

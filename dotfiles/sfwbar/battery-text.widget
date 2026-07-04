@@ -1,19 +1,12 @@
 #Api2
 
-# Read battery directly from sysfs
-file("/sys/class/power_supply/BAT0/capacity") {
-  XBatCapacity = Grab(First)
-}
-
-file("/sys/class/power_supply/BAT0/status") {
-  XBatStatus = Grab(First)
-}
+include("battery.source")
 
 export label "battery-text" {
   interval = 10000
-  style = "battery-text"
-  value = "Bat " + XBatCapacity + "%"
-  tooltip = "Battery: " + XBatCapacity + "%\nStatus: " + XBatStatus
+  style = battery-text
+  value = "Bat " + Str(Level, 0) + "%"
+  tooltip = "Battery: " + Str(Level, 0) + "%\nStatus: " + If(Discharging, "Discharging", "Charging")
   action = ExecTerm("upower -i /org/freedesktop/UPower/devices/battery_BAT0")
 }
 

@@ -23,6 +23,7 @@ struct wayland_display_t {
     struct wl_registry *registry;
     struct wl_compositor *compositor;
     struct zwlr_layer_shell_v1 *layer_shell;
+    struct wl_seat *seat;
 
     /* Output tracking */
     struct wl_output *output;
@@ -71,6 +72,9 @@ static void registry_global(void *data, struct wl_registry *registry,
     } else if (strcmp(interface, wl_output_interface.name) == 0) {
         display->output = wl_registry_bind(registry, name,
                                            &wl_output_interface, 4);
+    } else if (strcmp(interface, wl_seat_interface.name) == 0) {
+        display->seat = wl_registry_bind(registry, name,
+                                         &wl_seat_interface, 4);
     }
 }
 
@@ -280,6 +284,7 @@ wayland_surface_t *wayland_surface_create(
     zwlr_layer_surface_v1_set_size(ws->layer_surface, width, height);
     zwlr_layer_surface_v1_set_anchor(ws->layer_surface, wlr_anchor);
     zwlr_layer_surface_v1_set_exclusive_zone(ws->layer_surface, exclusive_zone);
+    zwlr_layer_surface_v1_set_keyboard_interactivity(ws->layer_surface, ZWLR_LAYER_SURFACE_V1_KEYBOARD_INTERACTIVITY_ALWAYS);
 
     /* Add listener */
     zwlr_layer_surface_v1_add_listener(ws->layer_surface,

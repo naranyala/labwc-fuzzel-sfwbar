@@ -44,7 +44,7 @@ else
   info "Or install from package manager:"
   echo "    Ubuntu/Debian: Build from source (see above)"
   echo "    Fedora: sudo dnf install sfwbar"
-  echo "    Arch: yay -S sfwbar"
+  echo "    Arch: Build from source (sfwbar is not in repos or AUR)"
   echo ""
   fail "Install sfwbar first, then re-run this script"
 fi
@@ -126,11 +126,27 @@ else
 fi
 
 # Check modules are available
-if [[ -d "$HOME/.local/lib/x86_64-linux-gnu/sfwbar" ]]; then
-  modules=$(ls "$HOME/.local/lib/x86_64-linux-gnu/sfwbar"/*.so 2>/dev/null | wc -l)
-  pass "Modules: $modules found"
-else
-  warn "Module directory not found"
+MODULE_DIRS=(
+  "$HOME/.local/lib/x86_64-linux-gnu/sfwbar"
+  "$HOME/.local/lib64/sfwbar"
+  "$HOME/.local/lib/sfwbar"
+  "/usr/lib/x86_64-linux-gnu/sfwbar"
+  "/usr/lib64/sfwbar"
+  "/usr/lib/sfwbar"
+)
+MODULE_FOUND=false
+for mod_dir in "${MODULE_DIRS[@]}"; do
+  if [[ -d "$mod_dir" ]]; then
+    modules=$(ls "$mod_dir"/*.so 2>/dev/null | wc -l)
+    if [[ "$modules" -gt 0 ]]; then
+      pass "Modules: $modules found in $mod_dir"
+      MODULE_FOUND=true
+      break
+    fi
+  fi
+done
+if [[ "$MODULE_FOUND" == "false" ]]; then
+  warn "No sfwbar modules found in standard paths"
 fi
 
 # ---- Summary ----

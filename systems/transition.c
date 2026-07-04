@@ -65,6 +65,16 @@ int register_system(system_t *system) {
 
 /* Initialize all systems in dependency order */
 void init_all_systems() {
+    /* Cleanup old active_systems list if it exists */
+    if (registry.active_systems) {
+        for (int i = 0; i < registry.active_count; i++) {
+            free(registry.active_systems[i]);
+        }
+        free(registry.active_systems);
+    }
+    registry.active_systems = calloc(MAX_SYSTEMS, sizeof(char*));
+    registry.active_count = 0;
+
     /* Initialize in dependency order */
     for (int i = 0; i < registry.system_count; i++) {
         /* Try to initialize */
@@ -72,6 +82,11 @@ void init_all_systems() {
             registry.systems[i]->init();
         }
         registry.systems[i]->active = true;
+        
+        /* Add to active list */
+        if (registry.systems[i]->name) {
+            registry.active_systems[registry.active_count++] = strdup(registry.systems[i]->name);
+        }
     }
 }
 
@@ -126,6 +141,9 @@ void transition_to_config(const char *config_path) {
     
     /* Update config path and reinitialize */
     for (int i = 0; i < registry.system_count; i++) {
+        if (registry.systems[i]->config_path) {
+            free((void*)registry.systems[i]->config_path);
+        }
         registry.systems[i]->config_path = strdup(config_path);
     }
     

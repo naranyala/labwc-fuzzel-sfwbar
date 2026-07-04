@@ -1,0 +1,13 @@
+{
+  "statusbar": "sfwbar",
+  "dock": "crystal",
+  "theme": "catppuccin-mocha",
+  "widgets": {
+    "clock": true,
+    "cpu": true,
+    "memory": true,
+    "network": true,
+    "battery": true,
+    "volume": true
+  }
+}

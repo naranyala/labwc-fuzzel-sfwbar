@@ -98,7 +98,8 @@ bool load_theme_from_file(const char *name, const char *path, theme_target_t tar
             char *end = strchr(line_copy, ']');
             if (end) {
                 *end = '\0';
-                strcpy(current_section, line_copy + 1);
+                strncpy(current_section, line_copy + 1, sizeof(current_section) - 1);
+                current_section[sizeof(current_section) - 1] = '\0';
             }
             continue;
         }
@@ -124,21 +125,21 @@ bool load_theme_from_file(const char *name, const char *path, theme_target_t tar
         /* Load color values */
         if (strcmp(current_section, "colors") == 0) {
             if (strcmp(key, "bg") == 0 || strcmp(key, "base") == 0) {
-                strncpy(theme_data.bg, value, sizeof(theme_data.bg) - 1);
+                snprintf(theme_data.bg, sizeof(theme_data.bg), "%s", value);
             } else if (strcmp(key, "fg") == 0 || strcmp(key, "text") == 0) {
-                strncpy(theme_data.fg, value, sizeof(theme_data.fg) - 1);
+                snprintf(theme_data.fg, sizeof(theme_data.fg), "%s", value);
             } else if (strcmp(key, "accent") == 0 || strcmp(key, "blue") == 0) {
-                strncpy(theme_data.accent, value, sizeof(theme_data.accent) - 1);
+                snprintf(theme_data.accent, sizeof(theme_data.accent), "%s", value);
             } else if (strcmp(key, "red") == 0) {
-                strncpy(theme_data.red, value, sizeof(theme_data.red) - 1);
+                snprintf(theme_data.red, sizeof(theme_data.red), "%s", value);
             } else if (strcmp(key, "green") == 0) {
-                strncpy(theme_data.green, value, sizeof(theme_data.green) - 1);
+                snprintf(theme_data.green, sizeof(theme_data.green), "%s", value);
             } else if (strcmp(key, "yellow") == 0) {
-                strncpy(theme_data.yellow, value, sizeof(theme_data.yellow) - 1);
+                snprintf(theme_data.yellow, sizeof(theme_data.yellow), "%s", value);
             } else if (strcmp(key, "surface") == 0 || strcmp(key, "surface1") == 0) {
-                strncpy(theme_data.surface, value, sizeof(theme_data.surface) - 1);
+                snprintf(theme_data.surface, sizeof(theme_data.surface), "%s", value);
             } else if (strcmp(key, "border") == 0) {
-                strncpy(theme_data.border, value, sizeof(theme_data.border) - 1);
+                snprintf(theme_data.border, sizeof(theme_data.border), "%s", value);
             }
         }
     }
@@ -193,6 +194,7 @@ bool activate_theme(const char *name) {
             /* Activate new theme */
             theme_system.themes[i].active = true;
             theme_system.active_theme = &theme_system.themes[i];
+            if (theme_system.theme_name) free(theme_system.theme_name);
             theme_system.theme_name = strdup(name);
             
             return true;

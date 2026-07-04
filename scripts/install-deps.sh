@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-# install-deps.sh — Install all dependencies for labwc + zebar + crystal-dock
+# install-deps.sh — Install all dependencies for labwc + sfwbar + crystal-dock
 #
 # Auto-detects distro and installs via appropriate package manager.
 # Supports: apt, dnf, pacman, zypper
@@ -106,31 +106,31 @@ section "Runtime Dependencies"
 case "$PKG_MGR" in
   apt)
     RUNTIME_PKGS=(
-      swaybg foot rofi
+      swaybg foot rofi-wayland
       grim slurp wl-clipboard
       playerctl
       libinput-tools
-      gsettings
-      xmllint
+      dconf-cli
+      libxml2-utils
     )
     ;;
   dnf)
     RUNTIME_PKGS=(
-      swaybg foot rofi
+      swaybg foot rofi-wayland
       grim slurp wl-clipboard
       playerctl
       libinput-utils
-      gsettings-desktop-schemas
-      libxml2-utils
+      dconf
+      libxml2
     )
     ;;
   pacman)
     RUNTIME_PKGS=(
-      swaybg foot rofi
+      swaybg foot rofi-wayland
       grim slurp wl-clipboard
       playerctl
       libinput
-      gsettings-desktop-schemas
+      dconf
       libxml2
     )
     ;;
@@ -140,7 +140,7 @@ case "$PKG_MGR" in
       grim slurp wl-clipboard
       playerctl
       libinput-tools
-      gsettings2
+      dconf
       libxml2-tools
     )
     ;;

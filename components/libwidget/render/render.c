@@ -114,7 +114,7 @@ void render_progress_bar(cairo_t *cr,
     /* Foreground */
     if (progress > 0) {
         double fw = w * (progress / 100.0);
-        if (fw > h) {
+        if (fw > 0) {
             render_rounded_rect(cr, x, y, fw, h, h / 2, fg_color, 0.8);
         }
     }
@@ -139,7 +139,7 @@ void render_module_begin(cairo_t *cr, module_state_t *state,
     state->x = x;
     state->y = y;
     state->padding = 8;
-    strcpy(state->bg_color, bg_color);
+    snprintf(state->bg_color, sizeof(state->bg_color), "%s", bg_color);
     state->bg_alpha = 0.4;
 
     /* Draw module background */

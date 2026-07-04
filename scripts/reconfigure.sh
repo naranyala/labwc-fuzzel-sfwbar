@@ -48,7 +48,7 @@ check_mark() {
 do_backup() {
   local label="${1:-pre-change}"
   info "Creating backup ($label) ..."
-  bash "$SCRIPT_DIR/backup.sh" 2>/dev/null && pass "Backup created" || warn "Backup skipped"
+  bash "$SCRIPT_DIR/backup.sh" && pass "Backup created" || warn "Backup failed"
 }
 
 # ============================================================
@@ -64,15 +64,19 @@ show_header() {
 }
 
 show_status_bar() {
-  local lw="stopped" cd="stopped" zb="stopped"
+  local lw="stopped" dk="stopped" zb="stopped"
   running labwc && lw="running"
-  running crystal-dock && cd="running"
+  running crystal-dock && dk="running"
   running zebar && zb="running"
 
-  local theme=$(grep -oP '(?<=<name>).*(?=</name>)' "$CONFIG_DIR/rc.xml" 2>/dev/null | head -1 || echo "default")
+  local theme
+  theme=$(grep -oP '(?<=<name>).*(?=</name>)' "$CONFIG_DIR/rc.xml" 2>/dev/null | head -1)
+  [ -z "$theme" ] && theme="default"
 
-  echo -e " ${DIM}labwc:${NC} ${lw}  ${DIM}crystal-dock:${NC} ${cd}  ${DIM}zebar:${NC} ${zb}"
-  echo -e " ${DIM}Theme:${NC} ${theme}  ${DIM}Backups:${NC} $(ls -1 "$HOME/.config/labwc-backups"/*.tar.gz 2>/dev/null | wc -l)"
+  echo -e " ${DIM}labwc:${NC} ${lw}  ${DIM}crystal-dock:${NC} ${dk}  ${DIM}zebar:${NC} ${zb}"
+  local backup_count
+  backup_count=$(ls -1 "$HOME/.config/labwc-backups"/*.tar.gz 2>/dev/null | wc -l || echo 0)
+  echo -e " ${DIM}Theme:${NC} ${theme}  ${DIM}Backups:${NC} ${backup_count}"
   echo
 }
 
@@ -158,35 +162,62 @@ menu_labwc_config() {
     case "$choice" in
       1)
         do_backup "labwc-config"
+        mkdir -p "$CONFIG_DIR"
         for f in rc.xml autostart environment menu.xml themerc-override; do
-          [[ -f "$PROJECT_DIR/dotfiles/labwc/$f" ]] && cp "$PROJECT_DIR/dotfiles/labwc/$f" "$CONFIG_DIR/$f" && pass "$f"
+          if [[ -f "$PROJECT_DIR/dotfiles/labwc/$f" ]]; then
+            cp "$PROJECT_DIR/dotfiles/labwc/$f" "$CONFIG_DIR/$f" && pass "$f"
+          else
+            warn "source not found: dotfiles/labwc/$f"
+          fi
         done
         chmod +x "$CONFIG_DIR/autostart" 2>/dev/null || true
         running labwc && labwc --reconfigure 2>/dev/null && pass "labwc reloaded"
         ;;
       2)
-        do_backup "rc.xml"
-        cp "$PROJECT_DIR/dotfiles/labwc/rc.xml" "$CONFIG_DIR/rc.xml"
-        pass "rc.xml installed"
-        running labwc && labwc --reconfigure 2>/dev/null
+        if [[ -f "$PROJECT_DIR/dotfiles/labwc/rc.xml" ]]; then
+          do_backup "rc.xml"
+          cp "$PROJECT_DIR/dotfiles/labwc/rc.xml" "$CONFIG_DIR/rc.xml"
+          pass "rc.xml installed"
+          running labwc && labwc --reconfigure 2>/dev/null
+        else
+          warn "source not found: dotfiles/labwc/rc.xml"
+        fi
         ;;
       3)
-        do_backup "autostart"
-        cp "$PROJECT_DIR/dotfiles/labwc/autostart" "$CONFIG_DIR/autostart"
-        chmod +x "$CONFIG_DIR/autostart"
-        pass "autostart installed"
+        if [[ -f "$PROJECT_DIR/dotfiles/labwc/autostart" ]]; then
+          do_backup "autostart"
+          cp "$PROJECT_DIR/dotfiles/labwc/autostart" "$CONFIG_DIR/autostart"
+          chmod +x "$CONFIG_DIR/autostart"
+          pass "autostart installed"
+        else
+          warn "source not found: dotfiles/labwc/autostart"
+        fi
         ;;
-      4) cp "$PROJECT_DIR/dotfiles/labwc/environment" "$CONFIG_DIR/environment" && pass "environment installed" ;;
-      5) cp "$PROJECT_DIR/dotfiles/labwc/menu.xml" "$CONFIG_DIR/menu.xml" && pass "menu.xml installed" ;;
+      4) [[ -f "$PROJECT_DIR/dotfiles/labwc/environment" ]] && cp "$PROJECT_DIR/dotfiles/labwc/environment" "$CONFIG_DIR/environment" && pass "environment installed" || warn "source not found: dotfiles/labwc/environment" ;;
+      5) [[ -f "$PROJECT_DIR/dotfiles/labwc/menu.xml" ]] && cp "$PROJECT_DIR/dotfiles/labwc/menu.xml" "$CONFIG_DIR/menu.xml" && pass "menu.xml installed" || warn "source not found: dotfiles/labwc/menu.xml" ;;
       6)
-        do_backup "themerc-override"
-        cp "$PROJECT_DIR/dotfiles/labwc/themerc-override" "$CONFIG_DIR/themerc-override"
-        pass "themerc-override installed"
-        running labwc && labwc --reconfigure 2>/dev/null
+        if [[ -f "$PROJECT_DIR/dotfiles/labwc/themerc-override" ]]; then
+          do_backup "themerc-override"
+          cp "$PROJECT_DIR/dotfiles/labwc/themerc-override" "$CONFIG_DIR/themerc-override"
+          pass "themerc-override installed"
+          running labwc && labwc --reconfigure 2>/dev/null
+        else
+          warn "source not found: dotfiles/labwc/themerc-override"
+        fi
         ;;
       7) ${EDITOR:-nano} "$CONFIG_DIR/rc.xml"; running labwc && labwc --reconfigure 2>/dev/null ;;
       8) ${EDITOR:-nano} "$CONFIG_DIR/autostart" ;;
-      9) running labwc && labwc --reconfigure 2>/dev/null && pass "labwc reloaded" || warn "labwc not running" ;;
+      9)
+        if running labwc; then
+          if labwc --reconfigure 2>/dev/null; then
+            pass "labwc reloaded"
+          else
+            warn "labwc reconfigure failed"
+          fi
+        else
+          warn "labwc not running"
+        fi
+        ;;
       0) return ;;
       *) warn "Invalid choice"; sleep 1 ;;
     esac
@@ -246,7 +277,7 @@ menu_gtk_config() {
         cp "$PROJECT_DIR/dotfiles/gtk/gtk.css" "$GTK4_DIR/gtk.css"
         pass "gtk.css installed (GTK3 + GTK4)"
         ;;
-      5) mkdir -p "$GTK3_DIR"; ${EDITOR:-nano} "$GTK3_DIR/gtk.css"; cp "$GTK3_DIR/gtk.css" "$GTK4_DIR/gtk.css" 2>/dev/null || true ;;
+      5) mkdir -p "$GTK3_DIR" "$GTK4_DIR"; ${EDITOR:-nano} "$GTK3_DIR/gtk.css"; cp "$GTK3_DIR/gtk.css" "$GTK4_DIR/gtk.css" 2>/dev/null || true ;;
       6)
         read -rp "  Enter GTK theme name: " theme_name
         [[ -z "$theme_name" ]] && { warn "No name given"; sleep 1; continue; }
@@ -284,23 +315,21 @@ menu_zebar() {
   case "$choice" in
     1)
       do_backup "zebar-main"
-      mkdir -p "$ZEBAR_PACKS/main" "$ZEBAR_V1/main"
       rm -rf "$ZEBAR_PACKS/main" "$ZEBAR_V1/main"
       mkdir -p "$ZEBAR_PACKS/main"
       cp "$PROJECT_DIR/dotfiles/zebar/main/index.html" "$ZEBAR_PACKS/main/"
       cp "$PROJECT_DIR/dotfiles/zebar/main/style.css" "$ZEBAR_PACKS/main/"
-      cp "$PROJECT_DIR/dotfiles/zebar/main/zpack.json" "$ZEBAR_PACKS/zpack.json" 2>/dev/null || true
+      cp "$PROJECT_DIR/dotfiles/zebar/main/zpack.json" "$ZEBAR_PACKS/main/" 2>/dev/null || true
       cp -r "$PROJECT_DIR/dotfiles/zebar/main"/* "$ZEBAR_V1/main/"
       pass "Main statusbar reinstalled"
       ;;
     2)
       do_backup "zebar-all"
-      mkdir -p "$ZEBAR_PACKS/main" "$ZEBAR_V1/main" "$ZEBAR_V3/widgets" "$ZEBAR_V1/widgets"
       rm -rf "$ZEBAR_PACKS/main" "$ZEBAR_V1/main"
       mkdir -p "$ZEBAR_PACKS/main"
       cp "$PROJECT_DIR/dotfiles/zebar/main/index.html" "$ZEBAR_PACKS/main/"
       cp "$PROJECT_DIR/dotfiles/zebar/main/style.css" "$ZEBAR_PACKS/main/"
-      cp "$PROJECT_DIR/dotfiles/zebar/main/zpack.json" "$ZEBAR_PACKS/zpack.json" 2>/dev/null || true
+      cp "$PROJECT_DIR/dotfiles/zebar/main/zpack.json" "$ZEBAR_PACKS/main/" 2>/dev/null || true
       cp -r "$PROJECT_DIR/dotfiles/zebar/main"/* "$ZEBAR_V1/main/"
       for w in "$PROJECT_DIR/dotfiles/zebar/widgets"/*/; do
         [[ -d "$w" ]] && cp -r "$w" "$ZEBAR_V3/widgets/" && cp -r "$w" "$ZEBAR_V1/widgets/" 2>/dev/null || true

@@ -187,7 +187,8 @@ int theme_load_from_ini(widget_theme_t *theme, const char *path) {
             char *end = strchr(line, ']');
             if (end) {
                 *end = 0;
-                strcpy(current_section, line + 1);
+                strncpy(current_section, line + 1, sizeof(current_section) - 1);
+                current_section[sizeof(current_section) - 1] = '\0';
             }
             continue;
         }
@@ -213,21 +214,21 @@ int theme_load_from_ini(widget_theme_t *theme, const char *path) {
         /* Apply to theme if in [panel] or [colors] section */
         if (strcmp(current_section, "panel") == 0 || strcmp(current_section, "colors") == 0) {
             if (strcmp(key, "bar_bg") == 0 || strcmp(key, "base") == 0) {
-                strncpy(theme->bg, value, sizeof(theme->bg) - 1);
+                snprintf(theme->bg, sizeof(theme->bg), "%s", value);
             } else if (strcmp(key, "bar_text") == 0 || strcmp(key, "text") == 0) {
-                strncpy(theme->fg, value, sizeof(theme->fg) - 1);
+                snprintf(theme->fg, sizeof(theme->fg), "%s", value);
             } else if (strcmp(key, "bar_active") == 0 || strcmp(key, "blue") == 0) {
-                strncpy(theme->accent, value, sizeof(theme->accent) - 1);
+                snprintf(theme->accent, sizeof(theme->accent), "%s", value);
             } else if (strcmp(key, "bar_urgent") == 0 || strcmp(key, "red") == 0) {
-                strncpy(theme->red, value, sizeof(theme->red) - 1);
+                snprintf(theme->red, sizeof(theme->red), "%s", value);
             } else if (strcmp(key, "green") == 0) {
-                strncpy(theme->green, value, sizeof(theme->green) - 1);
+                snprintf(theme->green, sizeof(theme->green), "%s", value);
             } else if (strcmp(key, "yellow") == 0) {
-                strncpy(theme->yellow, value, sizeof(theme->yellow) - 1);
+                snprintf(theme->yellow, sizeof(theme->yellow), "%s", value);
             } else if (strcmp(key, "surface0") == 0 || strcmp(key, "surface1") == 0) {
-                strncpy(theme->surface, value, sizeof(theme->surface) - 1);
+                snprintf(theme->surface, sizeof(theme->surface), "%s", value);
             } else if (strcmp(key, "surface2") == 0) {
-                strncpy(theme->border, value, sizeof(theme->border) - 1);
+                snprintf(theme->border, sizeof(theme->border), "%s", value);
             }
         }
     }
