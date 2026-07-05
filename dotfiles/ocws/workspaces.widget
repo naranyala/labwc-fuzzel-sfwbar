@@ -1,14 +1,13 @@
 #Api2
 
-# Workspaces widget — workspace switcher using sfwbar pager
-# Uses built-in WorkspaceActivate() action (Wayland protocol)
+# Workspaces widget — text-style workspace switcher
 Private {
   export button "workspaces" {
-    style = "module"
-    class = "module"
-    value = "view-paged-symbolic"
-    tooltip = "Workspaces"
+    style = "text_widget"
+    tooltip = "Workspaces (1-9)"
     action = PopUp("WsPopup")
+
+    label { value = "  Workspace" }
   }
 
   PopUp("WsPopup") {

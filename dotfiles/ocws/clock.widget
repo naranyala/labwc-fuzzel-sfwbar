@@ -10,7 +10,7 @@ Private {
   Var reset_on_popup = TRUE;
 
   export button 'clock' {
-    style = "module_pill"
+    style = "text_clock"
     tooltip = Time(tooltip_format)
     action = {
       If reset_on_popup
@@ -18,11 +18,7 @@ Private {
       PopUp("XCal")
     }
 
-    grid {
-      style = "pill_grid"
-      image { value = "preferences-system-time-symbolic" }
-      label { value = Time(time_format) }
-    }
+    label { value = Time(time_format) }
   }
 }
 

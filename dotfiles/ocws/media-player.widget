@@ -1,9 +1,8 @@
 #Api2
 
-# Media Player — MPRIS controls with rich info
+# Media Player — text-style display
 scanner {
   step = 2000
-  exec("/bin/sh -c 'playerctl metadata --format \"{\"artist\":\"%{artist}\",\"title\":\"%{title}\",\"album\":\"%{album}\",\"status\":\"$(playerctl status 2>/dev/null)\"}\" 2>/dev/null || echo {}'") { XMediaJson = Grab(First) }
   exec("/bin/sh -c 'playerctl metadata --format artist 2>/dev/null || echo none'") { XMediaArtist = Grab(First) }
   exec("/bin/sh -c 'playerctl metadata --format title 2>/dev/null || echo none'") { XMediaTitle = Grab(First) }
   exec("/bin/sh -c 'playerctl metadata --format album 2>/dev/null || echo none'") { XMediaAlbum = Grab(First) }
@@ -18,12 +17,9 @@ scanner {
   }
 }
 
-
-
 export button "media-player" {
   interval = 2000
-  style = If(XMediaStatus != "none", "module_pill", "hidden")
-  class = "module"
+  style = If(XMediaStatus != "none", "text_media", "hidden")
   tooltip = If(XMediaStatus != "none",
     If(XMediaArtist != "none", XMediaArtist + "\n", "") +
     If(XMediaTitle != "none", XMediaTitle + "\n", "") +
@@ -37,16 +33,12 @@ export button "media-player" {
   action[scroll_down] = Exec("playerctl position 5-")
   action[middle] = Exec("playerctl next")
 
-  grid {
-    style = "pill_grid"
-    image {
-      value = If(XMediaStatus = "Playing", "media-playback-pause-symbolic",
-               If(XMediaStatus = "Paused", "media-playback-start-symbolic",
-                "multimedia-audio-player-symbolic"))
-    }
-    label {
-      value = If(XMediaTitle != "none", XMediaTitle, "Media")
-    }
+  label {
+    value = If(XMediaStatus = "Playing", "󰎈 ",
+            If(XMediaStatus = "Paused", "󰏤 ", "󰎉 ")) +
+            If(XMediaTitle != "none", XMediaTitle, "") +
+            If(XMediaArtist != "none" && XMediaTitle != "none", " — ", "") +
+            If(XMediaArtist != "none", XMediaArtist, "")
   }
 }
 

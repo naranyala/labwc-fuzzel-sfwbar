@@ -1,44 +1,15 @@
 #Api2
 
-include("cpu.source")
-
+# CPU text widget — shows CPU usage percentage
 export button "cpu-text" {
-  interval = 1000
-  style = If(XCpuPresent, "module_pill", "hidden")
-  class = "module"
-  tooltip = "CPU Usage: " + Str(XCpuUtilization*100, 1) + "%"
-  action = PopUp("CpuPopup")
-  
-  grid {
-    style = "pill_grid"
-    image { value = "cpu-symbolic" }
-    progressbar "cpu_prog" { 
-      value = XCpuUtilization
-      style = "pill_progress"
-      min = 0
-      max = 1 
-    }
-    label { value = Str(XCpuUtilization*100, 0) + "%" }
+  interval = 2000
+  style = If(XCpuLoad > 80, "text_urgent", "text_metric")
+  tooltip = "CPU Usage: " + Str(XCpuLoad, 0) + "%"
+  action = ExecTerm("top -b -n 1 | head -5")
+
+  label {
+    value = "󰍛 " + Str(XCpuLoad, 0) + "%"
   }
 }
 
-PopUp("CpuPopup") {
-  style = "detail_popup"
-  grid {
-    style = "detail_grid"
-    label {
-      value = "CPU Monitor"
-      style = "detail_header"
-    }
-    label {
-      style = "detail_value"
-      interval = 1000
-      value = "CPU " + Str(XCpuUtilization*100, 0) + "%"
-    }
-    label {
-      value = "Click to open htop"
-      style = "detail_hint"
-      action = ExecTerm("htop")
-    }
-  }
-}
+#CSS

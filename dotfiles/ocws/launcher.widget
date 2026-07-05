@@ -1,12 +1,13 @@
 #Api2
 
-# Launcher widget — app menu button
+# Launcher widget — text-style app menu
 export button "launcher" {
-  value = "view-app-grid-symbolic"
-  style = "module"
+  style = "text_widget"
   class = "module"
   tooltip = "Application Launcher"
   action = Exec("fuzzel")
+
+  label { value = "  Apps" }
 }
 
 #CSS

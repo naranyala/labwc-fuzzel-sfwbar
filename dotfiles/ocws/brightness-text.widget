@@ -1,0 +1,26 @@
+#Api2
+
+# Brightness text widget — shows backlight percentage
+scanner {
+  step = 2000
+  exec("ocws-brightness get") {
+    XBrightRaw = Grab(First)
+    XBrightness = Val(Extract(XBrightRaw, "BRIGHTNESS=([0-9]+)"))
+  }
+}
+
+export button "brightness-text" {
+  interval = 2000
+  style = "text_widget"
+  tooltip = "Brightness: " + Str(XBrightness, 0) + "%"
+  action = Exec("ocws-brightness up")
+  action[scroll_up] = Exec("ocws-brightness up")
+  action[scroll_down] = Exec("ocws-brightness down")
+  action[middle] = Exec("ocws-brightness max")
+
+  label {
+    value = "󰃠 " + Str(XBrightness, 0) + "%"
+  }
+}
+
+#CSS

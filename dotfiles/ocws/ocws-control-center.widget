@@ -1,14 +1,13 @@
 #Api2
 
 # -------------------------------------------------------------------
-# OCWS Control Center Widget
-# Unified menu for Volume, Brightness, Network, Bluetooth, Power
+# OCWS Control Center Widget — text-style status display
 # -------------------------------------------------------------------
 
 # Data Sources
 scanner {
   step = 2000
-  exec("/bin/sh -c 'wpctl get-volume @DEFAULT_SINK@ 2>/dev/null'") { 
+  exec("/bin/sh -c 'wpctl get-volume @DEFAULT_SINK@ 2>/dev/null'") {
     XVolRaw = Grab(First)
     XVolLevel = Val(RegEx("Volume: ([0-9.]+)", XVolRaw)) * 100
     XVolMuted = RegEx("MUTED", XVolRaw)
@@ -16,20 +15,18 @@ scanner {
 }
 
 # -------------------------------------------------------------------
-# The Button (On the Bar)
+# The Text Widget (On the Bar)
 # -------------------------------------------------------------------
 export button "ocws-control-center" {
   interval = 3000
-  style = "module_pill"
-  class = "module"
-  tooltip = "OCWS Control Center"
+  style = "text_widget"
+  tooltip = "Control Center"
   action = PopUp("OCWSControlCenter")
 
-  grid {
-    style = "pill_grid"
-    label { value = "󰤨 " + If(XNetState="connected", "WiFi", "Offline") }
-    label { value = "  󰂯 " + XBtState }
-    label { value = "  󰁹 " + Str(XBatLvl, 0) + "%" }
+  label {
+    value = "󰤨 " + If(XNetState="connected", "WiFi", " Offline") +
+            "  󰂯 " + XBtState +
+            "  󰁹 " + Str(XBatLvl, 0) + "%"
   }
 }
 
@@ -38,7 +35,7 @@ export button "ocws-control-center" {
 # -------------------------------------------------------------------
 PopUp("OCWSControlCenter") {
   style = "detail_popup"
-  
+
   grid {
     style = "control_center_grid"
 
@@ -77,13 +74,13 @@ PopUp("OCWSControlCenter") {
     # Toggles Grid (2 columns)
     grid {
       style = "cc_toggles"
-      button { 
-        value = If(XNetState="connected", "󰤨  WiFi On", "󰤭  WiFi Off") 
+      button {
+        value = If(XNetState="connected", "󰤨  WiFi On", "󰤭  WiFi Off")
         action = Exec("actions.sh network toggle")
         style = If(XNetState="connected", "cc_toggle_active", "cc_toggle")
       }
-      button { 
-        value = If(XBtState="On", "󰂯  BT On", "󰂲  BT Off") 
+      button {
+        value = If(XBtState="On", "󰂯  BT On", "󰂲  BT Off")
         action = Exec("actions.sh bluetooth toggle")
         style = If(XBtState="On", "cc_toggle_active", "cc_toggle")
       }
@@ -105,7 +102,7 @@ grid.control_center_grid {
   padding: 16px;
   border-radius: 20px;
   border: 1px solid rgba(255, 255, 255, 0.1);
-  background-color: rgba(30, 30, 46, 0.85); /* Slightly less translucent than the bar */
+  background-color: rgba(30, 30, 46, 0.85);
   -GtkWidget-direction: bottom;
   box-shadow: 0 12px 36px rgba(0, 0, 0, 0.6);
   min-width: 320px;

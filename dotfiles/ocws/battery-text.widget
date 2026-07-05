@@ -2,26 +2,16 @@
 
 export button "battery-text" {
   interval = 2000
-  style = "module_pill"
-  class = "module"
+  style = "text_widget"
   tooltip = "Battery: " + Str(XBatLvl, 0) + "%\nStatus: " + XBatStat
   action = PopUp("BatPopup")
 
-  grid {
-    style = "pill_grid"
-    image {
-      value = If(XBatLvl > 90, "battery-full-symbolic",
-               If(XBatLvl > 60, "battery-good-symbolic",
-                If(XBatLvl > 20, "battery-low-symbolic",
-                 "battery-empty-symbolic")))
-    }
-    progressbar "bat_prog" {
-      value = XBatLvl
-      style = "pill_progress"
-      min = 0
-      max = 100
-    }
-    label { value = Str(XBatLvl, 0) + "%" }
+  label {
+    value = If(XBatLvl > 90, "󰁹 ",
+            If(XBatLvl > 60, "󰂀 ",
+             If(XBatLvl > 20, "󰁾 ",
+              "󰁺 "))) +
+            Str(XBatLvl, 0) + "%"
   }
 }
 

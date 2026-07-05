@@ -5,15 +5,11 @@ Exec("sh ~/.config/sfwbar/get-keybinds.sh") {
 }
 
 export button "keybinds" {
-  style = "module_pill"
-  class = "module"
+  style = "text_widget"
   tooltip = "Show Labwc Keybinds"
   action = PopUp("KeybindsPopup")
-  
-  grid {
-    style = "pill_grid"
-    image { value = "preferences-desktop-keyboard-shortcuts-symbolic" }
-  }
+
+  label { value = "  Keys" }
 }
 
 PopUp("KeybindsPopup") {

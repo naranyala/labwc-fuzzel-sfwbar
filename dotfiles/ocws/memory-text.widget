@@ -1,46 +1,15 @@
 #Api2
 
-include("memory.source")
-
+# Memory text widget — shows memory usage
 export button "memory-text" {
-  interval = 1000
-  style = If(XMemPresent, "module_pill", "hidden")
-  class = "module"
-  tooltip = "Memory Usage: " + Str(XMemUtilization*100, 1) + "%"
-  action = PopUp("MemPopup")
+  interval = 2000
+  style = If(XMemPct > 80, "text_urgent", "text_metric")
+  tooltip = "Memory: " + Str(XMemPct, 0) + "%\nUsed: " + Str(XMemUsed, 0) + " MB / " + Str(XMemTot, 0) + " MB"
+  action = ExecTerm("free -h")
 
-  grid {
-    style = "pill_grid"
-    image { value = "ram-symbolic" }
-    progressbar "mem_prog" { 
-      value = XMemUtilization
-      style = "pill_progress"
-      min = 0
-      max = 1 
-    }
-    label { value = Str(XMemUtilization*100, 0) + "%" }
+  label {
+    value = "󰍛 " + Str(XMemPct, 0) + "%"
   }
 }
 
-PopUp("MemPopup") {
-  style = "detail_popup"
-  grid {
-    style = "detail_grid"
-    label {
-      value = "Memory Monitor"
-      style = "detail_header"
-    }
-    label {
-      style = "detail_value"
-      interval = 1000
-      value = "MEM " + Str(XMemUtilization*100, 0) + "%"
-    }
-    label {
-      value = "Click to open htop"
-      style = "detail_hint"
-      action = ExecTerm("htop -o %MEM")
-    }
-  }
-}
-
-
+#CSS
