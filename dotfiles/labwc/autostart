@@ -36,16 +36,9 @@ elif command -v swaybg >/dev/null 2>&1; then
   fi
 fi
 
-# --- OCWS Shell (sfwbar) - DISABLED BY DEFAULT ---
-# if command -v sfwbar >/dev/null 2>&1; then
-# --- Dynamic Shell Switcher ---
-if command -v shell-switcher.sh >/dev/null 2>&1; then
-  shell-switcher.sh &
-fi
-
-# --- Shell Mode Wrapper ---
+# --- Shell Mode Selection ---
+# Uses toggle-shell to start the configured shell mode
 if command -v toggle-shell >/dev/null 2>&1; then
-  # Use the toggle-shell script for shell mode selection
   # Check for environment variable first, then config file, else default
   if [ -n "${LABWC_SHELL_MODE:-}" ]; then
     toggle-shell "$LABWC_SHELL_MODE"
@@ -53,12 +46,14 @@ if command -v toggle-shell >/dev/null 2>&1; then
     MODE="$(cat "$HOME/.config/labwc-widgets/shell-mode")"
     toggle-shell "$MODE"
   else
-    toggle-shell noctalia
+    toggle-shell sfwbar-plus
   fi
+elif command -v shell-switcher.sh >/dev/null 2>&1; then
+  shell-switcher.sh
 else
-  echo "warning: toggle-shell not found, using legacy labwc-shell-wrapper"
-  if command -v labwc-shell-wrapper >/dev/null 2>&1; then
-    "$SCRIPT_DIR/scripts/labwc-shell-wrapper" 2>/dev/null
+  echo "warning: no shell switcher found, starting sfwbar directly"
+  if command -v sfwbar >/dev/null 2>&1; then
+    nohup sfwbar -f "$HOME/.config/ocws/ocws.config" > /dev/null 2>&1 &
   fi
 fi
 

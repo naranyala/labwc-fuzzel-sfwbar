@@ -3,8 +3,8 @@
 
 declare -A MODES=(
     ["1. Noctalia (Default)"]="noctalia"
-    ["2. SFWBar + Crystal Dock"]="crystal_dock"
-    ["3. SFWBar Dual Panel"]="double_panel"
+    ["2. SFWBar + Crystal Dock"]="crystal"
+    ["3. SFWBar Dual Panel"]="both"
 )
 
 # Generate list for fuzzel

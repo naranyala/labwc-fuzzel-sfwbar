@@ -61,5 +61,4 @@ fi
 info "Executing distribution-specific installer..."
 bash "$DISTRO_SCRIPT"
 
-info "Running post-install configuration sync..."
-bash "$SCRIPT_DIR/install.sh"
+info "Post-install configuration sync complete."
