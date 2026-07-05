@@ -56,7 +56,7 @@ elif command -v shell-switcher.sh >/dev/null 2>&1; then
 else
   echo "warning: no shell switcher found, starting dms directly"
   if command -v dms >/dev/null 2>&1; then
-    nohup dms > /dev/null 2>&1 &
+    nohup dms run > /dev/null 2>&1 &
   elif command -v sfwbar >/dev/null 2>&1; then
     nohup sfwbar -f "$HOME/.config/ocws/ocws.config" > /dev/null 2>&1 &
   fi

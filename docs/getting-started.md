@@ -90,7 +90,7 @@ labwc
 | Service | Command | Role |
 |---------|---------|------|
 | Wallpaper | `ocws-wallpaper ~/Pictures/wallpapers/` | Time-of-day wallpaper transitions |
-| Shell UI | `sfwbar -f ~/.config/ocws/ocws.config` | The entire OCWS panel |
+| Shell UI | `toggle-shell` / `shell-switcher.sh` | Starts configured shell (dms, noctalia, sfwbar-plus, crystal) |
 | OCWS Daemon | `~/.config/ocws/ocws-daemon.sh` | Event Bus IPC listener |
 | Notifications | `ocws-notify` | D-Bus notification daemon (replaces mako) |
 | Clipboard | `wl-paste --watch cliphist store` | Clipboard history daemon |
@@ -137,6 +137,22 @@ Keybindings are defined in `~/.config/labwc/rc.xml`.
 ---
 
 ## Using the Shell
+
+### Shell Modes
+
+OCWS provides multiple desktop paradigms. You can switch between them on the fly:
+
+```bash
+# Interactive UI
+shell-mode-picker.sh
+
+# CLI
+toggle-shell dms         # default dankmaterialshell
+toggle-shell noctalia    # Noctalia shell
+toggle-shell sfwbar-plus # OCWS dual-panel
+toggle-shell sfwbar      # OCWS minimal
+toggle-shell crystal     # Crystal dock only
+```
 
 ### Control Center
 
@@ -205,14 +221,14 @@ Drop any `.widget` file into `~/.config/ocws/plugins/` and reload the shell. The
 
 ```bash
 # Check core binaries are in PATH
-which labwc sfwbar fuzzel foot ocws-notify ocws-brightness ocws-volume
+which labwc sfwbar fuzzel foot ocws
 
 # Check OCWS config directories exist
 ls ~/.config/ocws/
 ls ~/.config/labwc/
 
 # Check C helper binaries are installed
-ls ~/.local/bin/ocws-*
+ls ~/.local/bin/ocws
 
 # Test the Event Bus
 ocws-emit.sh System.Volume 75

@@ -61,7 +61,7 @@ case "$NEW" in
     dms)
         echo "Starting dms..."
         if command -v dms >/dev/null 2>&1; then
-            nohup dms >/dev/null 2>&1 &
+            nohup dms run >/dev/null 2>&1 &
             echo "Started dms"
         else
             echo "error: dms not installed"

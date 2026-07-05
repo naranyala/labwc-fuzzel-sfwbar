@@ -258,21 +258,21 @@ OCWS ships a suite of compiled C utilities in `zig-out/bin/`, installed to `~/.l
 
 | Binary | Purpose |
 |--------|---------|
-| `ocws-sysmon` | System metrics (CPU/mem/net/bat/bt/brightness/temp) in one pass |
-| `ocws-clip` | Clipboard manager (cliphist + fuzzel picker) |
-| `ocws-shot` | Screenshot tool (grim + slurp + annotation via satty/swappy) |
-| `ocws-lock` | Screen lock wrapper (swaylock) |
-| `ocws-kv` | Key-value persistent store (flat file at ~/.config/ocws/state.kv) |
-| `ocws-brightness` | Smooth backlight control with cubic easing animation |
-| `ocws-volume` | Smooth PulseAudio volume control with cubic easing |
-| `ocws-notify` | Native D-Bus notification daemon (replaces mako) |
-| `ocws-osd-notify` | Glassmorphic notification popup (gtk-layer-shell) |
-| `ocws-wallpaper` | Time-of-day wallpaper transitions (replaces swaybg) |
-| `ocws-color` | Wallpaper palette extraction (median-cut, outputs hex/ini/scss/json) |
-| `ocws-ocr` | Screen OCR via Tesseract (capture region or read image) |
-| `ocws-recorder` | Screen recording (wf-recorder wrapper with start/stop/pause) |
-| `ocws-live-bg` | Animated live background (GTK layer shell + cairo) |
-| `ocws-hypertile` | Dynamic tiling layout for labwc |
+| `ocws sysmon` | System metrics in one pass |
+| `ocws clip` | Clipboard manager |
+| `ocws shot` | Screenshot tool |
+| `ocws lock` | Screen lock wrapper |
+| `ocws kv` | Key-value persistent store |
+| `ocws brightness` | Smooth backlight control |
+| `ocws volume` | Smooth PulseAudio volume control |
+| `ocws notify` | Native D-Bus notification daemon |
+| `ocws osd-notify` | Glassmorphic notification popup |
+| `ocws wallpaper` | Time-of-day wallpaper transitions |
+| `ocws color` | Wallpaper palette extraction |
+| `ocws ocr` | Screen OCR via Tesseract |
+| `ocws recorder` | Screen recording |
+| `ocws live-bg` | Animated live background |
+| `ocws hypertile` | Dynamic tiling layout |
 
 Build all binaries:
 
@@ -298,6 +298,12 @@ All scripts in `scripts/actions/` are installed to `~/.local/bin/actions/` and c
 | `workspace.sh` | Workspace switching helpers |
 | `workspace-actions.sh` | Advanced workspace management |
 | `network.sh` | WiFi/network status and control |
+| `wifi-menu.sh` | Fuzzy WiFi connection menu |
+| `bluetooth-menu.sh` | Fuzzy Bluetooth pairing menu |
+| `vpn.sh` | VPN connection control |
+| `display.sh` | Multi-monitor layout manager |
+| `dnd.sh` | Do Not Disturb toggle |
+| `mic.sh` | Microphone control |
 | `window.sh` | Window snap, maximize, float helpers |
 | `fuzzel-emoji.sh` | Emoji picker via fuzzel dmenu |
 | `fuzzel-calc.sh` | Calculator via fuzzel dmenu + bc |

@@ -18,14 +18,14 @@ border.color=#45475a
 # Titlebar
 titlebar.height=28
 
-# OSD — shared defaults
+# OSD / Window Switcher (Alt+Tab)
 osd.bg.color=#1e1e2e
 osd.border.color=#45475a
 osd.border.width=2
 osd.label.text.color=#cdd6f4
 
-# Window switcher (Alt+Tab)
-osd.window-switcher.style-classic.item.active.bg.color=#313244
+# Window switcher - classic style
+osd.window-switcher.style-classic.item.active.bg.color=#1e1e2e
 osd.window-switcher.style-classic.item.active.border.width=2
 osd.window-switcher.style-classic.item.active.border.color=#89b4fa
 osd.window-switcher.style-classic.width=600
@@ -35,7 +35,6 @@ osd.window-switcher.style-classic.item.padding.y=4
 osd.window-switcher.style-classic.item.icon.size=24
 
 # Workspace switcher (Super+Number)
-osd.workspace-switcher.label.text.color=#1e1e2e
-osd.workspace-switcher.label.active.text.color=#1e1e2e
+osd.workspace-switcher.label.text.color=#cdd6f4
+osd.workspace-switcher.label.active.text.color=#cdd6f4
 osd.workspace-switcher.label.inactive.text.color=#6c7086
-

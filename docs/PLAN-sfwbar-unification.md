@@ -28,7 +28,7 @@ All three modes remain functional. The shell switcher (`toggle-shell`) continues
 
 | Feature | Crystal-Dock | OCWS Current | Gap |
 |---------|--------------|--------------|-----|
-| Dock-style launcher | ✅ Pinned app icons | ❌ No dock widget | **NEED** |
+| Dock-style launcher | ✅ Pinned app icons | ✅ `dock.widget` + `dock-apps.widget` | Done |
 | Magnification effect | ✅ Mac-like zoom | ❌ Not supported | **NEED** |
 | Running app indicators | ✅ Dot indicators | ✅ Taskbar has focused state | Partial |
 | Show desktop | ✅ Click action | ✅ `showdesktop.widget` | Done |
@@ -42,8 +42,8 @@ All three modes remain functional. The shell switcher (`toggle-shell`) continues
 | Control center | ✅ Toggle panel with WiFi, BT, volume, brightness | ✅ `ocws-control-center.widget` | Done |
 | Notification daemon | ✅ Built-in | ✅ `ocws-notify` + `ocws-osd-notify` | Done |
 | OSD popups | ✅ Volume, brightness, etc. | ✅ `ocws-osd-notify` | Done |
-| Dock | ✅ Optional bottom dock | ❌ Not implemented | **NEED** |
-| Desktop widgets | ✅ Clock, weather, etc. | ❌ Not implemented | **NEED** |
+| Dock | ✅ Optional bottom dock | ✅ `dock.widget` | Done |
+| Desktop widgets | ✅ Clock, weather, etc. | ✅ `desktop-*.widget` | Done |
 | Lock screen | ✅ Built-in blur | ✅ `ocws-lock` (swaylock) | Done |
 | Weather | ✅ API integration | ✅ `weather.widget` | Done |
 | System monitor | ✅ CPU, memory, disk graphs | ✅ `ocws-sysmon` | Done |
@@ -55,8 +55,8 @@ All three modes remain functional. The shell switcher (`toggle-shell`) continues
 ### 1.3 Critical Gaps to Close
 
 **Must-have for parity:**
-1. **Dock widget** — Pinned apps with magnification effect
-2. **Desktop widgets** — Floating clock, weather, system stats
+1. **Dock widget** — Pinned apps with magnification effect (Completed)
+2. **Desktop widgets** — Floating clock, weather, system stats (Completed)
 3. **Animation polish** — Smooth hover states, transitions
 4. **Glassmorphism** — Real blur via gtk-layer-shell (if possible)
 
@@ -67,7 +67,7 @@ All three modes remain functional. The shell switcher (`toggle-shell`) continues
 
 ---
 
-## Phase 2: Dock Widget Implementation
+## Phase 2: Dock Widget Implementation (COMPLETED)
 
 ### 2.1 Requirements
 
@@ -102,7 +102,7 @@ All three modes remain functional. The shell switcher (`toggle-shell`) continues
 
 ---
 
-## Phase 3: Desktop Widgets
+## Phase 3: Desktop Widgets (COMPLETED)
 
 ### 3.1 Requirements
 
@@ -253,8 +253,8 @@ Single script: `ocws-shell` with modes:
 
 ## Success Criteria
 
-- [ ] Dock widget with magnification effect
-- [ ] Desktop widgets (clock, weather, sysmon)
+- [x] Dock widget with magnification effect
+- [x] Desktop widgets (clock, weather, sysmon)
 - [ ] Animation polish matching Noctalia
 - [ ] Single-mode switcher (`ocws-shell`)
 - [ ] Crystal-dock and noctalia removed from autostart

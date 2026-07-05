@@ -22,7 +22,7 @@ OCWS is a modular platform built on four layers:
 | Layer | Component | Role |
 |-------|-----------|------|
 | Compositor | `labwc` | Wayland session, window management, input handling, keybindings |
-| Shell UI | `sfwbar` | GTK3 panel engine: widgets, tray, taskbar, popups |
+| Shell UI | `sfwbar` / `noctalia` / `crystal-dock` | Selectable shell modes (OCWS dual-panel, Noctalia, Crystal Dock) via shell-switcher |
 | Launcher | `fuzzel` | Application launcher and dmenu-mode script runner |
 | Layer Shell | `gtk-layer-shell` | Anchors the shell surfaces to Wayland outputs |
 
@@ -181,25 +181,25 @@ labwc-fuzzel-sfwbar/
 
 ## C Utility Binaries
 
-All C utilities are built via `zig build` and installed to `~/.local/bin/`.
+All C utilities are merged into a single `ocws` binary built via `zig build` and installed to `~/.local/bin/`.
 
-| Binary | Purpose | Dependencies |
-|--------|---------|-------------|
-| `ocws-sysmon` | System metrics in one pass (CPU/mem/net/bat/bt/brightness/temp) | None |
-| `ocws-notify` | Native D-Bus notification daemon (replaces mako) | glib, gio |
-| `ocws-osd-notify` | Glassmorphic notification popup | gtk-layer-shell, glib |
-| `ocws-brightness` | Smooth backlight control with cubic easing | None |
-| `ocws-volume` | Smooth PulseAudio volume control with cubic easing | None |
-| `ocws-wallpaper` | Time-of-day wallpaper transitions | cairo |
-| `ocws-live-bg` | Animated live background | gtk-layer-shell, cairo |
-| `ocws-color` | Wallpaper palette extraction (median-cut, hex/ini/scss/json) | cairo |
-| `ocws-clip` | Clipboard manager (cliphist + fuzzel picker) | None |
-| `ocws-shot` | Screenshot tool (grim + slurp + annotation) | None |
-| `ocws-ocr` | Screen OCR via Tesseract | tesseract, leptonica |
-| `ocws-recorder` | Screen recording (wf-recorder wrapper) | None |
-| `ocws-lock` | Screen lock wrapper (swaylock) | None |
-| `ocws-kv` | Key-value persistent store (flat file at ~/.config/ocws/state.kv) | None |
-| `ocws-hypertile` | Dynamic tiling layout for labwc | wayland-client |
+| Binary Command | Purpose |
+|--------|---------|
+| `ocws sysmon` | System metrics in one pass (CPU/mem/net/bat/bt/brightness/temp) |
+| `ocws notify` | Native D-Bus notification daemon (replaces mako) |
+| `ocws osd-notify` | Glassmorphic notification popup |
+| `ocws brightness` | Smooth backlight control with cubic easing |
+| `ocws volume` | Smooth PulseAudio volume control with cubic easing |
+| `ocws wallpaper` | Time-of-day wallpaper transitions |
+| `ocws live-bg` | Animated live background |
+| `ocws color` | Wallpaper palette extraction |
+| `ocws clip` | Clipboard manager |
+| `ocws shot` | Screenshot tool |
+| `ocws ocr` | Screen OCR via Tesseract |
+| `ocws recorder` | Screen recording |
+| `ocws lock` | Screen lock wrapper |
+| `ocws kv` | Key-value persistent store |
+| `ocws hypertile` | Dynamic tiling layout for labwc |
 
 ## Widget System
 
@@ -213,7 +213,8 @@ OCWS ships 36 widget files in `dotfiles/ocws/`. Each widget is a self-contained 
 - `clock.widget` -- Time display with calendar popup
 - `tray.widget` -- System tray icons
 - `showdesktop.widget` -- Show desktop toggle
-- `dock.widget` -- Pinned application dock
+- `dock.widget` -- macOS-style dock with magnification
+- `dock-apps.widget` -- Pinned application launcher dock
 - `keybinds.widget` -- Keyboard shortcut reference
 
 **System Metrics (text-style)**
@@ -239,6 +240,11 @@ OCWS ships 36 widget files in `dotfiles/ocws/`. Each widget is a self-contained 
 - `power-profile.widget` -- Performance/balanced/saver modes
 - `keyboard-layout.widget` -- Current keyboard layout indicator
 - `nightlight.widget` -- Blue light filter toggle
+
+**Desktop Widgets (Floating)**
+- `desktop-clock.widget` -- Large floating clock
+- `desktop-weather.widget` -- Desktop weather
+- `desktop-sysmon.widget` -- Desktop hardware monitor
 
 **System Monitoring**
 - `sysmon.widget` -- Uptime, load, processes
@@ -430,6 +436,8 @@ To compile the latest upstream versions of labwc, sfwbar, and fuzzel:
 |------|----------|
 | `~/.config/labwc/` | `rc.xml`, `menu.xml`, `autostart`, `environment`, `themerc-override` |
 | `~/.config/ocws/` | `ocws.config`, `*.widget`, `ocws-daemon.sh`, `plugins/`, `state.kv` |
+| `~/.config/noctalia/` | `config.toml` (if using noctalia mode) |
+| `~/.config/crystal-dock/` | `panel_1.conf`, `appearance.conf` (if using crystal mode) |
 | `~/.config/fuzzel/` | `fuzzel.ini` |
 | `~/.config/foot/` | `foot.ini` |
 | `~/.local/bin/` | All `scripts/*.sh` and C helper binaries (`ocws-*`) |

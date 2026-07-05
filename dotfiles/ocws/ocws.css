@@ -20,13 +20,15 @@ grid#layout, grid#topbar {
   background-color: transparent;
   margin: 0px;
   padding: 0px 8px;
+  border-bottom: 1px solid alpha(#45475a, 0.3);
 }
 
 /* Bottom bar */
 grid#bottombar {
-  background-color: transparent;
+  background-color: alpha(#1e1e2e, 0.85);
   margin: 0px;
   padding: 0px 8px;
+  border-top: 1px solid alpha(#45475a, 0.3);
 }
 
 /* ============================================================
@@ -55,7 +57,7 @@ button.module {
 }
 
 button.module:hover {
-  background-color: alpha(#45475a, 0.5);
+  background-color: alpha(#1e1e2e, 0.5);
 }
 
 button.module:active {
@@ -71,14 +73,14 @@ button.text_widget {
   margin: 1px 3px;
   border-radius: 6px;
   background-color: transparent;
-  color: #a6adc8;
+  color: alpha(#cdd6f4, 0.7);
   min-width: 0px;
   min-height: 0px;
   font-size: 12px;
 }
 
 button.text_widget:hover {
-  background-color: alpha(#45475a, 0.4);
+  background-color: alpha(#1e1e2e, 0.4);
   color: #cdd6f4;
 }
 
@@ -99,7 +101,7 @@ button.text_clock {
 }
 
 button.text_clock:hover {
-  background-color: alpha(#45475a, 0.4);
+  background-color: alpha(#1e1e2e, 0.4);
 }
 
 button.text_media {
@@ -107,14 +109,14 @@ button.text_media {
   margin: 1px 3px;
   border-radius: 6px;
   background-color: transparent;
-  color: #a6adc8;
+  color: alpha(#cdd6f4, 0.7);
   font-size: 12px;
   min-width: 0px;
   min-height: 0px;
 }
 
 button.text_media:hover {
-  background-color: alpha(#45475a, 0.4);
+  background-color: alpha(#1e1e2e, 0.4);
   color: #cdd6f4;
 }
 
@@ -123,7 +125,7 @@ button.text_metric {
   margin: 1px 3px;
   border-radius: 6px;
   background-color: transparent;
-  color: #a6adc8;
+  color: alpha(#cdd6f4, 0.7);
   font-size: 11px;
   font-family: monospace;
   min-width: 0px;
@@ -131,7 +133,7 @@ button.text_metric {
 }
 
 button.text_metric:hover {
-  background-color: alpha(#45475a, 0.4);
+  background-color: alpha(#1e1e2e, 0.4);
   color: #cdd6f4;
 }
 
@@ -156,7 +158,7 @@ button#clock {
 }
 
 button#clock:hover {
-  background-color: alpha(#45475a, 0.4);
+  background-color: alpha(#1e1e2e, 0.4);
 }
 
 /* ============================================================
@@ -168,12 +170,12 @@ button.taskbar_item {
   margin: 2px;
   border-radius: 6px;
   background-color: transparent;
-  color: #a6adc8;
+  color: alpha(#cdd6f4, 0.7);
   font-size: 11px;
 }
 
 button.taskbar_item:hover {
-  background-color: alpha(#45475a, 0.5);
+  background-color: alpha(#1e1e2e, 0.5);
   color: #cdd6f4;
 }
 
@@ -214,7 +216,7 @@ button#showdesktop {
 }
 
 button#showdesktop:hover {
-  background-color: alpha(#45475a, 0.5);
+  background-color: alpha(#1e1e2e, 0.5);
 }
 
 button#showdesktop:checked {
@@ -233,7 +235,7 @@ button#dock {
 }
 
 button#dock:hover {
-  background-color: alpha(#45475a, 0.5);
+  background-color: alpha(#1e1e2e, 0.5);
 }
 
 /* ============================================================
@@ -287,11 +289,11 @@ button#pager_item {
 
 button#pager_item label {
   font-size: 11px;
-  color: #45475a;
+  color: alpha(#cdd6f4, 0.3);
 }
 
 button#pager_item.occupied {
-  background-color: alpha(#45475a, 0.3);
+  background-color: alpha(#1e1e2e, 0.3);
 }
 
 button#pager_item.occupied label {
@@ -309,7 +311,7 @@ button#pager_item.active label {
 }
 
 button#pager_item:hover {
-  background-color: alpha(#45475a, 0.4);
+  background-color: alpha(#1e1e2e, 0.4);
 }
 
 /* ============================================================
@@ -371,7 +373,7 @@ grid.detail_button_row button {
 }
 
 grid.detail_button_row button:hover {
-  background-color: alpha(#45475a, 0.5);
+  background-color: alpha(#1e1e2e, 0.5);
   border-color: #89b4fa;
 }
 
@@ -383,7 +385,7 @@ scale.detail_slider {
 progressbar.detail_progress trough {
   min-height: 6px;
   border-radius: 3px;
-  background-color: alpha(#45475a, 0.4);
+  background-color: alpha(#1e1e2e, 0.4);
   border: 1px solid alpha(#45475a, 0.3);
 }
 
@@ -415,6 +417,31 @@ grid#SessionPopup {
 }
 
 /* ============================================================
+ * Workspace grid (popup)
+ * ============================================================ */
+
+grid#ws_grid {
+  -GtkWidget-direction: right;
+  padding: 4px;
+}
+
+button.ws_button {
+  min-width: 28px;
+  min-height: 28px;
+  border-radius: 6px;
+  padding: 4px;
+  margin: 2px;
+  background-color: alpha(#1e1e2e, 0.4);
+  color: alpha(#cdd6f4, 0.6);
+  font-size: 11px;
+}
+
+button.ws_button:hover {
+  background-color: alpha(#1e1e2e, 0.6);
+  color: #cdd6f4;
+}
+
+/* ============================================================
  * Tooltips
  * ============================================================ */
 
@@ -437,29 +464,4 @@ tooltip label {
 
 label#spacer1, label#spacer2 {
   -GtkWidget-hexpand: true;
-}
-
-/* ============================================================
- * Workspace grid (popup)
- * ============================================================ */
-
-grid#ws_grid {
-  -GtkWidget-direction: right;
-  padding: 4px;
-}
-
-button.ws_button {
-  min-width: 28px;
-  min-height: 28px;
-  border-radius: 6px;
-  padding: 4px;
-  margin: 2px;
-  background-color: alpha(#45475a, 0.4);
-  color: alpha(#cdd6f4, 0.6);
-  font-size: 11px;
-}
-
-button.ws_button:hover {
-  background-color: alpha(#45475a, 0.6);
-  color: #cdd6f4;
 }
