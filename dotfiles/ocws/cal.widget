@@ -180,6 +180,12 @@ Private {
       loc(1,4)
       style = 'cal_grid'
     }
+    label {
+      value = 'Click to open calendar'
+      style = 'cal_hint'
+      loc(1,5)
+      action = Exec('xdg-open "calendar://"')
+    }
   }
 }
 
@@ -252,5 +258,13 @@ label#cal_cell_today {
 
 label#cal_cell_other {
   color: alpha(@theme_text_color,0.5);
+}
+
+label#cal_hint {
+  font-size: 10px;
+  color: alpha(@theme_text_color, 0.5);
+  padding-top: 6px;
+  border-top: 1px solid alpha(@theme_border_color, 0.3);
+  -GtkWidget-hexpand: true;
 }
 

@@ -5,7 +5,7 @@ export button "temperature" {
   interval = 3000
   style = If(XTemp > 75, "text_urgent", "text_metric")
   tooltip = "CPU Temperature: " + Str(XTemp, 0) + "°C"
-  action = ExecTerm("sensors")
+  action = Exec("foot -e sensors")
 
   label {
     value = "󰏸 " + Str(XTemp, 0) + "°"

@@ -6,6 +6,8 @@
 
 set -uo pipefail
 
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
 OCWS_DIR="${OCWS_DIR:-$HOME/.config/ocws}"
 STATE_DIR="$OCWS_DIR/state"
 mkdir -p "$STATE_DIR"
@@ -43,17 +45,17 @@ init_config() {
     
     # Create essential config files if they don't exist
     if [[ ! -f "$OCWS_DIR/ocws-daemon.sh" ]]; then
-        cp "/media/naranyala/Data/projects-remote/labwc-fuzzel-sfwbar/dotfiles/ocws/ocws-daemon.sh" "$OCWS_DIR/" 2>/dev/null || true
+        cp "$PROJECT_DIR/dotfiles/ocws/ocws-daemon.sh" "$OCWS_DIR/" 2>/dev/null || true
         chmod +x "$OCWS_DIR/ocws-daemon.sh"
     fi
     
     if [[ ! -f "$OCWS_DIR/ocws-emit.sh" ]]; then
-        cp "/media/naranyala/Data/projects-remote/labwc-fuzzel-sfwbar/scripts/ocws-emit.sh" "$OCWS_DIR/" 2>/dev/null || true
+        cp "$PROJECT_DIR/scripts/ocws-emit.sh" "$OCWS_DIR/" 2>/dev/null || true
         chmod +x "$OCWS_DIR/ocws-emit.sh"
     fi
     
     if [[ ! -f "$OCWS_DIR/ocws-plugin-loader.sh" ]]; then
-        cp "/media/naranyala/Data/projects-remote/labwc-fuzzel-sfwbar/scripts/ocws-plugin-loader.sh" "$OCWS_DIR/" 2>/dev/null || true
+        cp "$PROJECT_DIR/scripts/ocws-plugin-loader.sh" "$OCWS_DIR/" 2>/dev/null || true
         chmod +x "$OCWS_DIR/ocws-plugin-loader.sh"
     fi
     
@@ -62,7 +64,7 @@ init_config() {
     
     # Create essential widget files if they don't exist
     if [[ ! -f "$OCWS_DIR/dotfiles/ocws/ocws.config" ]]; then
-        cp "/media/naranyala/Data/projects-remote/labwc-fuzzel-sfwbar/dotfiles/ocws/ocws.config" "$OCWS_DIR/dotfiles/ocws/" 2>/dev/null || true
+        cp "$PROJECT_DIR/dotfiles/ocws/ocws.config" "$OCWS_DIR/dotfiles/ocws/" 2>/dev/null || true
     fi
     
     echo "Configuration setup complete"
@@ -89,8 +91,8 @@ init_theme() {
     echo "Setting up default theme..."
     
     # Apply default theme if theme-engine exists
-    if [[ -f "/media/naranyala/Data/projects-remote/labwc-fuzzel-sfwbar/scripts/theme-engine.sh" ]]; then
-        local theme_file="/media/naranyala/Data/projects-remote/labwc-fuzzel-sfwbar/themes/catppuccin-mocha.ini"
+    if [[ -f "$PROJECT_DIR/scripts/theme-engine.sh" ]]; then
+        local theme_file="$PROJECT_DIR/themes/catppuccin-mocha.ini"
         
         if [[ -f "$theme_file" ]]; then
             # Preview theme without applying

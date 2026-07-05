@@ -1,6 +1,6 @@
 #Api2
 
-Exec("sh ~/.config/sfwbar/get-keybinds.sh") {
+Exec("sh ~/.config/ocws/get-keybinds.sh") {
   XKeybindsRaw = Grab(First)
 }
 

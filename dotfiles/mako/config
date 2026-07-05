@@ -1,19 +1,19 @@
 [mako]
-font=
-width=
+font=Noto Sans 11
+width=350
 height=300
-max-visible=
-default-timeout=
-markup=
-actions=
+max-visible=5
+default-timeout=5000
+markup=true
+actions=true
 layer=overlay
 anchor=top-right
 margin=20
-padding=
-border-radius=
-border-size=
+padding=12
+border-radius=8
+border-size=2
 
 [colors]
-background=
-text=
-border=
+background=#313244
+text=#cdd6f4
+border=#89b4fa

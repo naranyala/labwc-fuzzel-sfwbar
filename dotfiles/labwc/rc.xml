@@ -156,6 +156,9 @@
 
     <!-- Superkey+f - Rich Application & System Launcher -->
     <keybind key="W-f"><action name="Execute"><command>workspace-actions.sh</command></action></keybind>
+
+    <!-- Superkey+h - Show Keybinds Popup -->
+    <keybind key="S-h"><action name="ShowPopup"><popup>KeybindsPopup</popup></action></keybind>
   </keyboard>
 
   <mouse>

@@ -23,8 +23,7 @@ while [[ "$_candidate" != "/" ]]; do
   fi
   _candidate="$(dirname "$_candidate")"
 done
-# Fallback: known project path
-[[ -z "$PROJECT_DIR" ]] && PROJECT_DIR="/media/naranyala/Data/projects-remote/labwc-fuzzel-sfwbar"
+
 [[ -d "$PROJECT_DIR/themes" ]] || { echo "Cannot find themes/ directory"; exit 1; }
 THEMES_DIR="$PROJECT_DIR/themes"
 CURRENT_FILE="$HOME/.config/labwc/.current-theme"

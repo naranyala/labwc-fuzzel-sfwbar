@@ -19,7 +19,7 @@ Function XWeatherIcon(code) {
   If(code <= 82, "weather-showers-symbolic",
   If(code <= 86, "weather-snow-symbolic",
   If(code <= 99, "weather-storm-symbolic",
-  "weather-clear-symbolic"))))))))
+  "weather-clear-symbolic")))))))))
 }
 
 Function XWeatherDesc(code) {
@@ -32,7 +32,7 @@ Function XWeatherDesc(code) {
   If(code <= 82, "Rain showers",
   If(code <= 86, "Heavy snow",
   If(code <= 99, "Thunderstorm",
-  "Unknown"))))))))
+  "Unknown")))))))))
 }
 
 export grid "weather" {

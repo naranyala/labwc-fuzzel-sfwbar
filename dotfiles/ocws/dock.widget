@@ -100,44 +100,12 @@ PopUp("DockPopup") {
 
 # Helper functions
 
-ExecuteApp() {
-  local app_name="$1"
-  
-  # Add to recent apps
-  echo "$(date +%Y-%m-%d\ %H:%M:%S) $app_name" >> "$HOME/.local/share/ocws/app_history.log"
-  
-  # Try different launchers
-  if command -v kitty >/dev/null 2>&1; then
-    kitty -e "bash -c '$app_name'"
-  elif command -v foot >/dev/null 2>&1; then
-    foot -e "bash -c '$app_name'"
-  elif command -v fuzzel >/dev/null 2>&1; then
-    fuzzel --command="$app_name"
-  else
-    echo "No terminal emulator found"
-  fi
+Function ExecuteApp() {
+  Exec("fuzzel --command " + $1)
 }
 
-ExecuteRecentApp() {
-  local app_name="$1"
-  
-  if command -v kitty >/dev/null 2>&1; then
-    kitty -e "bash -c '$app_name'"
-  elif command -v foot >/dev/null 2>&1; then
-    foot -e "bash -c '$app_name'"
-  elif command -v fuzzel >/dev/null 2>&1; then
-    fuzzel --command="$app_name"
-  fi
-}
-
-add_dock_app() {
-  local name="$1"
-  local cmd="$2"
-  
-  local apps_file="$HOME/.local/share/ocws/dock_apps"
-  mkdir -p "$(dirname "$apps_file")"
-  
-  echo "${name}|${cmd}" >> "$apps_file"
+Function ExecuteRecentApp() {
+  Exec("fuzzel --command " + $1)
 }
 
 #CSS

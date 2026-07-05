@@ -68,7 +68,7 @@ PopUp("VolPopup") {
     label {
       value = "Click to open pavucontrol"
       style = "detail_hint"
-      action = ExecTerm("pavucontrol")
+      action = Exec("pavucontrol")
     }
   }
 }

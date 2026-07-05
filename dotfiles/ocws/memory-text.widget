@@ -5,7 +5,7 @@ export button "memory-text" {
   interval = 2000
   style = If(XMemPct > 80, "text_urgent", "text_metric")
   tooltip = "Memory: " + Str(XMemPct, 0) + "%\nUsed: " + Str(XMemUsed, 0) + " MB / " + Str(XMemTot, 0) + " MB"
-  action = ExecTerm("free -h")
+  action = Exec("foot -e free -h")
 
   label {
     value = "󰍛 " + Str(XMemPct, 0) + "%"

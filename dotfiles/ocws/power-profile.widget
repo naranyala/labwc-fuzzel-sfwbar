@@ -78,7 +78,7 @@ PopUp("PowerPopup") {
     label {
       value = "Click to open power settings"
       style = "detail_hint"
-      action = ExecTerm("powerprofilesctl list")
+      action = Exec("foot -e powerprofilesctl list")
     }
   }
 }

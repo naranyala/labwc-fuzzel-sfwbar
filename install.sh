@@ -64,6 +64,16 @@ if ! command -v labwc >/dev/null 2>&1 || ! command -v sfwbar >/dev/null 2>&1 || 
     read -r
 fi
 
+# 1.5 Confirmation Prompt
+echo -e "\n${YELLOW}⚠ WARNING: This will deploy configurations to ~/.config/ and ~/.local/bin/${NC}"
+echo -e "  Affected directories: labwc, ocws, fuzzel, foot, gtk-3.0, gtk-4.0, rofi, mako, qt6ct, zebar"
+echo -n "  Are you sure you want to proceed? [y/N]: "
+read -r confirm
+if [[ ! "$confirm" =~ ^[Yy]$ ]]; then
+    echo -e "\n  Installation aborted."
+    exit 0
+fi
+
 # 2. Setup Directories
 info "Setting up configuration directories..."
 mkdir -p ~/.config/labwc
@@ -80,7 +90,12 @@ pass "labwc configurations synced."
 
 # 4. Deploy OCWS Shell
 info "Deploying the OCWS Shell..."
-cp -r "$SCRIPT_DIR/dotfiles/ocws/"* ~/.config/ocws/ 2>/dev/null || fail "Failed to deploy OCWS shell"
+# Exclude user.config — it's the user's personal overlay, never overwritten
+rsync -a --exclude='user.config' "$SCRIPT_DIR/dotfiles/ocws/" ~/.config/ocws/ 2>/dev/null || cp -r "$SCRIPT_DIR/dotfiles/ocws/"* ~/.config/ocws/ 2>/dev/null || fail "Failed to deploy OCWS shell"
+
+if [ ! -f ~/.config/ocws/user.config ]; then
+    cp "$SCRIPT_DIR/dotfiles/ocws/user.config" ~/.config/ocws/user.config 2>/dev/null || true
+fi
 pass "OCWS layout and plugins synced."
 
 # 5. Deploy Fuzzel Launcher
@@ -90,12 +105,55 @@ if [ -d "$SCRIPT_DIR/dotfiles/fuzzel" ]; then
     pass "Fuzzel synced."
 fi
 
+# Deploy Foot Terminal
+if [ -d "$SCRIPT_DIR/dotfiles/foot" ]; then
+    info "Deploying Foot Terminal configuration..."
+    mkdir -p ~/.config/foot
+    cp -r "$SCRIPT_DIR/dotfiles/foot/"* ~/.config/foot/ 2>/dev/null || true
+    pass "Foot synced."
+fi
+
 # 6. Deploy GTK Styling
-if [ -d "$SCRIPT_DIR/dotfiles/gtk" ]; then
+if [ -d "$SCRIPT_DIR/dotfiles/gtk-3.0" ] || [ -d "$SCRIPT_DIR/dotfiles/gtk-4.0" ] || [ -d "$SCRIPT_DIR/dotfiles/gtk" ]; then
     info "Deploying GTK Preferences..."
-    cp -r "$SCRIPT_DIR/dotfiles/gtk/"* ~/.config/gtk-3.0/ 2>/dev/null || true
-    cp -r "$SCRIPT_DIR/dotfiles/gtk/"* ~/.config/gtk-4.0/ 2>/dev/null || true
+    mkdir -p ~/.config/gtk-3.0 ~/.config/gtk-4.0
+    [ -d "$SCRIPT_DIR/dotfiles/gtk" ] && cp -r "$SCRIPT_DIR/dotfiles/gtk/"* ~/.config/gtk-3.0/ 2>/dev/null || true
+    [ -d "$SCRIPT_DIR/dotfiles/gtk" ] && cp -r "$SCRIPT_DIR/dotfiles/gtk/"* ~/.config/gtk-4.0/ 2>/dev/null || true
+    [ -d "$SCRIPT_DIR/dotfiles/gtk-3.0" ] && cp -r "$SCRIPT_DIR/dotfiles/gtk-3.0/"* ~/.config/gtk-3.0/ 2>/dev/null || true
+    [ -d "$SCRIPT_DIR/dotfiles/gtk-4.0" ] && cp -r "$SCRIPT_DIR/dotfiles/gtk-4.0/"* ~/.config/gtk-4.0/ 2>/dev/null || true
     pass "GTK settings synced."
+fi
+
+# Deploy Rofi
+if [ -d "$SCRIPT_DIR/dotfiles/rofi" ]; then
+    info "Deploying Rofi configuration..."
+    mkdir -p ~/.config/rofi
+    cp -r "$SCRIPT_DIR/dotfiles/rofi/"* ~/.config/rofi/ 2>/dev/null || true
+    pass "Rofi synced."
+fi
+
+# Deploy Mako
+if [ -d "$SCRIPT_DIR/dotfiles/mako" ]; then
+    info "Deploying Mako configuration..."
+    mkdir -p ~/.config/mako
+    cp -r "$SCRIPT_DIR/dotfiles/mako/"* ~/.config/mako/ 2>/dev/null || true
+    pass "Mako synced."
+fi
+
+# Deploy qt6ct
+if [ -d "$SCRIPT_DIR/dotfiles/qt6ct" ]; then
+    info "Deploying Qt6ct configuration..."
+    mkdir -p ~/.config/qt6ct
+    cp -r "$SCRIPT_DIR/dotfiles/qt6ct/"* ~/.config/qt6ct/ 2>/dev/null || true
+    pass "Qt6ct synced."
+fi
+
+# Deploy Zebar
+if [ -d "$SCRIPT_DIR/dotfiles/.glzr/zebar" ]; then
+    info "Deploying Zebar configuration..."
+    mkdir -p ~/.glzr/zebar
+    cp -r "$SCRIPT_DIR/dotfiles/.glzr/zebar/"* ~/.glzr/zebar/ 2>/dev/null || true
+    pass "Zebar synced."
 fi
 
 # 7. Deploy IPC & Core Tools
@@ -107,6 +165,19 @@ fi
 chmod +x ~/.local/bin/*.sh 2>/dev/null || fail "Failed to set execute permissions on scripts"
 chmod +x ~/.local/bin/actions/* 2>/dev/null || true
 pass "Scripts and IPC mapped to ~/.local/bin"
+
+# 7b. Deploy dotfiles/wallpaper script
+if [ -f "$SCRIPT_DIR/dotfiles/wallpaper" ]; then
+    cp "$SCRIPT_DIR/dotfiles/wallpaper" ~/.local/bin/wallpaper
+    chmod +x ~/.local/bin/wallpaper
+    pass "wallpaper command installed to ~/.local/bin/wallpaper"
+fi
+
+# 7c. Deploy wallpaper sources list
+if [ -f "$SCRIPT_DIR/dotfiles/wallpaper-sources.txt" ]; then
+    cp "$SCRIPT_DIR/dotfiles/wallpaper-sources.txt" ~/.config/ocws/wallpaper-sources.txt
+    pass "wallpaper-sources.txt deployed to ~/.config/ocws/"
+fi
 
 # 8. Strict Installation Validation
 info "Performing strict validation of deployed assets..."
@@ -301,7 +372,6 @@ validate_file_format "$HOME/.config/labwc/rc.xml" xml
 validate_file_format "$HOME/.config/labwc/menu.xml" xml
 
 if [ -f "$HOME/.config/ocws/ocws.config" ]; then
-    validate_file_format "$HOME/.config/ocws/ocws.config" css
     validate_content "$HOME/.config/ocws/ocws.config" ocwsconfig
 fi
 

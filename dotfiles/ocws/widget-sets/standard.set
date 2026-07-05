@@ -1,0 +1,6 @@
+  widget "clock"
+  widget "volume-text"
+  widget "brightness-text"
+  widget "battery-text"
+  include("tray.widget")
+  widget "ocws-control-center"

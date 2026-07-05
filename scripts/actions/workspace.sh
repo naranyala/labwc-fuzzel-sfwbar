@@ -10,11 +10,12 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_DIR=""
 WORKSPACE_PRESETS_DIR="$HOME/.config/ocws/workspaces"
 
-# Find project root
-if [[ -d "$SCRIPT_DIR/.." ]]; then
-    PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
-elif [[ -d "/media/naranyala/Data/projects-remote/labwc-fuzzel-sfwbar/scripts" ]]; then
-    PROJECT_DIR="/media/naranyala/Data/projects-remote/labwc-fuzzel-sfwbar"
+# Find project root (scripts/actions is 2 levels deep)
+if [[ -d "$(dirname "$(dirname "$SCRIPT_DIR")")/themes" ]]; then
+    PROJECT_DIR="$(dirname "$(dirname "$SCRIPT_DIR")")"
+else
+    # Fallback if moved, assume script is run from project root or something
+    PROJECT_DIR="$PWD"
 fi
 
 MODE="${1:-list}"

@@ -45,52 +45,215 @@ export button "media-player" {
 PopUp("MediaPopup") {
   style = "detail_popup"
   grid {
-    style = "detail_grid"
-    label {
-      value = "Media Player"
-      style = "detail_header"
+    style = "media_popup_grid"
+
+    # --- Album Art ---
+    image {
+      style = "media_album_art"
+      interval = 1000
+      value = If(FileExists("/tmp/ocws-cover.jpg"), "/tmp/ocws-cover.jpg", "audio-x-generic-symbolic")
     }
+
+    # --- Track Info ---
     label {
-      style = "detail_value"
+      style = "media_track_title"
       interval = 2000
-      value = If(XMediaStatus != "none",
-        If(XMediaArtist != "none", "Artist: " + XMediaArtist + "\n", "") +
-        If(XMediaTitle != "none", "Title: " + XMediaTitle + "\n", "") +
-        If(XMediaAlbum != "none", "Album: " + XMediaAlbum + "\n", "") +
-        "Status: " + XMediaStatus + "\n" +
-        If(XMediaPosFmt != "", "Position: " + XMediaPosFmt, ""),
-        "No media playing"
-      )
+      value = If(XMediaTitle != "none", XMediaTitle, "Nothing Playing")
     }
+    label {
+      style = "media_track_artist"
+      interval = 2000
+      value = If(XMediaArtist != "none",
+                 XMediaArtist + If(XMediaAlbum != "none", "  —  " + XMediaAlbum, ""),
+                 "")
+    }
+
+    # --- Position Slider ---
     grid {
-      style = "detail_button_row"
+      style = "media_progress_row"
+      label {
+        style = "media_time_label"
+        interval = 2000
+        value = If(XMediaPosFmt != "", XMediaPosFmt, "0:00")
+      }
+      scale {
+        style = "media_seek_slider"
+        interval = 2000
+        value = If(Val(XMediaLength) > 0,
+                   Val(XMediaPosition) / (Val(XMediaLength) / 1000000) * 100,
+                   0)
+        min = 0
+        max = 100
+        action = Exec("/bin/sh -c 'playerctl position " +
+                      Str(Val(XMediaLength) / 1000000 * $value / 100, 1) + "'")
+      }
+    }
+
+    # --- Transport Buttons ---
+    grid {
+      style = "media_controls_row"
       button {
+        style = "media_ctrl_btn"
         value = "media-skip-backward-symbolic"
         tooltip = "Previous"
         action = Exec("playerctl previous")
       }
       button {
-        value = If(XMediaStatus = "Playing", "media-playback-pause-symbolic", "media-playback-start-symbolic")
+        style = "media_ctrl_btn_primary"
+        value = If(XMediaStatus = "Playing",
+                   "media-playback-pause-symbolic",
+                   "media-playback-start-symbolic")
         tooltip = If(XMediaStatus = "Playing", "Pause", "Play")
-        action = If(XMediaStatus = "Playing", Exec("playerctl pause"), Exec("playerctl play"))
+        action = If(XMediaStatus = "Playing",
+                    Exec("playerctl pause"),
+                    Exec("playerctl play"))
       }
       button {
+        style = "media_ctrl_btn"
         value = "media-skip-forward-symbolic"
         tooltip = "Next"
         action = Exec("playerctl next")
       }
       button {
+        style = "media_ctrl_btn"
         value = "media-playback-stop-symbolic"
         tooltip = "Stop"
         action = Exec("playerctl stop")
       }
     }
-    label {
-      value = "Click to open player"
-      style = "detail_hint"
-      action = ExecTerm("playerctl")
+
+    # --- Volume Row ---
+    grid {
+      style = "media_volume_row"
+      label { value = "󰕾"; style = "media_vol_icon" }
+      scale {
+        style = "media_vol_slider"
+        value = XVolLevel
+        min = 0
+        max = 100
+        action = Exec("/bin/sh -c 'wpctl set-volume @DEFAULT_SINK@ " + Str($value / 100, 2) + "'")
+      }
+      label {
+        style = "media_vol_pct"
+        interval = 2000
+        value = Str(XVolLevel, 0) + "%"
+      }
     }
   }
+}
+
+#CSS
+/* ── Media Popup ─────────────────────────────────────────── */
+grid.media_popup_grid {
+  margin: 5px;
+  padding: 16px;
+  border-radius: 20px;
+  border: 1px solid rgba(255,255,255,0.1);
+  background-color: rgba(30,30,46,0.92);
+  -GtkWidget-direction: bottom;
+  box-shadow: 0 12px 40px rgba(0,0,0,0.65);
+  min-width: 300px;
+}
+
+image.media_album_art {
+  min-width: 200px;
+  min-height: 200px;
+  border-radius: 14px;
+  border: 1px solid rgba(255,255,255,0.08);
+  -GtkWidget-halign: center;
+  -GtkWidget-hexpand: true;
+  margin-bottom: 12px;
+}
+
+label.media_track_title {
+  font-size: 14px;
+  font-weight: bold;
+  color: #cdd6f4;
+  -GtkWidget-halign: center;
+  -GtkWidget-hexpand: true;
+  padding-bottom: 2px;
+}
+
+label.media_track_artist {
+  font-size: 11px;
+  color: #a6adc8;
+  -GtkWidget-halign: center;
+  -GtkWidget-hexpand: true;
+  padding-bottom: 10px;
+}
+
+grid.media_progress_row {
+  -GtkWidget-direction: right;
+  -GtkWidget-hexpand: true;
+  margin-bottom: 8px;
+}
+
+label.media_time_label {
+  font-size: 10px;
+  color: #6c7086;
+  font-family: monospace;
+  min-width: 80px;
+}
+
+scale.media_seek_slider {
+  -GtkWidget-hexpand: true;
+  margin: 0 8px;
+}
+
+grid.media_controls_row {
+  -GtkWidget-direction: right;
+  -GtkWidget-halign: center;
+  -GtkWidget-homogeneous: true;
+  margin-bottom: 10px;
+}
+
+button.media_ctrl_btn {
+  border-radius: 50%;
+  min-width: 36px;
+  min-height: 36px;
+  margin: 0 6px;
+  background-color: rgba(69,71,90,0.5);
+  color: #cdd6f4;
+}
+button.media_ctrl_btn:hover {
+  background-color: rgba(69,71,90,0.8);
+}
+
+button.media_ctrl_btn_primary {
+  border-radius: 50%;
+  min-width: 46px;
+  min-height: 46px;
+  margin: 0 6px;
+  background-color: rgba(137,180,250,0.25);
+  color: #89b4fa;
+  border: 1px solid rgba(137,180,250,0.4);
+}
+button.media_ctrl_btn_primary:hover {
+  background-color: rgba(137,180,250,0.4);
+}
+
+grid.media_volume_row {
+  -GtkWidget-direction: right;
+  -GtkWidget-hexpand: true;
+  margin-top: 4px;
+}
+
+label.media_vol_icon {
+  font-size: 14px;
+  color: #a6adc8;
+  min-width: 22px;
+}
+
+scale.media_vol_slider {
+  -GtkWidget-hexpand: true;
+  margin: 0 6px;
+}
+
+label.media_vol_pct {
+  font-size: 10px;
+  color: #6c7086;
+  font-family: monospace;
+  min-width: 34px;
 }
 
 #CSS

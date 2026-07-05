@@ -502,6 +502,48 @@ else
 fi
 
 # ============================================================
+# 16. IPC Event Consumer Validation
+# ============================================================
+header "IPC Event Consumer Validation"
+
+DAEMON_SCRIPT="$SCRIPT_DIR/dotfiles/ocws/ocws-daemon.sh"
+if [ -f "$DAEMON_SCRIPT" ]; then
+    # Extract emitted namespaces from the daemon
+    EMITTED_EVENTS=$(grep -oP 'ocws-emit\.sh\s+[A-Za-z\.]+' "$DAEMON_SCRIPT" 2>/dev/null | awk '{print $2}' | sort -u)
+    
+    for event in $EMITTED_EVENTS; do
+        # Map event to engine variable (based on ocws-emit.sh logic)
+        ENGINE_VAR=""
+        case "$event" in
+            "System.Volume")       ENGINE_VAR="XVolLevel" ;;
+            "System.VolumeMuted")  ENGINE_VAR="XVolMuted" ;;
+            "System.Brightness")   ENGINE_VAR="XBrightness" ;;
+            "System.Battery")      ENGINE_VAR="XBatLvl" ;;
+            "System.BatteryState") ENGINE_VAR="XBatStat" ;;
+            "System.Cpu")          ENGINE_VAR="XCpuLoad" ;;
+            "System.Memory")       ENGINE_VAR="XMemPct" ;;
+            "System.Disk")         ENGINE_VAR="XDiskPct" ;;
+            "System.DND")          ENGINE_VAR="XDndState" ;;
+            "Network.WiFi")        ENGINE_VAR="XNetState" ;;
+            "Network.Bluetooth")   ENGINE_VAR="XBtState" ;;
+            "Media.Title")         ENGINE_VAR="XMediaTitle" ;;
+            "Media.Artist")        ENGINE_VAR="XMediaArtist" ;;
+            "Media.Status")        ENGINE_VAR="XMediaStatus" ;;
+            *)                     ENGINE_VAR="$event" ;;
+        esac
+        
+        # Check if any widget uses this engine variable
+        if grep -rq "^\s*${ENGINE_VAR}\s*=\|[^A-Za-z]${ENGINE_VAR}[^A-Za-z]" "$OCWS_DIR"/*.widget 2>/dev/null; then
+            pass "Event '$event' ($ENGINE_VAR) is consumed by widgets"
+        else
+            warn "Event '$event' ($ENGINE_VAR) is emitted but never consumed by any widget"
+        fi
+    done
+else
+    warn "Cannot find ocws-daemon.sh to check emitted events"
+fi
+
+# ============================================================
 # Summary
 # ============================================================
 echo ""

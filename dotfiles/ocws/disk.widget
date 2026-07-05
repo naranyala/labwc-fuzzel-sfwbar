@@ -64,7 +64,7 @@ PopUp("DiskPopup") {
     label {
       value = "Click to open ncdu"
       style = "detail_hint"
-      action = ExecTerm("ncdu /")
+      action = Exec("foot -e ncdu /")
     }
   }
 }

@@ -36,9 +36,10 @@ retrieve_kv() {
 }
 
 delete_kv() {
-    local key="$1"
+    local key="$1" tmp
     if [[ -f "$KVSTORE_FILE" ]]; then
-        grep -v "^$key=" "$KVSTORE_FILE" > "$KVSTORE_FILE"
+        tmp=$(mktemp "${KVSTORE_FILE}.XXXXXX") || return 1
+        grep -v "^$key=" "$KVSTORE_FILE" > "$tmp" && mv "$tmp" "$KVSTORE_FILE"
     fi
 }
 

@@ -20,11 +20,11 @@ case "$VAR" in
     "System.Volume")       ENGINE_VAR="XVolLevel" ;;
     "System.VolumeMuted")  ENGINE_VAR="XVolMuted" ;;
     "System.Brightness")   ENGINE_VAR="XBrightness" ;;
-    "System.Battery")      ENGINE_VAR="XBatteryLevel" ;;
-    "System.BatteryState") ENGINE_VAR="XBatteryStatus" ;;
+    "System.Battery")      ENGINE_VAR="XBatLvl" ;;
+    "System.BatteryState") ENGINE_VAR="XBatStat" ;;
     "System.Cpu")          ENGINE_VAR="XCpuLoad" ;;
-    "System.Memory")       ENGINE_VAR="XMemUsage" ;;
-    "System.Disk")         ENGINE_VAR="XDiskUsage" ;;
+    "System.Memory")       ENGINE_VAR="XMemPct" ;;
+    "System.Disk")         ENGINE_VAR="XDiskPct" ;;
     "System.DND")          ENGINE_VAR="XDndState" ;;
     "Network.WiFi")        ENGINE_VAR="XNetState" ;;
     "Network.Bluetooth")   ENGINE_VAR="XBtState" ;;
@@ -40,7 +40,8 @@ if [[ "$VAL" =~ ^[0-9]+(\.[0-9]+)?$ ]]; then
     # It's numeric, don't quote
     IPC_CMD="SetVal ${ENGINE_VAR} = ${VAL}"
 else
-    # It's a string, quote it
+    # It's a string, escape quotes and quote it
+    VAL="${VAL//\"/\\\"}"
     IPC_CMD="SetVal ${ENGINE_VAR} = \"${VAL}\""
 fi
 

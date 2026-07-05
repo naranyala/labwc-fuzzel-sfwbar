@@ -7,9 +7,7 @@ PROJECT_DIR=""
 WORKSPACES_DIR="$HOME/.config/ocws/workspaces"
 
 # Find project root
-if [[ -d "/media/naranyala/Data/projects-remote/labwc-fuzzel-sfwbar/scripts" ]]; then
-    PROJECT_DIR="/media/naranyala/Data/projects-remote/labwc-fuzzel-sfwbar"
-elif [[ -d "$(dirname "$SCRIPT_DIR")/scripts" ]]; then
+if [[ -d "$(dirname "$SCRIPT_DIR")/scripts" ]]; then
     PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
 else
     echo "Error: Cannot find project root" >&2

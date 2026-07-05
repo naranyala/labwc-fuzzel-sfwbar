@@ -37,7 +37,7 @@ PopUp("NetBwPopup") {
     label {
       value = "Click to open network monitor"
       style = "detail_hint"
-      action = ExecTerm("nmtui")
+      action = Exec("foot -e nmtui")
     }
   }
 }

@@ -56,7 +56,7 @@ PopUp("ClipboardPopup") {
     label {
       value = "Click to open clipman"
       style = "detail_hint"
-      action = ExecTerm("clipman show")
+      action = Exec("foot -e clipman show")
     }
   }
 }

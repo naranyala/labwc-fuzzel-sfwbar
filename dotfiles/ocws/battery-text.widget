@@ -38,7 +38,7 @@ PopUp("BatPopup") {
     label {
       value = "Click to open upower"
       style = "detail_hint"
-      action = ExecTerm("upower -i /org/freedesktop/UPower/devices/battery_BAT0")
+      action = Exec("foot -e upower -i /org/freedesktop/UPower/devices/battery_BAT0")
     }
   }
 }

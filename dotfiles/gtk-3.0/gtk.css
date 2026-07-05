@@ -5,25 +5,25 @@
 window, .window, dialog, .dialog,
 messagedialog, .messagedialog,
 filechooser, .filechooser {
-  border-radius: px;
+  border-radius: 8px;
 }
 
 /* Round corners on popovers and menus */
 popover, menu, .menu, .popover,
 .context-menu {
-  border-radius: px;
+  border-radius: 8px;
   padding: 4px;
 }
 
 /* Softer button corners */
 button, .button {
-  border-radius: px;
+  border-radius: 8px;
   padding: 4px 10px;
 }
 
 /* Entry fields */
 entry, .entry {
-  border-radius: px;
+  border-radius: 8px;
 }
 
 /* Scrollbar styling */
@@ -43,13 +43,13 @@ selection {
 
 /* Tooltips */
 tooltip {
-  border-radius: px;
+  border-radius: 8px;
   padding: 4px 8px;
 }
 
 /* Notebook tabs */
 notebook tab {
-  border-radius: px px 0 0;
+  border-radius: 8px 8px 0 0;
   padding: 4px 12px;
 }
 

@@ -62,11 +62,11 @@ ocws-emit MyCustomVar "any value"
 | `System.Volume` | `XVolLevel` | Volume percentage (0-100) |
 | `System.VolumeMuted` | `XVolMuted` | Mute state (true/false) |
 | `System.Brightness` | `XBrightness` | Brightness percentage |
-| `System.Battery` | `XBatteryLevel` | Battery percentage |
-| `System.BatteryState` | `XBatteryStatus` | Charging/Discharging/Full |
+| `System.Battery` | `XBatLvl` | Battery percentage |
+| `System.BatteryState` | `XBatStat` | Charging/Discharging/Full |
 | `System.Cpu` | `XCpuLoad` | CPU usage percentage |
-| `System.Memory` | `XMemUsage` | Memory usage percentage |
-| `System.Disk` | `XDiskUsage` | Disk usage percentage |
+| `System.Memory` | `XMemPct` | Memory usage percentage |
+| `System.Disk` | `XDiskPct` | Disk usage percentage |
 | `System.DND` | `XDndState` | Do Not Disturb (true/false) |
 | `Network.WiFi` | `XNetState` | WiFi connected/disconnected |
 | `Network.Bluetooth` | `XBtState` | Bluetooth on/off |

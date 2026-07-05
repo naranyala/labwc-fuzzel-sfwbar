@@ -7,11 +7,12 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_DIR=""
 
-# Find project root
-if [[ -d "$SCRIPT_DIR/../actions" ]]; then
-    PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
-elif [[ -d "/media/naranyala/Data/projects-remote/labwc-fuzzel-sfwbar/scripts/actions" ]]; then
-    PROJECT_DIR="/media/naranyala/Data/projects-remote/labwc-fuzzel-sfwbar"
+# Find project root (scripts/actions is 2 levels deep)
+if [[ -d "$(dirname "$(dirname "$SCRIPT_DIR")")/themes" ]]; then
+    PROJECT_DIR="$(dirname "$(dirname "$SCRIPT_DIR")")"
+else
+    # Fallback if moved, assume script is run from project root or something
+    PROJECT_DIR="$PWD"
 fi
 
 # Colors
@@ -94,45 +95,47 @@ show_fuzzel_menu() {
 # Execute action
 execute_action() {
     local action="$1"
+    local ACTIONS_DIR
+    ACTIONS_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
     
     case "$action" in
         dock|dashboard|menu|dock-menu|app-dock)
             # Launch enhanced dock with app pinning and task management
             if command -v sh >/dev/null 2>&1; then
-                scripts/actions/dock.sh
+                "$ACTIONS_DIR/dock.sh"
             else
                 info "Dock not available"
             fi
             ;;
         # Audio Controls
         up|volume-up|vol-up|add-volume)
-            ./scripts/actions/audio.sh up 5%
+            "$ACTIONS_DIR/audio.sh" up 5%
             ;;
         down|volume-down|vol-down|sub-volume)
-            ./scripts/actions/audio.sh down 5%
+            "$ACTIONS_DIR/audio.sh" down 5%
             ;;
         mute|toggle-mute|mute-audio)
-            ./scripts/actions/audio.sh mute
+            "$ACTIONS_DIR/audio.sh" mute
             ;;
         vol-up-0.5|volume-up-0.5|vol-up-half)
-            ./scripts/actions/audio.sh up-0.5
+            "$ACTIONS_DIR/audio.sh" up-0.5
             ;;
         vol-down-0.5|volume-down-0.5|vol-down-half)
-            ./scripts/actions/audio.sh down-0.5
+            "$ACTIONS_DIR/audio.sh" down-0.5
             ;;
         
         # Brightness Controls
         bright-up|brightness-up|inc-bright)
-            ./scripts/actions/brightness.sh up 10%
+            "$ACTIONS_DIR/brightness.sh" up 10%
             ;;
         bright-down|brightness-down|dec-bright)
-            ./scripts/actions/brightness.sh down 10%
+            "$ACTIONS_DIR/brightness.sh" down 10%
             ;;
         bright-up-0.5|brightness-up-0.5)
-            ./scripts/actions/brightness.sh up-0.5
+            "$ACTIONS_DIR/brightness.sh" up-0.5
             ;;
         bright-down-0.5|brightness-down-0.5)
-            ./scripts/actions/brightness.sh down-0.5
+            "$ACTIONS_DIR/brightness.sh" down-0.5
             ;;
         auto-rotate|rotate)
             # Auto-rotate toggle (placeholder)
@@ -164,9 +167,9 @@ execute_action() {
         
         # System Services
         system|status|sysinfo|sys)
-            ./scripts/actions/system-info.sh
+            "$ACTIONS_DIR/system-info.sh"
             ;;
-        file|files|file-manager|files)
+        file|files|file-manager)
             xdg-open ~ 2>/dev/null || nautilus ~ 2>/dev/null || dolphin ~ 2>/dev/null
             ;;
         term|terminal|shell|bash)
@@ -208,11 +211,11 @@ execute_action() {
             if command -v fuzzel >/dev/null; then
                 fuzzel --config "$HOME/.config/fuzzel/fuzzel.ini" -p "Run:" --placeholder "Type command..."
             else
-                ./scripts/actions/launcher.sh run "$@"
+                "$ACTIONS_DIR/launcher.sh" run "$@"
             fi
             ;;
         screenshot|capture|screen)
-            ./scripts/actions/screenshot.sh
+            "$ACTIONS_DIR/screenshot.sh"
             ;;
         lock|lock-screen)
             if command -v loginctl >/dev/null; then
@@ -222,24 +225,26 @@ execute_action() {
             fi
             ;;
         theme|theme-switch|colors)
-            ./scripts/actions/theme-engine.sh list
+            local SCRIPTS_DIR
+            SCRIPTS_DIR="$(dirname "$ACTIONS_DIR")"
+            "$SCRIPTS_DIR/theme-engine.sh" list
             if command -v fuzzel >/dev/null; then
-                selected=$(./scripts/theme-engine.sh list | fuzzel --config "$HOME/.config/fuzzel/fuzzel.ini" --width 50 --height 15 --prompt "🎨 Select Theme:")
+                selected=$("$SCRIPTS_DIR/theme-engine.sh" list | fuzzel --config "$HOME/.config/fuzzel/fuzzel.ini" --width 50 --height 15 --prompt "🎨 Select Theme:")
                 if [[ -n "$selected" ]]; then
-                    ./scripts/theme-engine.sh apply "themes/${selected}.ini"
+                    "$SCRIPTS_DIR/theme-engine.sh" apply "themes/${selected}.ini"
                 fi
             fi
             ;;
         
         # Communication & Network
-        network|net|status)
-            ./scripts/actions/network.sh status
+        network|net)
+            "$ACTIONS_DIR/network.sh" status
             ;;
         wifi|wireless)
-            ./scripts/actions/network.sh wifi-toggle
+            "$ACTIONS_DIR/network.sh" wifi-toggle
             ;;
         bt|bluetooth)
-            ./scripts/actions/network.sh bt-toggle
+            "$ACTIONS_DIR/network.sh" bt-toggle
             ;;
         
         # System Settings
@@ -268,17 +273,10 @@ shift
 
 # Main execution logic
 case "$MODE" in
-    list|ls|help|--help|-h|*)
+    list|ls|help|--help|-h)
         show_fuzzel_menu
         ;;
     *)
-        # Try to execute the action
-        # Handle both form: workspace-actions.sh <action>
-        # And the original form: workspace-actions.sh list
-        if [[ "$1" == "list" ]] || [[ "$1" == "ls" ]] || [[ "$1" == "help" ]]; then
-            show_fuzzel_menu
-        else
-            execute_action "$1"
-        fi
+        execute_action "$MODE"
         ;;
 esac

@@ -3,8 +3,8 @@
 # theme-engine — Generate all config files from a theme INI profile
 #
 # Usage:
-#   theme-engine apply <theme.ini>           Apply theme (generate + install)
-#   theme-engine preview <theme.ini>         Show what would be generated
+#   theme-engine apply <theme.ini> [--profile standard|full]   Apply theme and set profile
+#   theme-engine preview <theme.ini>                           Show what would be generated
 #   theme-engine list                        List available themes
 #   theme-engine current                     Show active theme
 #   theme-engine export <theme.ini>          Export generated files to dotfiles/
@@ -42,8 +42,7 @@ else
         PROJECT_DIR="$(dirname "$PROJECT_DIR")"
     done
 fi
-# Fallback: known path
-[[ -d "$PROJECT_DIR/themes" ]] || PROJECT_DIR="/media/naranyala/Data/projects-remote/labwc-fuzzel-sfwbar"
+
 [[ -d "$PROJECT_DIR/themes" ]] || fail "Cannot find project root (themes/ not found)"
 THEMES_DIR="$PROJECT_DIR/themes"
 TEMPLATES_DIR="$PROJECT_DIR/templates"
@@ -211,6 +210,43 @@ render_template() {
                             if [[ "$foot_key" =~ ^regular_[0-7]$ ]]; then foot_key="color_${foot_key}"; fi
                             if [[ "$foot_key" =~ ^bright_[0-7]$ ]]; then foot_key="color_${foot_key}"; fi
                             var_value=$(ini_get "foot.$foot_key" "")
+                            if [[ "$foot_key" == color_* ]]; then
+                                var_value="${var_value#\#}"
+                            fi
+                        elif [[ "$var_name" == ROFI_* ]]; then
+                            local key="${var_name#ROFI_}"
+                            var_value=$(ini_get "rofi.${key,,}" "")
+                        elif [[ "$var_name" == MAKO_* ]]; then
+                            local key="${var_name#MAKO_}"
+                            var_value=$(ini_get "mako.${key,,}" "")
+                        elif [[ "$var_name" == QT_* ]]; then
+                            local key="${var_name#QT_}"
+                            var_value=$(ini_get "qt6ct.${key,,}" "")
+                        elif [[ "$var_name" == GTK_* ]]; then
+                            local key="${var_name#GTK_}"
+                            if [[ "$key" == PREFER_DARK ]]; then key="application_prefer_dark_theme"; fi
+                            if [[ "$key" == SHOWS_APP_MENU ]]; then key="shell_shows_app_menu"; fi
+                            if [[ "$key" == SHOWS_MENU_BAR ]]; then key="shell_shows_menu_bar"; fi
+                            var_value=$(ini_get "gtk3.gtk_${key,,}" "")
+                            if [[ -z "$var_value" ]]; then var_value=$(ini_get "gtk3.${key,,}" ""); fi
+                        elif [[ "$var_name" == XFT_* ]]; then
+                            local key="${var_name,,}"
+                            var_value=$(ini_get "gtk3.${key}" "")
+                        elif [[ "$var_name" == FONT_* ]]; then
+                            local key="${var_name#FONT_}"
+                            var_value=$(ini_get "fonts.${key,,}" "")
+                        elif [[ "$var_name" == CURSOR_* ]]; then
+                            local key="${var_name#CURSOR_}"
+                            var_value=$(ini_get "cursor.${key,,}" "")
+                        elif [[ "$var_name" == COLOR_* ]]; then
+                            local key="${var_name#COLOR_}"
+                            var_value=$(ini_get "colors.${key,,}" "")
+                        elif [[ "$var_name" == BG_ALPHA || "$var_name" == SURFACE_ALPHA || "$var_name" == BORDER_ALPHA ]]; then
+                            var_value=$(ini_get "zebar.${var_name,,}" "")
+                        elif [[ "$var_name" == FONT_SIZE || "$var_name" == FONT_SIZE_SMALL || "$var_name" == MODULE_* ]]; then
+                            var_value=$(ini_get "sfwbar.${var_name,,}" "")
+                        elif [[ "$var_name" == CORNER_RADIUS ]]; then
+                            var_value=$(ini_get "labwc.cornerRadius" "8")
                         else
                             warn "Unknown template variable: {{$var_name}}"
                         fi
@@ -218,6 +254,23 @@ render_template() {
         esac
 
         # Always replace to prevent infinite loops on empty/unknown variables
+        # Use case defaults as fallback when var_value is empty
+        if [[ -z "$var_value" ]]; then
+            case "$var_name" in
+                COLOR_BG)      var_value="#1e1e2e" ;;
+                COLOR_FG)      var_value="#cdd6f4" ;;
+                COLOR_SURFACE) var_value="#1e1e2e" ;;
+                COLOR_BORDER)  var_value="#45475a" ;;
+                COLOR_ACCENT)  var_value="#89b4fa" ;;
+                COLOR_URGENT)  var_value="#f38ba8" ;;
+                COLOR_OK)      var_value="#a6e3a1" ;;
+                COLOR_MUTED)   var_value="#a6adc8" ;;
+                OCWS_BLUR)     var_value="5" ;;
+                OCWS_BORDER)   var_value="1" ;;
+                OCWS_RADIUS)   var_value="8" ;;
+                OCWS_SHADOW)   var_value="4" ;;
+            esac
+        fi
         content="${content//\{\{$var_name\}\}/$var_value}"
     done
 
@@ -280,13 +333,29 @@ cmd_current() {
 }
 
 cmd_apply() {
-    local theme_file="$1"
+    local theme_file=""
+    local profile="full"
+
+    while [[ $# -gt 0 ]]; do
+        case "$1" in
+            --profile)
+                profile="$2"
+                shift 2
+                ;;
+            *)
+                theme_file="$1"
+                shift
+                ;;
+        esac
+    done
+
+    [[ -n "$theme_file" ]] || fail "No theme specified"
     [[ -f "$theme_file" ]] || fail "Theme not found: $theme_file"
 
     local theme_name
     theme_name=$(basename "$theme_file" .ini)
 
-    echo -e "${BOLD}Applying theme: $theme_name${NC}"
+    echo -e "${BOLD}Applying theme: $theme_name (Profile: $profile)${NC}"
     echo ""
 
     # Parse and expand
@@ -404,8 +473,16 @@ cmd_apply() {
         ((applied++))
     fi
 
+    # Update widget profile if sfwbar config exists
+    local ocws_config="$HOME/.config/ocws/ocws.config"
+    if [[ -f "$ocws_config" ]]; then
+        sed -i "s|include(\"widget-sets/.*\.set\")|include(\"widget-sets/${profile}.set\")|g" "$ocws_config"
+        pass "Widget profile set to: $profile"
+        ((applied++))
+    fi
+
     echo ""
-    pass "Theme $theme_name applied successfully (${applied} files generated)"
+    pass "Theme $theme_name applied successfully (${applied} files generated/updated)"
 }
 
 cmd_preview() {
@@ -444,6 +521,7 @@ cmd_export() {
         [[ -f "$tmpl_file" ]] || continue
         local name
         name=$(basename "$tmpl_file")
+        if [[ "$name" == "zebar.css.tmpl" ]]; then continue; fi
         local content
         content=$(render_template "$tmpl_file")
 
@@ -468,6 +546,7 @@ cmd_export() {
         zebar_content=$(render_template "$TEMPLATES_DIR/zebar.css.tmpl")
         if [[ -n "$zebar_content" ]]; then
             local zebar_dest="${ZEBAR_MAP[zebar.css.tmpl]}"
+            zebar_dest="${zebar_dest/$HOME/$DOTFILES_DIR}"
             mkdir -p "$(dirname "$zebar_dest")"
             echo "$zebar_content" > "$zebar_dest"
             pass "zebar.css.tmpl → ${zebar_dest#$HOME/}"
@@ -478,11 +557,52 @@ cmd_export() {
 }
 
 # ============================================================
+# Profile switching
+# ============================================================
+
+cmd_profile() {
+    local profile="${1:-}"
+    local profiles_dir="$DOTFILES_DIR/ocws/widget-sets"
+
+    if [[ -z "$profile" ]]; then
+        echo -e "${BOLD}Available profiles:${NC}"
+        echo ""
+        for f in "$profiles_dir"/*.set; do
+            [[ -f "$f" ]] || continue
+            local name
+            name=$(basename "$f" .set)
+            local count
+            count=$(grep -c '^include(' "$f" 2>/dev/null || echo 0)
+            printf "  ${CYAN}%-15s${NC} %d widgets\n" "$name" "$count"
+        done
+        echo ""
+        echo "Usage: $0 profile <name>"
+        return
+    fi
+
+    local profile_file="$profiles_dir/${profile}.set"
+    [[ -f "$profile_file" ]] || fail "Profile not found: $profile_file"
+
+    # Symlink or copy the profile as plugins.config
+    local plugins_config="$DOTFILES_DIR/ocws/plugins.config"
+    cp "$profile_file" "$plugins_config"
+    pass "Switched to profile: $profile ($(grep -c '^include(' "$profile_file") widgets)"
+}
+
+# ============================================================
 # Main
 # ============================================================
 
 if [[ "$#" -lt 1 ]]; then
-    echo "Usage: $0 {apply|preview|list|current|export} <theme.ini>"
+    echo "Usage: $0 {apply|preview|list|current|export|profile} [args]"
+    echo ""
+    echo "Commands:"
+    echo "  apply <theme.ini>       Apply theme (generate + install)"
+    echo "  preview <theme.ini>     Show what would be generated"
+    echo "  list                    List available themes"
+    echo "  current                 Show active theme"
+    echo "  export <theme.ini>      Export generated files to dotfiles/"
+    echo "  profile <standard|full> Switch widget set profile"
     exit 1
 fi
 
@@ -505,9 +625,12 @@ case "$cmd" in
     export)
         cmd_export "$@"
         ;;
+    profile)
+        cmd_profile "$@"
+        ;;
     *)
         echo "Unknown command: $cmd"
-        echo "Usage: $0 {apply|preview|list|current|export} <theme.ini>"
+        echo "Usage: $0 {apply|preview|list|current|export|profile} [args]"
         exit 1
         ;;
 esac

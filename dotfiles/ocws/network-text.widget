@@ -61,7 +61,7 @@ Private {
       label {
         value = "Click to open nmtui"
         style = "detail_hint"
-        action = ExecTerm("nmtui-connect")
+        action = Exec("foot -e nmtui-connect")
       }
     }
   }

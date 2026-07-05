@@ -76,7 +76,7 @@ PopUp("CpuMonitorPopup") {
     label {
       value = "Click to open htop"
       style = "detail_hint"
-      action = ExecTerm("htop")
+      action = Exec("foot -e htop")
     }
   }
 }

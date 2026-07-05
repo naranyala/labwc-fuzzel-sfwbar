@@ -4,12 +4,15 @@
 # Event-driven IPC for sfwbar - No more polling!
 # -------------------------------------------------------------------
 
-# Stop any running instances
-pkill -f "ocws-daemon.sh" 2>/dev/null
-sleep 0.1
+set -uo pipefail
+
+# Stop any previously running instances, excluding this process
+_MY_PID=$$
+pgrep -f "ocws-daemon.sh" 2>/dev/null | grep -v "^${_MY_PID}$" | xargs -r kill 2>/dev/null || true
+sleep 0.2
 
 # Remove previous state files
-rm -f /tmp/ocws-state {{ rm -f /tmp/ocws-current-song
+rm -f /tmp/ocws-state /tmp/ocws-current-song
 
 update_volume() {
     RAW=$(wpctl get-volume @DEFAULT_SINK@ 2>/dev/null || echo "Volume: 0.00")
@@ -20,12 +23,15 @@ update_volume() {
     if echo "$RAW" | grep -q "MUTED"; then MUTED=1; fi
     
     # Push to OCWS instantly using the standard Event Bus
+    # OCWS: EMIT System.Volume
     ~/.local/bin/ocws-emit.sh System.Volume "$VOL_PERCENT"
+    # OCWS: EMIT System.VolumeMuted
     ~/.local/bin/ocws-emit.sh System.VolumeMuted "$MUTED"
 }
 
 update_brightness() {
     BRIGHT=$(brightnessctl -m 2>/dev/null | cut -d, -f4 | tr -d % || echo 100)
+    # OCWS: EMIT System.Brightness
     ~/.local/bin/ocws-emit.sh System.Brightness "$BRIGHT"
 }
 

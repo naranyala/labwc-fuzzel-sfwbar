@@ -66,8 +66,8 @@ wifi_list() {
 }
 
 wifi_connect() {
-  local ssid="${2:-}"
-  local pass_input="${3:-}"
+  local ssid="${1:-}"
+  local pass_input="${2:-}"
   
   if [ -z "$ssid" ]; then
     if command -v rofi &>/dev/null; then
@@ -125,7 +125,7 @@ bt_list() {
 }
 
 bt_connect() {
-  local mac="${2:-}"
+  local mac="${1:-}"
   if [ -z "$mac" ]; then
     bt_list
     exit 0
@@ -183,10 +183,10 @@ show_status() {
 case "$MODE" in
   wifi-toggle|wifi)     wifi_toggle ;;
   wifi-list|wifi-scan)  wifi_list ;;
-  wifi-connect)         wifi_connect "$@" ;;
+  wifi-connect)         wifi_connect "${@:2}" ;;
   bt-toggle|bluetooth|bt) bt_toggle ;;
   bt-list|bt-scan)      bt_list ;;
-  bt-connect)           bt_connect "$@" ;;
+  bt-connect)           bt_connect "${@:2}" ;;
   status|info)          show_status ;;
   help|--help|-h|*)
     echo ""

@@ -108,8 +108,11 @@ ocws_kv *ocws_kv_open(const char *path) {
             }
             if (!found) {
                 if (kv->count >= kv->capacity) {
-                    kv->capacity *= 2;
-                    kv->entries = realloc(kv->entries, kv->capacity * sizeof(ocws_kv_entry));
+                    size_t new_cap = kv->capacity * 2;
+                    ocws_kv_entry *tmp = realloc(kv->entries, new_cap * sizeof(ocws_kv_entry));
+                    if (!tmp) return NULL;
+                    kv->entries = tmp;
+                    kv->capacity = new_cap;
                 }
                 kv->entries[kv->count].key = xstrdup(key);
                 kv->entries[kv->count].value = xstrdup(value);
@@ -159,8 +162,11 @@ int ocws_kv_set(ocws_kv *kv, const char *key, const char *value) {
     }
 
     if (kv->count >= kv->capacity) {
-        kv->capacity *= 2;
-        kv->entries = realloc(kv->entries, kv->capacity * sizeof(ocws_kv_entry));
+        size_t new_cap = kv->capacity * 2;
+        ocws_kv_entry *tmp = realloc(kv->entries, new_cap * sizeof(ocws_kv_entry));
+        if (!tmp) return -1;
+        kv->entries = tmp;
+        kv->capacity = new_cap;
     }
     kv->entries[kv->count].key = xstrdup(key);
     kv->entries[kv->count].value = xstrdup(value);

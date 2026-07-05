@@ -133,8 +133,8 @@
     <keybind key="C-A-Down"><action name="Execute"><command>~/.config/labwc/scripts/actions/window.sh snap-bottom</command></action></keybind>
 
     <!-- Workspace Navigation -->
-    <keybind key="C-A-Left"><action name="GoToDesktop"><to>left</to><wrap>yes</wrap></action></keybind>
-    <keybind key="C-A-Right"><action name="GoToDesktop"><to>right</to><wrap>yes</wrap></action></keybind>
+    <keybind key="A-Left"><action name="GoToDesktop"><to>left</to><wrap>yes</wrap></action></keybind>
+    <keybind key="A-Right"><action name="GoToDesktop"><to>right</to><wrap>yes</wrap></action></keybind>
 
     <!-- Network/WiFi Toggle -->
     <keybind key="XF86LaunchA"><action name="Execute"><command>nmcli radio wifi</command></action></keybind>

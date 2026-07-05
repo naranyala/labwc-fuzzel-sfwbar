@@ -5,7 +5,7 @@ export button "cpu-text" {
   interval = 2000
   style = If(XCpuLoad > 80, "text_urgent", "text_metric")
   tooltip = "CPU Usage: " + Str(XCpuLoad, 0) + "%"
-  action = ExecTerm("top -b -n 1 | head -5")
+  action = Exec("foot -e top -b -n 1 | head -5")
 
   label {
     value = "󰍛 " + Str(XCpuLoad, 0) + "%"

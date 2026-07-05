@@ -34,8 +34,8 @@ launch_apps() {
 }
 
 # --- Run Command ---
-r 
-local cmd="${*:-}"
+run_command() {
+  local cmd="${*:-}"
   if [ -z "$cmd" ]; then
     if command -v fuzzel >/dev/null 2>&1; then
       cmd=$(fuzzel --config "$HOME/.config/fuzzel/fuzzel.ini" -p "Run:" --placeholder "Type command...")

@@ -80,7 +80,7 @@ playerctl status --format "{{ emoji(status) }} {{ title }}"
 | `duration(n)` | Format microseconds as `mm:ss` |
 | `lc(s)` | Lowercase |
 | `uc(s)` | Uppercase |
-| `emoji(status)` | ▶/⏸/⏹ emoji |
+| `emoji(status)` | play/pause/stop icon |
 | `trunc(s, n)` | Truncate to n chars |
 | `default(a, b)` | Print `a` or `b` if `a` is empty |
 

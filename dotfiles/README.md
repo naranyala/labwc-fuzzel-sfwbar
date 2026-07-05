@@ -1,204 +1,111 @@
-# labwc + sfwbar + crystal-dock Dotfiles
+# OCWS Dotfiles
 
-Starter configuration for [labwc](https://labwc.github.io/) (Wayland compositor), [sfwbar](https://github.com/LBCrion/sfwbar) (GTK3-native statusbar), and [crystal-dock](https://github.com/nicholasgasior/crystal-dock) (Wayland dock).
+Configuration files for the OCWS Wayland desktop environment.
 
 ## Directory Structure
 
 ```
 dotfiles/
-├── install.sh              # Installation script
-├── wallpaper               # Wallpaper manager script
-├── wallpaper-sources.txt   # Wallpaper download sources
-├── labwc/                  # labwc configuration
+├── labwc/                  # labwc compositor configuration
 │   ├── rc.xml              # Keybindings, window rules, themes
 │   ├── autostart           # Startup commands (shell script)
 │   ├── environment         # Environment variables
-│   ├── menu.xml            # Root menu
-│   ├── themerc-override    # Theme overrides
-│   ├── startup-wallpaper.sh
-│   └── presets/            # Keybinding presets
-├── sfwbar/                 # sfwbar statusbar config (default panel)
-│   ├── sfwbar.config       # Main config
-│   ├── sfwbar-simple.config
-│   ├── catppuccin-mocha.css
-│   ├── cpu-text.widget
-│   ├── memory-text.widget
-│   ├── network-text.widget
-│   ├── volume-text.widget
-│   └── battery-text.widget
-├── gtk/                    # GTK3/GTK4 theme configuration
-│   ├── gtk3-settings.ini
-│   ├── gtk4-settings.ini
-│   ├── gtk.css
-│   └── theme-profiles/     # 7 GTK theme profiles
-├── zebar/                  # Zebar widget files (legacy fallback)
-│   ├── main/
-│   ├── launcher.sh
-│   └── widgets/
-└── crystal-dock/           # Crystal dock config (empty, uses defaults)
-```
-
-## Quick Start
-
-```bash
-# Install all dotfiles
-./dotfiles/install.sh
-
-# Launch labwc from TTY
-./scripts/start-labwc.sh
-```
-
-## labwc Configuration
-
-The labwc config is in `dotfiles/labwc/`. It uses XML format (Openbox-compatible):
-
-- **rc.xml** - Keybindings, window rules, themes, menus
-- **autostart** - Shell script run at startup (starts sfwbar, crystal-dock, wallpaper)
-- **environment** - Environment variables
-- **menu.xml** - Right-click desktop menu
-- **themerc-override** - Theme customization
-
-### Key Keybindings
-
-| Key | Action |
-|-----|--------|
-| `Super+Return` | Terminal (foot) |
-| `Alt+D` | App launcher (rofi) |
-| `Super+Q` | Close window |
-| `Super+M` | Exit labwc |
-| `Super+R` | Reload config |
-| `Alt+1-9` | Switch workspace |
-| `Ctrl+Alt+Arrows` | Window snapping |
-| `Print` | Screenshot (area) |
-
-## SFWBar Statusbar
-
-sfwbar is the default statusbar, configured in `dotfiles/sfwbar/`. The main config (`sfwbar.config`) includes workspace pager, clock, system tray, and text widgets for CPU, memory, network, volume, and battery.
-
-### Widget Files
-
-- **cpu-text.widget** - CPU usage percentage
-- **memory-text.widget** - Memory usage percentage
-- **network-text.widget** - WiFi/Ethernet status
-- **volume-text.widget** - Volume level with mute detection
-- **battery-text.widget** - Battery percentage
-
-## crystal-dock Integration
-
-crystal-dock is configured as the primary dock in the autostart file:
-
-```bash
-crystal-dock --start --overlay
-```
-
-It provides application launching and dock functionality at the bottom of the screen.
-
-## Wallpaper
-
-The wallpaper script supports random selection, syncing from sources, and daemon mode:
-
-```bash
-wallpaper random    # Set random wallpaper
-wallpaper sync      # Download from wallpaper-sources.txt
-wallpaper daemon    # Auto-rotate every hour
-wallpaper set PATH  # Set specific wallpaper
-```
-dotfiles/
-├── install.sh              # Installation script
-├── wallpaper               # Wallpaper manager script
-├── wallpaper-sources.txt   # Wallpaper download sources
-├── labwc/                  # labwc configuration
-│   ├── rc.xml              # Keybindings, window rules, themes
-│   ├── autostart           # Startup commands (shell script)
-│   ├── environment         # Environment variables
-│   ├── menu.xml            # Root menu
+│   ├── menu.xml            # Right-click root menu
 │   ├── themerc-override    # Theme overrides
 │   └── startup-wallpaper.sh
-└── zebar/                  # Zebar widget files
-    ├── main/               # Main status bar
-    │   ├── index.html
-    │   └── style.css
-    ├── launcher.sh         # Widget launcher script
-    └── widgets/            # Additional widget themes
-        ├── compact/
-        ├── detailed/
-        ├── minimalist/
-        └── system/
+├── ocws/                   # OCWS shell configuration
+│   ├── ocws.config         # Main bar layout (dual-bar: top + bottom)
+│   ├── ocws.css            # Generated glassmorphic panel CSS
+│   ├── theme.css           # Static structural GTK CSS
+│   ├── ocws-daemon.sh      # Background event bus listener
+│   ├── plugins.config      # Auto-generated plugin includes
+│   ├── plugins/            # Drop-in widget extensions
+│   ├── *.widget            # 30+ widget files
+│   ├── *.source            # Data source files
+│   └── widget-sets/        # Widget preset collections
+├── fuzzel/                 # Fuzzel launcher configuration
+│   └── fuzzel.ini
+├── foot/                   # Foot terminal configuration
+│   └── foot.ini
+├── gtk-3.0/                # GTK3 settings
+│   └── settings.ini
+├── gtk-4.0/                # GTK4 settings
+│   └── settings.ini
+├── fontconfig/             # Font configuration
+│   └── fonts.conf
+├── mako/                   # Notification daemon configuration
+│   └── mako.ini
+├── rofi/                   # Application launcher (legacy)
+│   └── config.rasi
+├── qt6ct/                  # Qt6 theme configuration
+│   └── qt6ct.conf
+└── wallpaper               # Wallpaper path
 ```
 
 ## Quick Start
 
 ```bash
-# Install all dotfiles
-./dotfiles/install.sh
+# Install all dotfiles (from project root)
+./install.sh
 
 # Launch labwc from TTY
-./scripts/start-labwc.sh
+labwc
 ```
 
 ## labwc Configuration
 
 The labwc config is in `dotfiles/labwc/`. It uses XML format (Openbox-compatible):
 
-- **rc.xml** - Keybindings, window rules, themes, menus
-- **autostart** - Shell script run at startup (starts crystal-dock, zebar, wallpaper)
-- **environment** - Environment variables
-- **menu.xml** - Right-click desktop menu
-- **themerc-override** - Theme customization
+- **rc.xml** -- Keybindings, window rules, themes, menus
+- **autostart** -- Shell script run at startup (starts sfwbar, daemon, wallpaper)
+- **environment** -- Environment variables
+- **menu.xml** -- Right-click desktop menu
+- **themerc-override** -- Theme customization
 
 ### Key Keybindings
 
 | Key | Action |
 |-----|--------|
 | `Super+Return` | Terminal (foot) |
-| `Super+D` | App launcher (rofi) |
+| `Super+D` | App launcher (fuzzel) |
 | `Super+Q` | Close window |
 | `Super+M` | Exit labwc |
 | `Super+R` | Reload config |
-| `Alt+1-9` | Switch workspace |
-| `Super+Alt+Arrow` | Swap windows |
+| `Super+1-9` | Switch workspace |
+| `Super+Shift+1-9` | Move window to workspace |
+| `Alt+Tab` | Cycle windows |
 | `Print` | Screenshot (grim + slurp) |
 
-## Zebar Widgets
+## OCWS Shell
 
-Widget HTML files are in `dotfiles/zebar/widgets/`. Each widget is a standalone HTML file that zebar renders as a panel.
+OCWS is the primary shell, configured in `dotfiles/ocws/`. The main config (`ocws.config`) defines a dual-bar layout with widgets for system monitoring, media control, and quick actions.
 
-### Widget Types
+### Widget Categories
 
-- **main** - Classic status bar with clock, CPU, memory, battery
-- **minimalist** - Minimal gradient design
-- **compact** - Space-optimized single-line bar
-- **detailed** - 3x2 grid with comprehensive system info
-- **system** - Full dashboard with all metrics
+- **System monitors**: CPU, memory, disk, temperature, network bandwidth
+- **Audio/media**: volume, brightness, media player controls
+- **Power**: battery, power profiles, idle inhibit
+- **Network**: WiFi, Bluetooth
+- **Applets**: weather, clipboard, calendar, keyboard layout
+- **UI components**: launcher, workspaces, dock, clock, system tray
 
-### Using Widgets
+### Data Sources
 
-```bash
-# Start all configured widgets
-zebar startup
+- **ocws-sysmon.source** -- Aggregated system metrics from /proc and /sys
+- **cpu.source** -- CPU utilization delta from /proc/stat
+- **memory.source** -- Memory usage breakdown from /proc/meminfo
+- **battery.source** -- Battery level and state from /sys/class/power_supply
 
-# Launch specific widget
-zebar start-widget main
-zebar start-widget minimalist
-```
+See `dotfiles/ocws/README.md` for the complete widget inventory.
 
-## crystal-dock Integration
+## Fuzzel Launcher
 
-crystal-dock is configured as the primary dock in the autostart file:
+Fuzzel is the primary application launcher, configured in `dotfiles/fuzzel/fuzzel.ini`.
 
-```bash
-crystal-dock --start --overlay
-```
+## GTK Theming
 
-It provides application launching and dock functionality while zebar handles status widgets.
+GTK3 and GTK4 settings are in `dotfiles/gtk-3.0/` and `dotfiles/gtk-4.0/`. These are generated by the theme engine from INI profiles in `themes/`.
 
 ## Wallpaper
 
-The wallpaper script supports random selection, syncing from sources, and daemon mode:
-
-```bash
-wallpaper random    # Set random wallpaper
-wallpaper sync      # Download from wallpaper-sources.txt
-wallpaper daemon    # Auto-rotate every hour
-wallpaper set PATH  # Set specific wallpaper
-```
+The wallpaper path is stored in `dotfiles/wallpaper`. OCWS uses `ocws-wallpaper` for time-of-day transitions.

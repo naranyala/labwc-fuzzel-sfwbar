@@ -69,7 +69,7 @@ PopUp("MemMonitorPopup") {
     label {
       value = "Click to open htop"
       style = "detail_hint"
-      action = ExecTerm("htop -o %MEM")
+      action = Exec("foot -e htop -o %MEM")
     }
   }
 }

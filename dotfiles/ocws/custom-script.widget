@@ -53,7 +53,7 @@ PopUp("CustomPopup") {
     label {
       value = "Click to run custom command"
       style = "detail_hint"
-      action = ExecTerm("echo 'Custom command here'")
+      action = Exec("foot -e echo 'Custom command here'")
     }
   }
 }

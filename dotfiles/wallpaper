@@ -2,7 +2,15 @@
 # dotfiles/wallpaper
 
 WALLPAPER_DIR="${HOME}/Pictures/wallpapers"
-SOURCES_FILE="$(dirname "$0")/wallpaper-sources.txt"
+# Look for sources file relative to script first (dev mode), then fall back to installed location
+_script_dir="$(cd "$(dirname "$0")" && pwd)"
+if [[ -f "$_script_dir/wallpaper-sources.txt" ]]; then
+    SOURCES_FILE="$_script_dir/wallpaper-sources.txt"
+elif [[ -f "$HOME/.config/ocws/wallpaper-sources.txt" ]]; then
+    SOURCES_FILE="$HOME/.config/ocws/wallpaper-sources.txt"
+else
+    SOURCES_FILE="$HOME/.local/share/ocws/wallpaper-sources.txt"
+fi
 
 # --- Internal Functions ---
 

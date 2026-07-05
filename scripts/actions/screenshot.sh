@@ -122,7 +122,8 @@ else
 fi
 
 # Copy to clipboard (if file was created)
-if $CLIPBOARD && [ -f "$FILEPATH" ]; then
+# Skip for annotate modes — satty/swappy already handled the copy internally
+if $CLIPBOARD && [ -f "$FILEPATH" ] && [[ "$MODE" != "annotate" && "$MODE" != "annotate-full" ]]; then
   if command -v wl-copy &>/dev/null; then
     wl-copy < "$FILEPATH"
   elif command -v xclip &>/dev/null; then

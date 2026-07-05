@@ -60,11 +60,11 @@ Function XBatteryInit() {
     }
 }
 
-set Level = If(!Ident(BSDCtl),
-    XBatteryLeft/XBatteryTotal*100,
+Set Level = If(!Ident(BSDCtl),
+    If(XBatteryTotal > 0, XBatteryLeft/XBatteryTotal*100, 0),
     BSDCtl("hw.acpi.battery.life"))
-set Time = If(!Ident(BSDCtl),
-    If(XBatteryCurrent, XBatteryLeft/XBatteryCurrent*60, 0),
+Set Time = If(!Ident(BSDCtl),
+    If(XBatteryCurrent > 0, XBatteryLeft/XBatteryCurrent*60, 0),
     Val(BSDCtl("hw.acpi.battery.time")))
 
 set Discharging = If(!Ident(BSDCtl),

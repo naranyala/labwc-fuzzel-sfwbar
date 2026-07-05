@@ -89,8 +89,9 @@ case "$MODE" in
     ;;
 
   set-sink)
-    local_sink_id="${2:-}"
-    if [ -z "$local_sink_id" ]; then
+    # STEP holds $2, which is the sink ID when called as: audio.sh set-sink <id>
+    local_sink_id="${STEP:-}"
+    if [ -z "$local_sink_id" ] || [ "$local_sink_id" = "5%" ]; then
       fail "Usage: $0 set-sink <sink-id>"
     fi
     wpctl set-default "$local_sink_id" 2>/dev/null

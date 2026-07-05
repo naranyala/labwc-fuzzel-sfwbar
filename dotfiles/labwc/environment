@@ -20,8 +20,8 @@ GDK_BACKEND=wayland
 GTK_USE_PORTAL=1
 
 # Cursor
-XCURSOR_THEME=
-XCURSOR_SIZE=
+XCURSOR_THEME=Catppuccin-Mocha-Dark
+XCURSOR_SIZE=24
 
 # Font Rendering — FreeType interpreter v35 (latest)
 FREETYPE_PROPERTIES=truetype:interpreter-version=35
