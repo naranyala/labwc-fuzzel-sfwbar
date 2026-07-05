@@ -1,0 +1,89 @@
+#!/bin/bash
+# labwc-shell-wrapper — Selects shell mode based on environment config
+
+set -euo pipefail
+
+CONFIG_FILE="$HOME/.config/labwc-shell-mode"
+DEFAULT_MODE="noctalia"  # Default: noctalia shell
+
+# Load mode from config file (for system-wide settings)
+if [ -f "$CONFIG_FILE" ]; then
+    MODE="$(cat "$CONFIG_FILE" 2>/dev/null)"
+else
+    # Check for environment variable
+    if [ -n "${LABWC_SHELL_MODE:-}" ]; then
+        MODE="$LABWC_SHELL_MODE"
+    else
+        # Fall back to per-user config
+        USER_CONFIG="$HOME/.config/labwc-widgets/shell-mode"
+        if [ -f "$USER_CONFIG" ]; then
+            MODE="$(cat "$USER_CONFIG" 2>/dev/null)"
+        else
+            MODE="$DEFAULT_MODE"
+        fi
+    fi
+fi
+
+# Function to stop all shells
+stop_all_shells() {
+    echo "Stopping all shells..."
+    if pgrep -x crystal-dock >/dev/null; then
+        pkill -x crystal-dock
+        rm -f /tmp/qipc_sharedmemory_crystaldock* /tmp/qipc_systemsem_crystaldock* 2>/dev/null
+    fi
+    if pgrep -x sfwbar >/dev/null; then
+        pkill -x sfwbar
+    fi
+    if pgrep -x noctalia >/dev/null; then
+        pkill -x noctalia
+    fi
+    sleep 0.3
+}
+
+# Function to start shells based on mode
+start_shells() {
+    case "$MODE" in
+        crystal)
+            echo "Starting crystal-dock only..."
+            nohup crystal-dock >/dev/null 2>&1 &
+            ;;
+        sfwbar)
+            echo "Starting sfwbar only (double panel)..."
+            if command -v ocws-plugin-loader.sh >/dev/null 2>&1; then
+                ocws-plugin-loader.sh
+            fi
+            nohup sfwbar -f "$HOME/.config/ocws/ocws.config" >/dev/null 2>&1 &
+            ;;
+        both)
+            echo "Starting both crystal-dock and sfwbar..."
+            nohup crystal-dock >/dev/null 2>&1 &
+            if command -v ocws-plugin-loader.sh >/dev/null 2>&1; then
+                ocws-plugin-loader.sh
+            fi
+            nohup sfwbar -f "$HOME/.config/ocws/ocws.config" >/dev/null 2>&1 &
+            ;;
+        noctalia)
+            echo "Starting noctalia..."
+            if command -v noctalia >/dev/null 2>&1; then
+                nohup noctalia >/dev/null 2>&1 &
+            else
+                echo "warning: noctalia not installed"
+            fi
+            ;;
+        *)
+            echo "warning: unknown shell mode: $MODE (using default: noctalia)"
+            if command -v noctalia >/dev/null 2>&1; then
+                nohup noctalia >/dev/null 2>&1 &
+            else
+                echo "warning: noctalia not installed, falling back to crystal-dock"
+                nohup crystal-dock >/dev/null 2>&1 &
+            fi
+            ;;
+    esac
+}
+
+# Main execution
+stop_all_shells
+start_shells
+
+echo "✅ labwc configured with shell mode: $MODE"

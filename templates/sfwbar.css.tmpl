@@ -19,6 +19,7 @@
 window#topbar, window#bottombar {
   background-color: alpha({{COLOR_BG}}, 0.92);
   box-shadow: none;
+  min-height: 36px;
 }
 
 grid#layout, grid#topbar {
@@ -90,13 +91,15 @@ image {
 
 /* Module buttons — circular pill style */
 button.module {
-  padding: 6px;
-  border-radius: 8px;
+  padding: 4px 6px;
+  border-radius: 6px;
   background-color: transparent;
   color: {{COLOR_FG}};
-  margin: 2px;
-  min-width: 28px;
-  min-height: 28px;
+  margin: 0px 2px;
+  min-width: 24px;
+  min-height: 24px;
+  -GtkWidget-vexpand: true;
+  -GtkWidget-valign: center;
 }
 
 button.module:hover {
@@ -168,18 +171,21 @@ button#pager_item:hover {
  * ============================================================ */
 
 button.taskbar_item {
-  padding: 4px 8px;
+  padding: 2px 8px;
   margin: 2px;
   border-radius: 6px;
   background-color: transparent;
+  -GtkWidget-vexpand: true;
+  -GtkWidget-valign: center;
 }
 
 button.taskbar_item:hover {
   background-color: alpha({{COLOR_SURFACE}}, 0.5);
 }
 
-button.taskbar_item.active {
+button.taskbar_item.focused {
   background-color: alpha({{COLOR_ACCENT}}, 0.2);
+  border-bottom: 2px solid {{COLOR_ACCENT}};
 }
 
 button.taskbar_item.urgent {

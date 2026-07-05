@@ -11,7 +11,7 @@
 #
 # Themes are INI files in themes/ with sections:
 #   [meta], [colors], [labwc], [gtk3], [gtk4], [fonts],
-#   [rofi], [sfwbar], [zebar], [mako], [foot], [qt6ct], [kvantum], [cursor], [ocws]
+#   [rofi], [sfwbar], [zebar], [mako], [foot], [qt6ct], [cursor], [ocws]
 #
 
 set -uo pipefail

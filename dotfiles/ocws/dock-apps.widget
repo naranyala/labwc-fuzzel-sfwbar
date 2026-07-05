@@ -1,0 +1,75 @@
+#Api2
+# dock-apps.widget — Pinned application launchers for dock
+# Each button launches an app and shows running state
+
+# --- Chromium Browser ---
+button {
+  style = "dock_app"
+  tooltip = "Chromium Browser"
+  action = Exec("chromium-browser")
+  image {
+    icon = "chromium-browser"
+    css = "* { min-width: 32px; min-height: 32px; }"
+  }
+}
+
+# --- File Manager (Nautilus) ---
+button {
+  style = "dock_app"
+  tooltip = "Files"
+  action = Exec("nautilus")
+  image {
+    icon = "org.gnome.Nautilus"
+    css = "* { min-width: 32px; min-height: 32px; }"
+  }
+}
+
+# --- Text Editor (Kate) ---
+button {
+  style = "dock_app"
+  tooltip = "Kate Editor"
+  action = Exec("kate")
+  image {
+    icon = "org.kde.kate"
+    css = "* { min-width: 32px; min-height: 32px; }"
+  }
+}
+
+# --- Terminal (Foot) ---
+button {
+  style = "dock_app"
+  tooltip = "Terminal"
+  action = Exec("foot")
+  image {
+    icon = "utilities-terminal"
+    css = "* { min-width: 32px; min-height: 32px; }"
+  }
+}
+
+# --- App Launcher (Fuzzel) ---
+button {
+  style = "dock_app"
+  tooltip = "App Launcher"
+  action = Exec("fuzzel")
+  image {
+    icon = "view-app-grid-symbolic"
+    css = "* { min-width: 32px; min-height: 32px; }"
+  }
+}
+
+# --- Separator ---
+label {
+  style = "dock_sep"
+  value = "|"
+}
+
+# --- Settings ---
+button {
+  style = "dock_app"
+  tooltip = "Settings"
+  action = Exec("gnome-control-center")
+  image {
+    icon = "preferences-system-symbolic"
+    css = "* { min-width: 32px; min-height: 32px; }"
+  }
+}

@@ -57,7 +57,8 @@ pass "Config dir found: $CONFIG_DIR"
 # --- 3. Dependency check ---
 info "Checking dependencies..."
 DEPS=(swaybg)
-OPTIONAL_DEPS=(crystal-dock zebar foot rofi mako grim slurp wl-copy playerctl wpctl)
+NEW_OPTIONAL_DEPS=(zebar foot rofi mako grim slurp wl-copy playerctl wpctl)
+LEGACY_OPTIONAL_DEPS=(crystal-dock noctalia)
 MISSING=()
 for dep in "${DEPS[@]}"; do
   if ! command -v "$dep" &>/dev/null; then
@@ -71,15 +72,28 @@ if [ ${#MISSING[@]} -gt 0 ]; then
 fi
 pass "Required dependencies OK"
 
-OPT_MISSING=()
-for dep in "${OPTIONAL_DEPS[@]}"; do
-  if ! command -v "$dep" &>/dev/null; then
-    OPT_MISSING+=("$dep")
+# Check for legacy dependencies with migration suggestions
+LEGACY_FOUND=()
+for dep in "${LEGACY_OPTIONAL_DEPS[@]}"; do
+  if command -v "$dep" &>/dev/null; then
+    LEGACY_FOUND+=("$dep")
   fi
 done
-if [ ${#OPT_MISSING[@]} -gt 0 ]; then
-  warn "Optional dependencies not found: ${OPT_MISSING[*]}"
-  info "Some features may not work without them"
+
+if [ ${#LEGACY_FOUND[@]} -gt 0 ]; then
+  warn "Legacy dependencies found (should be phased out for OCWS-only setup): ${LEGACY_FOUND[*]}"
+  info "Next OCWS release will make these optional. Use sfwbar-plus mode for enhanced OCWS features."
+fi
+
+NEW_OPT_MISSING=()
+for dep in "${NEW_OPTIONAL_DEPS[@]}"; do
+  if ! command -v "$dep" &>/dev/null; then
+    NEW_OPT_MISSING+=("$dep")
+  fi
+done
+if [ ${#NEW_OPT_MISSING[@]} -gt 0 ]; then
+  warn "OCWS dependencies not found: ${NEW_OPT_MISSING[*]}"
+  info "Some OCWS features may not work without them"
 fi
 
 # --- 4. Wayland session check ---

@@ -1,0 +1,120 @@
+#!/bin/bash
+# toggle-shell — Switch between shell modes: ocws-only, sfwbar-plus, and legacy modes
+
+set -euo pipefail
+
+CFG="$HOME/.config/labwc-widgets/shell-mode"
+mkdir -p "$(dirname "$CFG")"
+
+# API: Support both old and new mode names
+if [ -n "${1:-}" ]; then
+    MODE="$1"
+
+    # Map old mode names to new ones with deprecation warnings
+    if [ "$MODE" = "noctalia" ]; then
+        echo "⚠️  WARNING: 'noctalia' mode is deprecated. Use 'sfwbar-plus' for equivalent functionality."
+        echo "   Noctalia features are being incorporated into sfwbar-plus."
+        MODE="sfwbar-plus"
+    elif [ "$MODE" = "crystal" ]; then
+        echo "⚠️  WARNING: 'crystal' mode is deprecated. Use 'sfwbar-plus' for enhanced features."
+        echo "   Crystal-dock features are being incorporated into sfwbar-plus."
+        MODE="sfwbar-plus"
+    elif [ "$MODE" = "both" ]; then
+        echo "⚠️  WARNING: 'both' mode is deprecated. Use 'sfwbar-plus' for unified shell with both panels."
+        echo "   The dual-panel configuration is now part of 'sfwbar-plus' mode."
+        MODE="sfwbar-plus"
+    fi
+
+    # Validate mode
+    if [ "$MODE" != "sfwbar" ] && [ "$MODE" != "sfwbar-plus" ] && [ "$MODE" != "noctalia" ] && [ "$MODE" != "crystal" ] && [ "$MODE" != "both" ]; then
+        echo "Usage: $0 <mode>"
+        echo ""
+        echo "Modes:"
+        echo "  sfwbar-plus  labwc + enhanced OCWS with rich shell features (default)"
+        echo "  sfwbar       labwc + sfwbar only (minimal OCWS)"
+        echo ""
+        echo "Legacy modes (mapped to sfwbar-plus):"
+        echo "  noctalia     labwc + noctalia shell"
+        echo "  crystal      labwc + crystal-dock only"
+        echo "  both         labwc + both sfwbar + crystal-dock"
+        exit 1
+    fi
+
+    NEW="$MODE"
+else
+    # Auto-switch: legacy config backward compatibility
+    if [ -f "$CFG" ]; then
+        CURRENT=$(cat "$CFG")
+        if [ "$CURRENT" = "both" ] || [ "$CURRENT" = "noctalia" ] || [ "$CURRENT" = "crystal" ]; then
+            echo "🔄 Migration: "$CURRENT" mode detected -> switching to sfwbar-plus"
+            NEW="sfwbar-plus"
+            echo "$NEW" > "$CFG"
+            exit 0
+        fi
+    fi
+    echo "Usage: $0 <mode>"
+    exit 1
+fi
+
+CURRENT="$(cat "$CFG" 2>/dev/null || echo noctalia)"
+
+echo "Current shell mode: $CURRENT"
+echo "Switching to: $NEW"
+
+# Kill existing shells
+if pgrep -x crystal-dock >/dev/null; then
+    echo "Stopping crystal-dock..."
+    pkill -x crystal-dock
+    rm -f /tmp/qipc_sharedmemory_crystaldock* /tmp/qipc_systemsem_crystaldock* 2>/dev/null
+fi
+
+if pgrep -x sfwbar >/dev/null; then
+    echo "Stopping sfwbar..."
+    pkill -x sfwbar
+fi
+
+if pgrep -x noctalia >/dev/null; then
+    echo "Stopping noctalia..."
+    pkill -x noctalia
+fi
+
+sleep 0.3
+
+# Start new configuration
+case "$NEW" in
+    sfwbar-plus|noctalia|both)
+        echo "Starting OCWS (sfwbar-plus mode)..."
+        if command -v ocws-plugin-loader.sh >/dev/null 2>&1; then
+            ocws-plugin-loader.sh
+        fi
+        pkill -x sfwbar 2>/dev/null
+        sleep 0.2
+        nohup sfwbar -f "$HOME/.config/ocws/ocws.config" >/dev/null 2>&1 &
+        ;;
+    sfwbar)
+        echo "Starting sfwbar only (minimal)..."
+        if command -v ocws-plugin-loader.sh >/dev/null 2>&1; then
+            ocws-plugin-loader.sh
+        fi
+        pkill -x sfwbar 2>/dev/null
+        sleep 0.2
+        nohup sfwbar -f "$HOME/.config/ocws/ocws.config" >/dev/null 2>&1 &
+        ;;
+    crystal)
+        echo "Starting crystal-dock only..."
+        nohup crystal-dock >/dev/null 2>&1 &
+        ;;
+esac
+
+# Update configuration
+if [ -f "$CFG" ]; then
+    if grep -q "^$CURRENT" "$CFG"; then
+        sed -i "s/^$CURRENT\$/$NEW/" "$CFG"
+    else
+        echo "$NEW" > "$CFG"
+    fi
+else
+    echo "$NEW" > "$CFG"
+fi
+
+echo "✅ Shell mode switched to: $NEW"

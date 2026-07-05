@@ -1,0 +1,36 @@
+#Api2
+# desktop-weather.widget — Floating weather display for desktop
+# Shows current weather conditions
+
+Private {
+  export label "desktop_weather" {
+    style = "desktop_weather"
+    tooltip = "Weather"
+    value = If(Length(XWeatherDesc) > 0, XWeatherIcon + " " + XWeatherDesc + " " + XWeatherTemp, "Weather Loading...")
+  }
+}
+
+#CSS
+
+/* Desktop weather — compact, translucent */
+label.desktop_weather {
+  font-size: 18px;
+  color: rgba(205, 214, 244, 0.2);
+  background-color: transparent;
+  padding: 12px 24px;
+  margin: 0px;
+  border: none;
+  border-radius: 0px;
+  box-shadow: none;
+  -GtkWidget-halign: end;
+  -GtkWidget-valign: start;
+  -GtkWidget-hexpand: false;
+  -GtkWidget-vexpand: false;
+}
+
+/* Hover effect */
+label.desktop_weather:hover {
+  color: rgba(205, 214, 244, 0.35);
+  background-color: rgba(69, 71, 90, 0.15);
+  border-radius: 12px;
+}

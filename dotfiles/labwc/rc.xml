@@ -38,7 +38,9 @@
     </keybind>
     <keybind key="A-q"><action name="Close"/></keybind>
     <keybind key="A-F4"><action name="Close"/></keybind>
-    <keybind key="W-m"><action name="Exit"/></keybind>
+    <keybind key="W-m"><action name="Execute"><command>vlc</command></action></keybind>
+    <keybind key="W-s"><action name="Execute"><command>shell-mode-picker.sh</command></action></keybind>
+    <!-- <keybind key="W-m"><action name="Exit"/></keybind> -->
 
     <!-- Launchers -->
     <keybind key="A-Return"><action name="Execute"><command>foot</command></action></keybind>
@@ -145,8 +147,12 @@
 
     <!-- Window Management Extras -->
     <keybind key="W-Return"><action name="Execute"><command>foot</command></action></keybind>
-    <keybind key="A-BackSpace"><action name="Execute"><command>sfwbar -c "SwitcherEvent('forward')"</command></action></keybind>
+    <!-- ponytail: sfwbar window switcher disabled — sfwbar not default anymore -->
+    <!-- <keybind key="A-BackSpace"><action name="Execute"><command>sfwbar -c "SwitcherEvent('forward')"</command></action></keybind> -->
     <keybind key="W-w"><action name="Execute"><command>wallpaper random</command></action></keybind>
+    <keybind key="W-e"><action name="Execute"><command>nautilus</command></action></keybind>
+    <keybind key="W-i"><action name="Execute"><command>icon-theme-picker.sh</command></action></keybind>
+    <keybind key="W-c"><action name="Execute"><command>env GTK_USE_PORTAL=0 /home/naranyala/.local/bin/ocws-settings</command></action></keybind>
 
     <keybind key="W-d"><action name="ToggleShowDesktop"/></keybind>
 
@@ -195,7 +201,7 @@
   </mouse>
 
   <applications>
-    <!-- sfwbar: layer shell statusbar (default) -->
+    <!-- sfwbar: layer shell statusbar (disabled by default — unstable) -->
     <application class="sfwbar">
       <skip_taskbar>yes</skip_taskbar>
       <skip_pager>yes</skip_pager>

@@ -66,7 +66,7 @@ fi
 
 # 1.5 Confirmation Prompt
 echo -e "\n${YELLOW}⚠ WARNING: This will deploy configurations to ~/.config/ and ~/.local/bin/${NC}"
-echo -e "  Affected directories: labwc, ocws, fuzzel, foot, gtk-3.0, gtk-4.0, rofi, mako, qt6ct, zebar"
+echo -e "  Affected directories: labwc, ocws, fuzzel, foot, gtk-3.0, gtk-4.0, rofi, mako, qt6ct, zebar, crystal-dock, noctalia"
 echo -n "  Are you sure you want to proceed? [y/N]: "
 read -r confirm
 if [[ ! "$confirm" =~ ^[Yy]$ ]]; then
@@ -146,6 +146,21 @@ if [ -d "$SCRIPT_DIR/dotfiles/qt6ct" ]; then
     mkdir -p ~/.config/qt6ct
     cp -r "$SCRIPT_DIR/dotfiles/qt6ct/"* ~/.config/qt6ct/ 2>/dev/null || true
     pass "Qt6ct synced."
+fi
+
+# Deploy crystal-dock
+if [ -d "$SCRIPT_DIR/dotfiles/crystal-dock" ]; then
+    info "Deploying crystal-dock configuration..."
+    rsync -a "$SCRIPT_DIR/dotfiles/crystal-dock/" ~/.config/crystal-dock/ 2>/dev/null || true
+    pass "crystal-dock config synced."
+fi
+
+# Deploy noctalia
+if [ -d "$SCRIPT_DIR/dotfiles/noctalia" ]; then
+    info "Deploying noctalia configuration..."
+    mkdir -p ~/.config/noctalia
+    rsync -a "$SCRIPT_DIR/dotfiles/noctalia/" ~/.config/noctalia/ 2>/dev/null || true
+    pass "noctalia config synced."
 fi
 
 # Deploy Zebar

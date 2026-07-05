@@ -1,5 +1,6 @@
 /* SFWBar — Regular full-width panel theme
- * Theme: Catppuccin Mocha */
+ * Theme: Catppuccin Mocha
+ * Valid GTK3 CSS only */
 
 @define-color bg_color #1e1e2e;
 @define-color fg_color #cdd6f4;
@@ -77,7 +78,7 @@ image {
 }
 
 .module:hover {
-  background-color: alpha(#1e1e2e, 0.5);
+  background-color: alpha(#45475a, 0.5);
 }
 
 .focused {
@@ -100,24 +101,25 @@ button.module {
 }
 
 button.module:hover {
-  background-color: alpha(#1e1e2e, 0.5);
+  background-color: alpha(#45475a, 0.5);
 }
 
 button.module:active {
-  background-color: alpha(#1e1e2e, 0.7);
+  background-color: alpha(#45475a, 0.7);
 }
 
 /* ============================================================
  * Clock — centered, prominent
  * ============================================================ */
 
-label#clock {
+button#clock {
   font-size: 13px;
   font-weight: bold;
   padding: 4px 12px;
   -GtkWidget-vexpand: true;
   -GtkWidget-valign: center;
   color: #cdd6f4;
+  min-height: 0px;
 }
 
 /* ============================================================
@@ -186,7 +188,7 @@ button.taskbar_item {
 }
 
 button.taskbar_item:hover {
-  background-color: alpha(#1e1e2e, 0.5);
+  background-color: alpha(#45475a, 0.5);
 }
 
 button.taskbar_item.active {
@@ -202,7 +204,7 @@ button.taskbar_item.urgent {
  * ============================================================ */
 
 window.detail_popup {
-  background: rgba(0, 0, 0, 0);
+  background-color: rgba(0, 0, 0, 0);
   padding: 5px;
 }
 
@@ -221,7 +223,7 @@ label.detail_header {
   font-weight: bold;
   color: #89b4fa;
   padding-bottom: 8px;
-  border-bottom: 1px solid alpha(#1e1e2e, 0.6);
+  border-bottom: 1px solid alpha(#45475a, 0.3);
   -GtkWidget-hexpand: true;
 }
 
@@ -237,7 +239,7 @@ label.detail_hint {
   font-size: 10px;
   color: alpha(#cdd6f4, 0.6);
   padding-top: 6px;
-  border-top: 1px solid alpha(#1e1e2e, 0.6);
+  border-top: 1px solid alpha(#45475a, 0.3);
   -GtkWidget-hexpand: true;
 }
 
@@ -256,7 +258,7 @@ grid.detail_button_row button {
 }
 
 grid.detail_button_row button:hover {
-  background-color: alpha(#1e1e2e, 0.5);
+  background-color: alpha(#45475a, 0.5);
   border-color: #89b4fa;
 }
 
@@ -268,7 +270,7 @@ scale.detail_slider {
 progressbar.detail_progress trough {
   min-height: 6px;
   border-radius: 3px;
-  background-color: alpha(#1e1e2e, 0.4);
+  background-color: alpha(#45475a, 0.4);
   border: 1px solid alpha(#45475a, 0.3);
 }
 
@@ -305,7 +307,7 @@ button#tray_item image {
  * ============================================================ */
 
 window#SessionPopup {
-  background: rgba(0,0,0,0);
+  background-color: rgba(0, 0, 0, 0);
   -GtkWidget-direction: right;
   padding: 5px;
 }
@@ -336,13 +338,13 @@ button.ws_button {
   border-radius: 6px;
   padding: 4px;
   margin: 2px;
-  background-color: alpha(#1e1e2e, 0.4);
+  background-color: alpha(#45475a, 0.4);
   color: alpha(#cdd6f4, 0.6);
   font-size: 11px;
 }
 
 button.ws_button:hover {
-  background-color: alpha(#1e1e2e, 0.6);
+  background-color: alpha(#45475a, 0.6);
   color: #cdd6f4;
 }
 
@@ -366,6 +368,7 @@ tooltip label {
 /* ============================================================
  * Spacers
  * ============================================================ */
+
 label#spacer1, label#spacer2 {
   -GtkWidget-hexpand: true;
 }

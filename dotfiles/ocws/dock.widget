@@ -1,211 +1,122 @@
 #Api2
-# dock.widget — Enhanced dock with app pinning and task management
-# Hybrid launcher + taskbar for bottom panel dock experience
+# dock.widget — macOS-style application dock with magnification
+# Replaces crystal-dock with native sfwbar implementation
 
-export button "dock" {
-  style = "module"
-  class = "module"
-  value = "application"
-  tooltip = "Dock (App Launcher + Task Manager)"
-  action = PopUp("DockPopup")
-}
+Private {
+  # Dock configuration — pinned apps (edit this list)
+  Set DockApps = "chromium-browser,nautilus,kate,foot,fuzzel"
 
-PopUp("DockPopup") {
-  style = "detail_popup"
-  grid {
-    style = "detail_grid"
-    label {
-      value = "App Dock & Task Manager"
-      style = "detail_header"
+  export button "dock" {
+    style = "dock_button"
+    tooltip = "Application Dock"
+    action = PopUp("DockPopup")
+
+    image {
+      icon = "grid-dots"
+      css = "* { min-width: 24px; min-height: 24px; }"
     }
-    
-    /* Tabs for different views */
+  }
+
+  PopUp("DockPopup") {
+    style = "dock_popup"
     grid {
-      style = "detail_button_row"
-      button {
-        style = "module"
-        value = "Apps (Pinned)"
-        action = ShowTab("apps_tab")
-      }
-      button {
-        style = "module"
-        value = "Tasks (Running)"
-        action = ShowTab("tasks_tab")
-      }
-      button {
-        style = "module"
-        value = "Recent"
-        action = ShowTab("recent_tab")
-      }
-    }
-    
-    /* Apps Tab */
-    grid {
-      style = "detail_grid"
-      label {
-        value = "Pinnable Apps (Click to add/remove)"
-        style = "detail_hint"
-      }
-      pager {
-        style = "pager"
-        rows = 2
-        cols = 4
-        pins = "1","2","3","4","5","6","7","8","9"
-        preview = true
-        primary_axis = rows
-        action[Drag] = Execute("ExecuteApp($1)")
-        css = "button.dock_app { min-width: 60px; min-height: 60px; border-radius: 8px; }"
-      }
-    }
-    
-    /* Tasks Tab */
-    grid {
-      style = "detail_grid"
-      label {
-        value = "Running Applications"
-        style = "detail_hint"
-      }
-      pager {
-        style = "pager"
-        rows = 2
-        cols = 4
-        pins = "1","2","3","4","5","6","7","8","9"
-        preview = false
-        primary_axis = rows
-        action[Drag] = Focus()
-        css = "button.dock_task { min-width: 56px; min-height: 56px; border-radius: 8px; }"
-      }
-    }
-    
-    /* Recent Tab */
-    grid {
-      style = "detail_grid"
-      label {
-        value = "Recent Apps (Last 10)"
-        style = "detail_hint"
-      }
-      pager {
-        style = "pager"
-        rows = 2
-        cols = 4
-        pins = "1","2","3","4","5","6","7","8","9"
-        preview = true
-        primary_axis = rows
-        action[Drag] = Execute("ExecuteRecentApp($1)")
-        css = "button.dock_recent { min-width: 56px; min-height: 56px; border-radius: 8px; }"
-      }
+      style = "dock_grid"
+      # Dock apps are rendered here via include
+      include("dock-apps.widget")
     }
   }
 }
 
-# Helper functions
-
-Function ExecuteApp() {
-  Exec("fuzzel --command " + $1)
-}
-
-Function ExecuteRecentApp() {
-  Exec("fuzzel --command " + $1)
-}
-
 #CSS
 
-grid#dock_grid {
-  -GtkWidget-direction: right;
-  padding: 8px;
-  background-color: transparent;
+/* Dock trigger button — floating pill style */
+button.dock_button {
+  padding: 4px 10px;
+  margin: 4px 2px;
+  border-radius: 16px;
+  background-color: rgba(30, 30, 46, 0.85);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.4);
+  color: @text_muted;
+  min-width: 0px;
+  min-height: 0px;
+  transition: all 0.15s ease-out;
+}
+button.dock_button:hover {
+  background-color: rgba(69, 71, 90, 0.6);
+  color: @text_primary;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.5);
 }
 
+/* Dock popup window — floating glass panel */
+window.dock_popup {
+  background: rgba(0, 0, 0, 0);
+  padding: 12px;
+}
+
+/* Dock grid — horizontal layout with spacing */
+grid.dock_grid {
+  background-color: rgba(30, 30, 46, 0.92);
+  border-radius: 20px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  padding: 8px 12px;
+  box-shadow: 0 8px 40px rgba(0, 0, 0, 0.6);
+  -GtkWidget-direction: right;
+}
+
+/* Individual dock app button — icon-only with magnification */
 button.dock_app {
+  padding: 8px;
+  margin: 0px 4px;
+  border-radius: 12px;
+  background-color: transparent;
+  border: none;
+  min-width: 48px;
+  min-height: 48px;
+  transition: all 0.15s ease-out;
+}
+
+/* Magnification effect on hover — scale up icon */
+button.dock_app:hover {
+  background-color: rgba(69, 71, 90, 0.4);
+  padding: 10px;
   min-width: 56px;
   min-height: 56px;
-  border-radius: 10px;
-  padding: 8px;
-  margin: 4px;
-  background-color: rgba(30, 30, 46, 0.6);
-  color: #cdd6f4;
-  font-size: 11px;
-  transition: all 0.2s ease;
-  border: 1px solid rgba(137, 180, 250, 0.2);
+  box-shadow: 0 4px 16px rgba(137, 180, 250, 0.2);
 }
 
-button.dock_app:hover {
-  background-color: rgba(69, 71, 90, 0.8);
-  border-color: rgba(137, 180, 250, 0.5);
-  transform: translateY(-2px);
-  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.3);
+/* Active/running indicator — subtle glow */
+button.dock_app.active {
+  background-color: rgba(137, 180, 250, 0.15);
+  border-bottom: 2px solid @accent;
 }
 
-button.dock_app:active {
-  background-color: rgba(137, 180, 250, 0.3);
-  border-color: rgba(137, 180, 250, 0.8);
-  transform: translateY(1px);
+button.dock_app.active:hover {
+  background-color: rgba(137, 180, 250, 0.25);
 }
 
-button.dock_task {
-  min-width: 50px;
-  min-height: 50px;
-  border-radius: 8px;
-  padding: 6px;
-  margin: 3px;
-  background-color: rgba(30, 30, 46, 0.4);
-  color: #a6adc8;
-  font-size: 10px;
-  border: 1px solid rgba(137, 180, 250, 0.1);
+/* Dock app icon — large, centered */
+button.dock_app image {
+  min-width: 32px;
+  min-height: 32px;
+  padding: 0px;
+  -GtkWidget-valign: center;
+  -GtkWidget-halign: center;
 }
 
-button.dock_task:hover {
-  background-color: rgba(69, 71, 90, 0.6);
-  border-color: rgba(137, 180, 250, 0.4);
-  box-shadow: 0 2px 4px rgba(0, 0, 0, 0.2);
+/* Running indicator dot */
+label.dock_running {
+  font-size: 6px;
+  color: @accent;
+  padding: 0px;
+  min-height: 0px;
+  -GtkWidget-valign: end;
 }
 
-button.dock_task.focused {
-  background-color: rgba(137, 180, 250, 0.2);
-  border-color: rgba(137, 180, 250, 0.6);
-  color: #cdd6f4;
-  font-weight: bold;
-}
-
-button.dock_recent {
-  min-width: 50px;
-  min-height: 50px;
-  border-radius: 8px;
-  padding: 6px;
-  margin: 3px;
-  background-color: rgba(30, 30, 46, 0.3);
-  color: #a6adc8;
-  font-size: 10px;
-  opacity: 0.8;
-}
-
-button.dock_recent:hover {
-  background-color: rgba(69, 71, 90, 0.5);
-  opacity: 1.0;
-  border: 1px solid rgba(137, 180, 250, 0.3);
-}
-
-button.module.dock_app {
-  background: linear-gradient(
-    to bottom,
-    rgba(#1e1e2e, 0.8),
-    rgba(#1e1e2e, 0.6)
-  );
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
-}
-
-# Dock Actions CSS
-grid.detail_button_row {
-  padding: 8px;
-  margin-bottom: 16px;
-  background-color: rgba(30, 30, 46, 0.4);
-  border-radius: 8px;
-  border: 1px solid rgba(137, 180, 250, 0.2);
-}
-
-grid.detail_button_row button {
-  min-width: 80px;
-  margin: 4px;
-  font-size: 12px;
+/* Separator between app groups */
+label.dock_sep {
+  color: rgba(166, 173, 200, 0.2);
+  font-size: 16px;
+  padding: 0px 6px;
+  min-width: 0px;
 }

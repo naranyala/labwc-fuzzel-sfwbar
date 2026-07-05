@@ -1,169 +1,467 @@
 /* OCWS Glass Panel Theme
- * Theme: {{THEME_NAME}} */
-
-
-:root {
-  --blur-intensity: {{OCWS_BLUR}};
-  --border-width: {{OCWS_BORDER}};
-  --border-radius: {{OCWS_RADIUS}};
-  --shadow-depth: {{OCWS_SHADOW}};
-}
+ * Theme: {{THEME_NAME}}
+ * Valid GTK3 CSS only */
 
 /* ============================================================
  * OCWS Glass Surface — Core shell panels
  * ============================================================ */
 
 window#topbar, window#bottombar {
-  background: linear-gradient(
-    to bottom,
-    rgba({{COLOR_BG}}, calc(0.85 + var(--blur-intensity) * 0.15)),
-    rgba({{COLOR_BG}}, calc(0.75 + var(--blur-intensity) * 0.1))
-  );
-  backdrop-filter: blur(calc(var(--blur-intensity) * 2px));
-  -webkit-backdrop-filter: blur(calc(var(--blur-intensity) * 2px));
+  background-color: alpha({{COLOR_BG}}, 0.92);
   border-radius: 0px;
   border: none;
-  box-shadow: 0 calc(var(--shadow-depth) * 1px) calc(var(--shadow-depth) * 8px) rgba(0, 0, 0, calc(0.2 + var(--blur-intensity) * 0.1));
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
   margin: 0px;
   padding: 0px;
 }
 
 /* Top bar layout */
 grid#layout, grid#topbar {
-  background: transparent;
-  border-radius: calc(var(--border-radius) * 1px);
-  margin: 8px 12px;
-  padding: 0px;
-  border: calc(var(--border-width) * 1px) solid rgba({{COLOR_BORDER}}, calc(0.4 + var(--blur-intensity) * 0.05));
-  -GtkWidget-hexpand: true;
-}
-
-/* Bottom bar with gradient bottom edge */
-grid#bottombar {
-  background: linear-gradient(
-    to top,
-    rgba({{COLOR_BG}}, calc(0.8 + var(--blur-intensity) * 0.2)),
-    rgba({{COLOR_BG}}, calc(0.6 + var(--blur-intensity) * 0.15))
-  );
-  backdrop-filter: blur(calc(var(--blur-intensity) * 2px));
-  -webkit-backdrop-filter: blur(calc(var(--blur-intensity) * 2px));
-  border-radius: calc(var(--border-radius) * 1px);
-  margin: 8px 12px;
+  background-color: transparent;
+  margin: 0px;
   padding: 0px 8px;
-  border: calc(var(--border-width) * 1px) solid rgba({{COLOR_BORDER}}, calc(0.4 + var(--blur-intensity) * 0.05));
-  border-top: calc(var(--border-width) * 1px) solid rgba({{COLOR_ACCENT}}, calc(0.3 + var(--blur-intensity) * 0.05));
+  border-bottom: 1px solid alpha({{COLOR_BORDER}}, 0.3);
 }
 
-/* Modern Typography */
+/* Bottom bar */
+grid#bottombar {
+  background-color: alpha({{COLOR_BG}}, 0.85);
+  margin: 0px;
+  padding: 0px 8px;
+  border-top: 1px solid alpha({{COLOR_BORDER}}, 0.3);
+}
+
+/* ============================================================
+ * Typography
+ * ============================================================ */
+
 label, button, tooltip {
-  font-family: 'Inter', 'Noto Sans', 'Roboto', 'Helvetica Neue', sans-serif;
+  font-family: 'Noto Sans', 'sans-serif';
   font-weight: 400;
-  letter-spacing: -0.01em;
   color: {{COLOR_FG}};
-  text-shadow: 0 1px 2px rgba(0, 0, 0, calc(0.1 + var(--blur-intensity) * 0.05));
 }
 
-/* Enhanced module buttons with glass effect */
+/* ============================================================
+ * Module buttons
+ * ============================================================ */
+
 button.module {
-  background: linear-gradient(
-    to bottom,
-    rgba({{COLOR_SURFACE}}, calc(0.3 + var(--blur-intensity) * 0.1)),
-    rgba({{COLOR_SURFACE}}, calc(0.2 + var(--blur-intensity) * 0.05))
-  );
-  backdrop-filter: blur(calc(var(--blur-intensity) * 1px));
-  -webkit-backdrop-filter: blur(calc(var(--blur-intensity) * 1px));
-  border-radius: calc(var(--border-radius) * 2px);
-  border: calc(var(--border-width) * 1px) solid rgba({{COLOR_BORDER}}, calc(0.3 + var(--blur-intensity) * 0.02));
-  box-shadow: 0 1px 3px rgba(0, 0, 0, calc(0.1 + var(--blur-intensity) * 0.1));
-  transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
-  min-width: 32px;
-  min-height: 32px;
-  padding: 6px 10px;
+  background-color: transparent;
+  border-radius: 6px;
+  border: none;
+  min-width: 24px;
+  min-height: 24px;
+  padding: 4px 8px;
   margin: 2px;
+  color: {{COLOR_FG}};
 }
 
-/* Interactive states for glass buttons */
 button.module:hover {
-  background: linear-gradient(
-    to bottom,
-    rgba({{COLOR_SURFACE}}, calc(0.4 + var(--blur-intensity) * 0.15)),
-    rgba({{COLOR_SURFACE}}, calc(0.3 + var(--blur-intensity) * 0.1))
-  );
-  border-color: rgba({{COLOR_ACCENT}}, calc(0.5 + var(--blur-intensity) * 0.1));
-  box-shadow: 0 2px 8px rgba({{COLOR_ACCENT}}, calc(0.2 + var(--blur-intensity) * 0.1));
-  transform: translateY(-1px);
+  background-color: alpha({{COLOR_SURFACE}}, 0.5);
 }
 
 button.module:active {
-  background: linear-gradient(
-    to bottom,
-    rgba({{COLOR_ACCENT}}, calc(0.2 + var(--blur-intensity) * 0.1)),
-    rgba({{COLOR_ACCENT}}, calc(0.3 + var(--blur-intensity) * 0.15))
-  );
+  background-color: alpha({{COLOR_ACCENT}}, 0.3);
+}
+
+/* ============================================================
+ * Text-style widgets
+ * ============================================================ */
+
+button.text_widget {
+  padding: 2px 8px;
+  margin: 1px 3px;
+  border-radius: 6px;
+  background-color: transparent;
+  color: alpha({{COLOR_FG}}, 0.7);
+  min-width: 0px;
+  min-height: 0px;
+  font-size: 12px;
+}
+
+button.text_widget:hover {
+  background-color: alpha({{COLOR_SURFACE}}, 0.4);
+  color: {{COLOR_FG}};
+}
+
+button.text_widget:active {
+  background-color: alpha({{COLOR_ACCENT}}, 0.2);
+}
+
+button.text_clock {
+  padding: 2px 10px;
+  margin: 1px 3px;
+  border-radius: 6px;
+  background-color: transparent;
+  color: {{COLOR_FG}};
+  font-size: 13px;
+  font-weight: bold;
+  min-width: 0px;
+  min-height: 0px;
+}
+
+button.text_clock:hover {
+  background-color: alpha({{COLOR_SURFACE}}, 0.4);
+}
+
+button.text_media {
+  padding: 2px 8px;
+  margin: 1px 3px;
+  border-radius: 6px;
+  background-color: transparent;
+  color: alpha({{COLOR_FG}}, 0.7);
+  font-size: 12px;
+  min-width: 0px;
+  min-height: 0px;
+}
+
+button.text_media:hover {
+  background-color: alpha({{COLOR_SURFACE}}, 0.4);
+  color: {{COLOR_FG}};
+}
+
+button.text_metric {
+  padding: 2px 8px;
+  margin: 1px 3px;
+  border-radius: 6px;
+  background-color: transparent;
+  color: alpha({{COLOR_FG}}, 0.7);
+  font-size: 11px;
+  font-family: monospace;
+  min-width: 0px;
+  min-height: 0px;
+}
+
+button.text_metric:hover {
+  background-color: alpha({{COLOR_SURFACE}}, 0.4);
+  color: {{COLOR_FG}};
+}
+
+button.text_urgent {
+  color: {{COLOR_URGENT}};
+}
+
+button.text_urgent:hover {
+  background-color: alpha({{COLOR_URGENT}}, 0.15);
+}
+
+/* ============================================================
+ * Clock
+ * ============================================================ */
+
+button#clock {
+  font-size: 13px;
+  font-weight: bold;
+  padding: 0px 12px;
+  color: {{COLOR_FG}};
+  min-height: 0px;
+}
+
+button#clock:hover {
+  background-color: alpha({{COLOR_SURFACE}}, 0.4);
+}
+
+/* ============================================================
+ * Taskbar (bottom bar)
+ * ============================================================ */
+
+button.taskbar_item {
+  padding: 2px 8px;
+  margin: 2px;
+  border-radius: 6px;
+  background-color: transparent;
+  color: alpha({{COLOR_FG}}, 0.7);
+  font-size: 11px;
+}
+
+button.taskbar_item:hover {
+  background-color: alpha({{COLOR_SURFACE}}, 0.5);
+  color: {{COLOR_FG}};
+}
+
+button.taskbar_item.focused {
+  background-color: alpha({{COLOR_ACCENT}}, 0.2);
+  color: {{COLOR_FG}};
+  border-bottom: 2px solid {{COLOR_ACCENT}};
+}
+
+button.taskbar_item.urgent {
+  background-color: alpha({{COLOR_URGENT}}, 0.2);
+  color: {{COLOR_URGENT}};
+}
+
+button.taskbar_item image {
+  min-height: 20px;
+  min-width: 20px;
+  padding: 0px 4px 0px 0px;
+  -GtkWidget-valign: center;
+}
+
+button.taskbar_item label {
+  font-size: 11px;
+  color: inherit;
+  padding: 0px;
+  padding-left: 4px;
+}
+
+/* ============================================================
+ * Show Desktop
+ * ============================================================ */
+
+button#showdesktop {
+  padding: 4px 8px;
+  margin: 2px;
+  border-radius: 6px;
+  background-color: transparent;
+}
+
+button#showdesktop:hover {
+  background-color: alpha({{COLOR_SURFACE}}, 0.5);
+}
+
+button#showdesktop:checked {
+  background-color: alpha({{COLOR_ACCENT}}, 0.2);
+}
+
+/* ============================================================
+ * Dock
+ * ============================================================ */
+
+button#dock {
+  padding: 4px 8px;
+  margin: 2px;
+  border-radius: 6px;
+  background-color: transparent;
+}
+
+button#dock:hover {
+  background-color: alpha({{COLOR_SURFACE}}, 0.5);
+}
+
+/* ============================================================
+ * Tray
+ * ============================================================ */
+
+button#tray_item {
+  margin: 0px;
+  border: none;
+  padding: 2px;
+  background-color: transparent;
+}
+
+button#tray_item.passive {
+  -GtkWidget-visible: false;
+}
+
+button#tray_item image {
+  -GtkWidget-valign: center;
+  -GtkWidget-vexpand: true;
+  padding: 2px;
+  margin: 0px;
+}
+
+/* ============================================================
+ * Pager (workspaces)
+ * ============================================================ */
+
+grid#pager {
+  border-radius: 6px;
+  border-color: alpha({{COLOR_BORDER}}, 0.3);
+  border-style: solid;
+  border-width: 1px;
+  margin: 4px;
+  padding: 2px 6px;
+  background-color: transparent;
+}
+
+button#pager_item {
+  border-radius: 4px;
+  border: none;
+  outline: 0px;
+  margin: 1px 2px;
+  padding: 2px;
+  min-width: 18px;
+  min-height: 18px;
+  -GtkWidget-halign: center;
+  -GtkWidget-valign: center;
+  background-color: transparent;
+}
+
+button#pager_item label {
+  font-size: 11px;
+  color: alpha({{COLOR_FG}}, 0.3);
+}
+
+button#pager_item.occupied {
+  background-color: alpha({{COLOR_SURFACE}}, 0.3);
+}
+
+button#pager_item.occupied label {
+  color: alpha({{COLOR_FG}}, 0.6);
+}
+
+button#pager_item.active {
+  background-color: alpha({{COLOR_ACCENT}}, 0.25);
+  border: 1px solid alpha({{COLOR_ACCENT}}, 0.4);
+}
+
+button#pager_item.active label {
+  color: {{COLOR_FG}};
+  font-weight: bold;
+}
+
+button#pager_item:hover {
+  background-color: alpha({{COLOR_SURFACE}}, 0.4);
+}
+
+/* ============================================================
+ * Detail popup panels
+ * ============================================================ */
+
+window.detail_popup {
+  background-color: rgba(0, 0, 0, 0);
+  padding: 5px;
+}
+
+grid.detail_grid {
+  margin: 5px;
+  padding: 12px;
+  border-radius: 10px;
+  border: 1px solid alpha({{COLOR_BORDER}}, 0.4);
+  background-color: alpha({{COLOR_BG}}, 0.95);
+  -GtkWidget-direction: bottom;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+}
+
+label.detail_header {
+  font-size: 13px;
+  font-weight: bold;
+  color: {{COLOR_ACCENT}};
+  padding-bottom: 8px;
+  border-bottom: 1px solid alpha({{COLOR_BORDER}}, 0.3);
+  -GtkWidget-hexpand: true;
+}
+
+label.detail_value {
+  font-family: 'Noto Sans Mono', monospace;
+  font-size: 12px;
+  color: {{COLOR_FG}};
+  padding: 8px 0px;
+  -GtkWidget-hexpand: true;
+}
+
+label.detail_hint {
+  font-size: 10px;
+  color: alpha({{COLOR_FG}}, 0.6);
+  padding-top: 6px;
+  border-top: 1px solid alpha({{COLOR_BORDER}}, 0.3);
+  -GtkWidget-hexpand: true;
+}
+
+grid.detail_button_row {
+  -GtkWidget-hexpand: true;
+  -GtkWidget-direction: right;
+}
+
+grid.detail_button_row button {
+  padding: 4px 8px;
+  margin: 2px;
+  border: 1px solid alpha({{COLOR_BORDER}}, 0.4);
+  border-radius: 6px;
+  background-color: alpha({{COLOR_BG}}, 0.3);
+  color: {{COLOR_FG}};
+}
+
+grid.detail_button_row button:hover {
+  background-color: alpha({{COLOR_SURFACE}}, 0.5);
   border-color: {{COLOR_ACCENT}};
-  box-shadow: 0 1px 4px rgba({{COLOR_ACCENT}}, calc(0.3 + var(--blur-intensity) * 0.2));
-  transform: translateY(1px);
 }
 
-button.module:focus {
-  outline: none;
-  border-color: {{COLOR_ACCENT}};
-  box-shadow: 0 0 0 3px rgba({{COLOR_ACCENT}}, calc(0.2 + var(--blur-intensity) * 0.1));
+scale.detail_slider {
+  -GtkWidget-direction: right;
+  margin: 4px 0px;
 }
 
-/* Glass morphism for popups */
-window.detail_popup, grid.control_grid, grid.session_grid {
-  background: linear-gradient(
-    to bottom right,
-    rgba({{COLOR_BG}}, calc(0.95 + var(--blur-intensity) * 0.05)),
-    rgba({{COLOR_BG}}, calc(0.9 + var(--blur-intensity) * 0.1))
-  );
-  backdrop-filter: blur(calc(var(--blur-intensity) * 3px));
-  -webkit-backdrop-filter: blur(calc(var(--blur-intensity) * 3px));
-  border-radius: calc(var(--border-radius) * 3px);
-  border: calc(var(--border-width) * 1px) solid rgba({{COLOR_BORDER}}, calc(0.5 + var(--blur-intensity) * 0.05));
-  box-shadow: 0 calc(var(--shadow-depth) * 12px) calc(var(--shadow-depth) * 24px) rgba(0, 0, 0, calc(0.4 + var(--blur-intensity) * 0.1));
-  padding: 16px;
-  margin: 8px;
+progressbar.detail_progress trough {
+  min-height: 6px;
+  border-radius: 3px;
+  background-color: alpha({{COLOR_SURFACE}}, 0.4);
+  border: 1px solid alpha({{COLOR_BORDER}}, 0.3);
 }
 
-/* Enhanced scrollbars */
-scrollbar {
-  background: rgba({{COLOR_BG}}, calc(0.3 + var(--blur-intensity) * 0.1));
-  backdrop-filter: blur(calc(var(--blur-intensity) * 1px));
-  -webkit-backdrop-filter: blur(calc(var(--blur-intensity) * 1px));
-  border-radius: calc(var(--border-radius) * 1px);
+progressbar.detail_progress progress {
+  min-height: 6px;
+  border-radius: 3px;
+  background-color: {{COLOR_OK}};
 }
 
-/* Custom status bar animations */
-@keyframes pulse-glow {
-  0%, 100% { box-shadow: 0 0 5px rgba({{COLOR_ACCENT}}, calc(0.3 + var(--blur-intensity) * 0.1)); }
-  50% { box-shadow: 0 0 20px rgba({{COLOR_ACCENT}}, calc(0.5 + var(--blur-intensity) * 0.2)); }
+/* ============================================================
+ * Session popup
+ * ============================================================ */
+
+window#SessionPopup {
+  background-color: rgba(0, 0, 0, 0);
+  -GtkWidget-direction: right;
+  padding: 5px;
 }
 
-button.module.pulse {
-  animation: pulse-glow 2s ease-in-out infinite;
+grid#SessionPopup {
+  -GtkWidget-direction: bottom;
+  -GtkWidget-hexpand: true;
+  margin: 5px;
+  border-radius: 10px;
+  border: 1px solid alpha({{COLOR_BORDER}}, 0.4);
+  padding: 10px;
+  background-color: alpha({{COLOR_BG}}, 0.95);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
 }
 
-/* Glass morphism scrollbar for webkit */
-scrollbar {
-  background: rgba({{COLOR_BG}}, calc(0.3 + var(--blur-intensity) * 0.1));
+/* ============================================================
+ * Workspace grid (popup)
+ * ============================================================ */
+
+grid#ws_grid {
+  -GtkWidget-direction: right;
+  padding: 4px;
 }
 
-scrollbar thumb {
-  background: linear-gradient(
-    to bottom,
-    rgba({{COLOR_ACCENT}}, calc(0.3 + var(--blur-intensity) * 0.1)),
-    rgba({{COLOR_ACCENT}}, calc(0.5 + var(--blur-intensity) * 0.2))
-  );
-  border-radius: calc(var(--border-radius) * 1px);
-  border: calc(var(--border-width) * 1px) solid rgba({{COLOR_BORDER}}, calc(0.2 + var(--blur-intensity) * 0.1));
+button.ws_button {
+  min-width: 28px;
+  min-height: 28px;
+  border-radius: 6px;
+  padding: 4px;
+  margin: 2px;
+  background-color: alpha({{COLOR_SURFACE}}, 0.4);
+  color: alpha({{COLOR_FG}}, 0.6);
+  font-size: 11px;
 }
 
-/* Current theme variables for OCWS */
-window#topbar.current-theme, window#bottombar.current-theme {
-  --blur-intensity: 5;
-  --border-width: 1;
-  --border-radius: 8;
-  --shadow-depth: 4;
+button.ws_button:hover {
+  background-color: alpha({{COLOR_SURFACE}}, 0.6);
+  color: {{COLOR_FG}};
+}
+
+/* ============================================================
+ * Tooltips
+ * ============================================================ */
+
+tooltip {
+  background-color: alpha({{COLOR_BG}}, 0.95);
+  color: {{COLOR_FG}};
+  border-radius: 6px;
+  border: 1px solid alpha({{COLOR_BORDER}}, 0.4);
+  padding: 6px 10px;
+}
+
+tooltip label {
+  color: {{COLOR_FG}};
+  font-size: 11px;
+}
+
+/* ============================================================
+ * Spacers
+ * ============================================================ */
+
+label#spacer1, label#spacer2 {
+  -GtkWidget-hexpand: true;
 }

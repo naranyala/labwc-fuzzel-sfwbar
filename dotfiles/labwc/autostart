@@ -2,29 +2,26 @@
 #
 # labwc autostart — runs once at compositor startup
 #
-# Main panel: sfwbar
-# Configuration: ~/.config/labwc-widgets/status.json
+# Default shell: noctalia
+# Alternative:   crystal-dock, sfwbar (use toggle-shell to switch)
 #
 
 # Ensure local binaries are in PATH
 export PATH="$HOME/.local/bin:$PATH"
 
 # --- DBus Update (critical for portals & screensharing) ---
-# MUST run synchronously before any portals or apps that need it!
 if command -v dbus-update-activation-environment >/dev/null 2>&1; then
   dbus-update-activation-environment --systemd --all
 fi
 if command -v systemctl >/dev/null 2>&1; then
   systemctl --user import-environment WAYLAND_DISPLAY XDG_CURRENT_DESKTOP
-  # Restart portals to pick up the new DBus environment
   killall -q xdg-desktop-portal xdg-desktop-portal-wlr xdg-desktop-portal-gtk 2>/dev/null || true
 fi
 
-# --- Touchpad natural scroll (early, before any apps read the setting) ---
+# --- Touchpad natural scroll ---
 if command -v gsettings >/dev/null 2>&1; then
   gsettings set org.gnome.desktop.peripherals.touchpad natural-scroll true 2>/dev/null
 fi
-
 
 # --- Wallpaper ---
 if command -v wallpaper >/dev/null 2>&1; then
@@ -39,17 +36,30 @@ elif command -v swaybg >/dev/null 2>&1; then
   fi
 fi
 
-# --- OCWS Shell (sfwbar) ---
-if command -v sfwbar >/dev/null 2>&1; then
-  # Generate plugin includes dynamically
-  if command -v ocws-plugin-loader.sh >/dev/null 2>&1; then
-    ocws-plugin-loader.sh
-  fi
+# --- OCWS Shell (sfwbar) - DISABLED BY DEFAULT ---
+# if command -v sfwbar >/dev/null 2>&1; then
+# --- Dynamic Shell Switcher ---
+if command -v shell-switcher.sh >/dev/null 2>&1; then
+  shell-switcher.sh &
+fi
 
-  # Kill any existing instances first during a compositor reload
-  pkill -x sfwbar 2>/dev/null
-  sleep 0.2
-  nohup sfwbar -f "$HOME/.config/ocws/ocws.config" > /dev/null 2>&1 &
+# --- Shell Mode Wrapper ---
+if command -v toggle-shell >/dev/null 2>&1; then
+  # Use the toggle-shell script for shell mode selection
+  # Check for environment variable first, then config file, else default
+  if [ -n "${LABWC_SHELL_MODE:-}" ]; then
+    toggle-shell "$LABWC_SHELL_MODE"
+  elif [ -f "$HOME/.config/labwc-widgets/shell-mode" ]; then
+    MODE="$(cat "$HOME/.config/labwc-widgets/shell-mode")"
+    toggle-shell "$MODE"
+  else
+    toggle-shell noctalia
+  fi
+else
+  echo "warning: toggle-shell not found, using legacy labwc-shell-wrapper"
+  if command -v labwc-shell-wrapper >/dev/null 2>&1; then
+    "$SCRIPT_DIR/scripts/labwc-shell-wrapper" 2>/dev/null
+  fi
 fi
 
 # --- Notification daemon ---
@@ -60,23 +70,20 @@ elif command -v dunst >/dev/null 2>&1; then
 fi
 
 # --- Clipboard manager ---
-# Kill stale wl-paste daemons from previous labwc reloads
 pkill -f "wl-paste.*cliphist" 2>/dev/null || true
 pkill -f "wl-paste.*watch" 2>/dev/null || true
 sleep 0.1
 
 if command -v cliphist >/dev/null 2>&1; then
-  # cliphist provides clipboard history — store text + images
   wl-paste --type text/plain --watch cliphist store 2>/dev/null &
   wl-paste --type image --watch cliphist store 2>/dev/null &
 elif command -v wl-paste >/dev/null 2>&1; then
-  # No cliphist — ensure wl-paste is alive so apps can paste
   if ! pgrep -f "wl-paste" >/dev/null 2>&1; then
     wl-paste --type text/plain --watch cat >/dev/null 2>&1 &
   fi
 fi
 
-# --- Screen protection (always-on, auto day/night) ---
+# --- Screen protection ---
 if command -v gammastep >/dev/null 2>&1; then
   gammastep -t 6500:3500 -g 1.0 -r &
 elif command -v redshift >/dev/null 2>&1; then
@@ -90,16 +97,8 @@ fi
 
 # --- Idle & Screen Locker ---
 if command -v swayidle >/dev/null 2>&1; then
-  # Lock screen after 5 mins, turn off display after 6 mins
   swayidle -w \
     timeout 300 'swaylock -f -c 000000' \
     timeout 360 'wlr-randr --output eDP-1 --off' resume 'wlr-randr --output eDP-1 --on' \
     before-sleep 'swaylock -f -c 000000' &
 fi
-
-# --- OCWS State Daemon (IPC for sfwbar) ---
-OCWS_DAEMON="$HOME/.config/ocws/ocws-daemon.sh"
-if [ -x "$OCWS_DAEMON" ]; then
-  "$OCWS_DAEMON" &
-fi
-

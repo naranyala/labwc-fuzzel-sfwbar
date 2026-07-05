@@ -1,0 +1,35 @@
+#Api2
+# desktop-clock.widget — Large floating clock for desktop
+# Positioned as a background layer surface
+
+Private {
+  export label "desktop_clock" {
+    style = "desktop_clock"
+    tooltip = "Desktop Clock"
+    value = Time("%H:%M")
+  }
+}
+
+#CSS
+
+/* Desktop clock — large, centered, translucent */
+label.desktop_clock {
+  font-size: 72px;
+  font-weight: bold;
+  color: rgba(205, 214, 244, 0.15);
+  background-color: transparent;
+  padding: 20px 40px;
+  margin: 0px;
+  border: none;
+  border-radius: 0px;
+  box-shadow: none;
+  -GtkWidget-halign: center;
+  -GtkWidget-valign: center;
+  -GtkWidget-hexpand: true;
+  -GtkWidget-vexpand: true;
+}
+
+/* Subtle hover effect */
+label.desktop_clock:hover {
+  color: rgba(205, 214, 244, 0.25);
+}

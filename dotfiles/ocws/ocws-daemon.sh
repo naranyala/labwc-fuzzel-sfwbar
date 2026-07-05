@@ -22,17 +22,22 @@ update_volume() {
     MUTED=0
     if echo "$RAW" | grep -q "MUTED"; then MUTED=1; fi
     
-    # Push to OCWS instantly using the standard Event Bus
-    # OCWS: EMIT System.Volume
-    ~/.local/bin/ocws-emit.sh System.Volume "$VOL_PERCENT"
-    # OCWS: EMIT System.VolumeMuted
-    ~/.local/bin/ocws-emit.sh System.VolumeMuted "$MUTED"
+    # Push to sfwbar if running (silent fail if not)
+    ~/.local/bin/ocws-emit.sh System.Volume "$VOL_PERCENT" 2>/dev/null || true
+    ~/.local/bin/ocws-emit.sh System.VolumeMuted "$MUTED" 2>/dev/null || true
+    
+    # Write to state file for other consumers
+    echo "VOLUME=$VOL_PERCENT" > /tmp/ocws-state-volume
+    echo "MUTED=$MUTED" >> /tmp/ocws-state-volume
 }
 
 update_brightness() {
     BRIGHT=$(brightnessctl -m 2>/dev/null | cut -d, -f4 | tr -d % || echo 100)
-    # OCWS: EMIT System.Brightness
-    ~/.local/bin/ocws-emit.sh System.Brightness "$BRIGHT"
+    # Push to sfwbar if running (silent fail if not)
+    ~/.local/bin/ocws-emit.sh System.Brightness "$BRIGHT" 2>/dev/null || true
+    
+    # Write to state file
+    echo "BRIGHTNESS=$BRIGHT" > /tmp/ocws-state-brightness
 }
 
 # 1. Volume Listener

@@ -5,9 +5,10 @@
 export button "showdesktop" {
   style = "module"
   class = "module"
-  value = "user-desktop-symbolic"
   tooltip = "Show Desktop"
   action = ToggleDesktop()
+
+  label { value = "Desktop" }
 }
 
 #CSS

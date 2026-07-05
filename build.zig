@@ -213,4 +213,25 @@ pub fn build(b: *std.Build) void {
 
         b.installArtifact(hypertile);
     }
+
+    // ocws-settings: GTK3 Settings GUI
+    {
+        const settings = b.addExecutable(.{
+            .name = "ocws-settings",
+            .root_module = b.createModule(.{
+                .target = target,
+                .optimize = optimize,
+                .link_libc = true,
+            }),
+        });
+
+        settings.root_module.addCSourceFile(.{
+            .file = b.path("src/ocws-settings.c"),
+            .flags = c_flags,
+        });
+        settings.root_module.linkSystemLibrary("gtk+-3.0", .{});
+        settings.root_module.linkSystemLibrary("glib-2.0", .{});
+
+        b.installArtifact(settings);
+    }
 }

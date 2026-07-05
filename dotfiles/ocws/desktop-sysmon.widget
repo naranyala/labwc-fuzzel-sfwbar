@@ -1,0 +1,37 @@
+#Api2
+# desktop-sysmon.widget — Floating system stats for desktop
+# Shows CPU, memory, and network usage
+
+Private {
+  export label "desktop_sysmon" {
+    style = "desktop_sysmon"
+    tooltip = "System Monitor"
+    value = "CPU: " + Str(XCpuLoad, 0) + "%  MEM: " + Str(XMemPct, 0) + "%"
+  }
+}
+
+#CSS
+
+/* Desktop system monitor — compact stats, translucent */
+label.desktop_sysmon {
+  font-size: 14px;
+  font-family: monospace;
+  color: rgba(166, 173, 200, 0.2);
+  background-color: transparent;
+  padding: 12px 24px;
+  margin: 0px;
+  border: none;
+  border-radius: 0px;
+  box-shadow: none;
+  -GtkWidget-halign: start;
+  -GtkWidget-valign: end;
+  -GtkWidget-hexpand: false;
+  -GtkWidget-vexpand: false;
+}
+
+/* Hover effect */
+label.desktop_sysmon:hover {
+  color: rgba(166, 173, 200, 0.35);
+  background-color: rgba(69, 71, 90, 0.15);
+  border-radius: 12px;
+}

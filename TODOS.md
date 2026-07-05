@@ -50,6 +50,33 @@ This document outlines the multi-phase strategy for the development of **OCWS** 
 
 ---
 
+## Phase 1.5: SFWBar Unification (The Grand Consolidation)
+
+*Status: PLANNING STAGE*
+
+**Objective**: Deprecate third-party shells (`noctalia`, `crystal-dock`) by shaping our custom `sfwbar` instance to achieve absolute feature parity with both. We will retain the multi-shell switcher (Noctalia, Crystal Dock, SFWBar) as a fallback during development, but eventually phase out external dependencies to make OCWS a single, pure, highly optimized `sfwbar` ecosystem.
+
+**Detailed Plan**: See `docs/PLAN-sfwbar-unification.md` for full implementation roadmap, gap analysis, and success criteria.
+
+### 1. Absorb Noctalia (Top Panel Modernization)
+- [ ] **Pill-Based Layouts**: Restructure `ocws.config` top bar into floating "pill" modules (separated islands) instead of a monolithic horizontal bar.
+- [ ] **Glassmorphism Parity**: Port Noctalia's precise blur radius and translucency CSS tokens to SFWBar GTK3 overrides.
+- [ ] **Interactive Popups**: Convert SFWBar tray icons (Network, Audio, Battery) into click-to-open GTK3 Layer Shell popups matching Noctalia's control center design.
+- [ ] **Animation Support**: Leverage `sfwbar` transitions and cubic-bezier easing to match Noctalia's smooth hover states.
+
+### 2. Absorb Crystal Dock (Bottom Panel Modernization)
+- [x] **Dock Widget**: Created `dock.widget` with macOS-style magnification effect, pinned app launchers, and running app indicators. Added to bottom bar.
+- [ ] **Taskbar Icon Parity**: Upgrade `sfwbar`'s bottom `taskbar` widget to support high-res icon rendering without text labels.
+- [x] **Mac-like Zoom Animations**: CSS-based magnification via `padding` and `min-width`/`min-height` changes on hover.
+- [x] **App Launchers**: Pinned apps in `dock-apps.widget` with icon buttons and launch actions.
+
+### 3. Eventual Deprecation
+- [ ] Remove `noctalia` and `crystal-dock` dependencies from `start-labwc.sh`.
+- [ ] Remove them from `dotfiles-sync.sh` and `install.sh`.
+- [ ] Remove multi-shell UI from `ocws-settings`.
+
+---
+
 ## Phase 2: Rich Interactive Components & UI/UX
 
 *Status: IN PROGRESS — foundation laid, polish needed*
@@ -112,7 +139,7 @@ This document outlines the multi-phase strategy for the development of **OCWS** 
 
 ### GUI Settings Manager
 
-- [ ] `ocws-settings` — Native configuration popup (sfwbar or GTK/C)
+- [x] `ocws-settings` — Native GTK3 configuration popup with Catppuccin theme
 - [ ] Blur toggle, theme switching, layout padding controls
 - [ ] Replace manual `.config` file editing for common options
 
@@ -157,9 +184,9 @@ This document outlines the multi-phase strategy for the development of **OCWS** 
 
 ### Desktop Widgets (Conky Replacements)
 
-- [ ] Floating desktop clocks (wayland layer surface)
-- [ ] Weather applets (open-meteo API, already in weather.widget)
-- [ ] Hardware sensor dashboards (CPU, mem, temp, network)
+- [x] Floating desktop clocks (background layer via `desktop-clock.widget`)
+- [x] Weather applets (background layer via `desktop-weather.widget`)
+- [x] Hardware sensor dashboards (background layer via `desktop-sysmon.widget`)
 - [ ] Interactive sticky notes (persistent via ocws-kv)
 - [ ] System monitor graph widgets (CPU/mem history)
 
@@ -450,10 +477,273 @@ no error handling. Broken widget silently takes down entire bar.
 - Theme-engine profile switching: CLI flag over a config edit is over-engineering
 
 ### Proposed (Phase 7 — C-Native Transition)
-- `ocws-brokerd`: C-native DBus state daemon replacing `ocws-daemon.sh`
-- `ocws-config`: YAML-driven C configuration parser replacing `theme-engine.sh`
-- `ocws_ipc.h`: Type-safe C IPC library replacing `ocws-emit.sh`
-- Component API: Dynamic UI injection via DBus instead of static `.widget` includes
+**Goal:** Gradually rewrite Bash script utilities and core functions into native C code for better performance, lower latency, and reduced process-forking overhead.
+- **`ocws-brokerd`**: C-native DBus state daemon replacing `ocws-daemon.sh` and `ocws-state.sh` for robust state persistence and event handling.
+- **`ocws-config`**: C-based configuration parser replacing the `theme-engine.sh` bash script. This will use a standard format (like YAML or INI) and natively render templates without needing sed/awk.
+- **`ocws-ipc` / `ocws_ipc.h`**: Type-safe C IPC library replacing `ocws-emit.sh`.
+- **`ocws-network-menu` & `ocws-bluetooth-menu`**: C-native fuzzel wrappers replacing `scripts/actions/wifi-menu.sh` and `scripts/actions/bluetooth-menu.sh` using `libnm` (NetworkManager) and `bluez` DBus interfaces.
+- **`ocws-launcher`**: A unified C binary replacing `launcher.sh`, `fuzzel-emoji.sh`, and `fuzzel-calc.sh`.
+- **Component API**: Dynamic UI injection via DBus instead of static `.widget` includes.
+
+---
+
+## Phase 7: Bash Script Enrichment & C Rewrite Roadmap
+
+*Status: PLANNING*
+
+### 7a. Bash Script Enrichment (Short-term)
+
+Improve existing bash scripts with better error handling, portability, and features.
+
+#### Critical Scripts (Enrich First)
+
+| Script | Current State | Enrichment Plan |
+|--------|---------------|-----------------|
+| `ocws-emit.sh` | 56 lines, basic case statement | Add `--dry-run`, `--verbose`, batch mode, config file support |
+| `ocws-state.sh` | 280 lines, JSON via jq | Add atomic writes, backup rotation, state validation |
+| `ocws-daemon.sh` | Event listener | Add reconnection logic, graceful shutdown, signal handling |
+| `ocws-plugin-loader.sh` | Dynamic include generator | Add dependency resolution, validation, error reporting |
+
+#### Utility Scripts (Add New)
+
+| Script | Purpose | Priority | Status |
+|--------|---------|----------|--------|
+| `ocws-validate.sh` | Post-install validation (25+ checks) | HIGH | Done |
+| `ocws-health.sh` | System health diagnostics | HIGH | Done |
+| `ocws-icon-picker.sh` | Pick icon theme using fuzzel picker | HIGH | Done |
+| `ocws-icon-downloader.sh` | Download and install icon themes | HIGH | Done |
+| `ocws-backup.sh` | Configuration backup/restore with rotation | MEDIUM | Planned |
+| `ocws-update.sh` | Self-update from git | MEDIUM | Planned |
+| `ocws-debug.sh` | Debug mode with verbose logging | LOW | Planned |
+
+#### Action Scripts (Added)
+
+| Script | Purpose | File |
+|--------|---------|------|
+| `mic.sh` | Microphone control (mute toggle, volume, list sources) | `scripts/actions/mic.sh` |
+| `dnd.sh` | Do Not Disturb toggle with Event Bus IPC emit | `scripts/actions/dnd.sh` |
+| `display.sh` | Display layout management (wlr-randr: list, single, mirror, save) | `scripts/actions/display.sh` |
+| `vpn.sh` | VPN status/control (connect, disconnect, toggle, list) | `scripts/actions/vpn.sh` |
+| `ocws-display.sh` | Display layout persistence with Event Bus IPC | `scripts/ocws-display.sh` |
+
+#### Action Scripts (Enrich Existing)
+
+| Script | Enrichment |
+|--------|------------|
+| `audio.sh` | Add `get` command, volume normalization, device selection |
+| `brightness.sh` | Add `get` command, smooth transitions, multi-monitor |
+| `screenshot.sh` | Add annotation, upload, delay timer |
+| `clipboard.sh` | Add search, delete, export/import |
+| `network.sh` | Add WiFi scanning, connect/disconnect, QR code |
+| `workspace.sh` | Add move-to-workspace, workspace naming |
+
+### 7b. C Rewrite Roadmap (Medium-term)
+
+Replace performance-critical and frequently-called bash scripts with C implementations.
+
+#### Priority Matrix (Effort vs Impact)
+
+| # | Bash Script | Lines | C Binary | Effort | Impact | Risk | Rationale |
+|---|-------------|-------|----------|--------|--------|------|-----------|
+| 1 | `ocws-emit.sh` | ~120 | `ocws-emit` | Low | High | Low | IPC critical path, forked on every event. Trivial C port (socket write) |
+| 2 | `ocws-daemon.sh` | ~350 | `ocws-brokerd` | High | High | Medium | Event bus loop: inotify + pactl + playerctl. C eliminates race conditions |
+| 3 | `audio.sh` | ~124 | Use `ocws-volume` | Low | High | Low | C binary exists, wire action script to call it directly |
+| 4 | `brightness.sh` | ~119 | Use `ocws-brightness` | Low | High | Low | Same -- call C binary from action script |
+| 5 | `theme-engine.sh` | ~636 | `ocws-theme` | High | High | Medium | Largest bash file. INI parser + template renderer + file deployer |
+| 6 | `ocws-plugin-loader.sh` | ~80 | `ocws-plugin` | Low | Medium | Low | Scan dir, generate include list. Simple file I/O |
+| 7 | `network.sh` | ~211 | `ocws-network` | Medium | Medium | Low | nmcli wrapper + BT control. Netlink would be more robust |
+| 8 | `screenshot.sh` | ~80 | Use `ocws-shot` | Low | Medium | Low | C binary exists, wire to call it |
+| 9 | `ocws-state.sh` | ~100 | Merge into `ocws-kv` | Low | Low | Low | Thin wrapper, absorb into C |
+| 10 | `mic.sh` | ~80 | `ocws-mic` | Low | Low | Low | Simple wpctl wrapper |
+| 11 | `display.sh` + `ocws-display.sh` | ~200 | `ocws-display` | Medium | Low | Low | wlr-randr wrapper, could use wlr-output-management protocol |
+| 12 | `dnd.sh` | ~80 | Merge into `ocws-notify` | Low | Low | Low | Just IPC emit + dbus call |
+| 13 | `vpn.sh` | ~130 | `ocws-vpn` | Medium | Low | Low | nmcli wrapper + status polling |
+| 14 | `power-menu.sh` | ~40 | `ocws-power` | Low | Low | Low | systemctl wrapper |
+| 15 | `clipboard.sh` | ~30 | Use `ocws-clip` | Low | Low | Low | C binary exists |
+| 16 | `ocws-network-bandwidth.sh` | ~80 | Merge into `ocws-sysmon` | Low | Low | Low | Already handled by ocws-sysmon |
+| 17 | `window.sh` | ~60 | Extend `ocws-hypertile` | Medium | Low | Low | wlr-foreign-toplevel protocol |
+| 18 | `workspace.sh` | ~50 | `ocws-workspace` | Low | Low | Low | labwc IPC commands |
+| 19 | `fuzzel-emoji.sh` | ~40 | `ocws-emoji` | Low | Low | Low | Read emoji file, pipe to fuzzel |
+| 20 | `fuzzel-calc.sh` | ~20 | N/A (skip) | -- | -- | -- | Too trivial, bc is fine |
+| 21 | `backup.sh`, `restore.sh`, `clean.sh` | ~150 | N/A (skip) | -- | -- | -- | Shell is appropriate for file ops |
+| 22 | `debug-labwc.sh`, `start-labwc.sh` | ~60 | N/A (skip) | -- | -- | -- | Launcher scripts, no benefit in C |
+| 23 | `font-scale.sh` | ~60 | `ocws-font-scale` | Low | Low | Low | Multi-file font config update |
+| 24 | `media-art.sh` | ~80 | `ocws-media-art` | Medium | Low | Low | HTTP fetch + image processing |
+
+#### Phase 7a: C IPC Core (Weeks 1-2)
+
+Replace the IPC layer (ocws-emit.sh + ocws-daemon.sh) with a single C daemon.
+
+```
+ocws-brokerd/
+├── main.c              # Event loop, signal handling
+├── emit.c / emit.h     # ocws-emit replacement (Unix socket write)
+├── watchers/
+│   ├── inotify.c       # Backlight, battery, thermal monitoring
+│   ├── pipewire.c      # Volume/audio events via PipeWire API
+│   └── playerctl.c     # MPRIS media player events
+├── ipc.c / ipc.h       # IPC protocol (Unix socket or D-Bus)
+└── build.zig           # Standalone build target
+```
+
+- [ ] `ocws-emit` C binary: writes to sfwbar scanner socket. Same CLI: `ocws-emit <Namespace.Key> <Value>`. Replaces ~120 lines of bash with ~60 lines of C.
+- [ ] `ocws-brokerd` C daemon: inotify + PipeWire + MPRIS watchers in one process. Replaces ~350 lines of bash loop/process-spawning with signal-safe C event loop.
+- [ ] Wire `ocws-daemon.sh` to use ocws-brokerd when available, fall back to bash
+- [ ] Add systemd user service for ocws-brokerd
+
+- [ ] `ocws_ipc.h` shared header: type-safe IPC helpers used by all C binaries:
+  ```c
+  // Emit a value to the Event Bus
+  void ocws_emit(const char *ns, const char *key, const char *value);
+
+  // Subscribe to state changes
+  typedef void (*ocws_handler_t)(const char *key, const char *value);
+  int ocws_subscribe(const char *ns, ocws_handler_t handler);
+  ```
+
+#### Phase 7b: Action Script Rewrites (Weeks 3-6)
+
+Rewrite action scripts one by one, keeping bash fallbacks until proven.
+
+| Week | Binary | Bash Replaced | Lines Saved |
+|------|--------|---------------|-------------|
+| 3 | `ocws-mic` | mic.sh | 80 |
+| 3 | `ocws-network` | network.sh | 211 |
+| 4 | `ocws-display` | display.sh + ocws-display.sh | 200 |
+| 4 | `ocws-vpn` | vpn.sh | 130 |
+| 5 | `ocws-power` | power-menu.sh | 40 |
+| 5 | `ocws-emoji` | fuzzel-emoji.sh | 40 |
+| 5 | `ocws-workspace` | workspace.sh | 50 |
+| 6 | `ocws-plugin` | ocws-plugin-loader.sh | 80 |
+| 6 | `ocws-theme` | theme-engine.sh | 636 |
+
+Total: ~1,467 lines of bash replaced with C.
+
+#### Phase 7c: Shared Library Extraction (Week 7)
+
+- [ ] `libocws/` shared library:
+  - `easing.h` — `ease_out_cubic()`, `ease_in_out_cubic()` (already duplicated in brightness + volume)
+  - `sysfs.h` — `sysfs_read_int()`, `sysfs_read_string()`, `sysfs_iter_dir()`
+  - `ipc.h` — `ocws_emit()`, `ocws_subscribe()`, `ocws_brokerd_connect()`
+  - `util.h` — `ocws_strdup()`, `ocws_read_file()`, `ocws_write_file()`
+- [ ] Refactor ocws-brightness, ocws-volume to use libocws
+- [ ] Update build.zig: build libocws as static lib, link all binaries
+- [ ] Add `#include "libocws/ipc.h"` to all new C binaries
+
+#### Phase 7d: Migration Strategy
+
+- Each rewrite keeps the bash script as fallback: C binary takes priority, bash runs if C not found
+- Install script deploys both versions during transition
+- No single point of failure: if ocws-brokerd crashes, widgets still work (they poll independently)
+- Action scripts call C binary first: `command -v ocws-mic && exec ocws-mic "$@" || exec mic.sh "$@"`
+- Phase gate: all C binaries must pass the same test suite as bash originals before bash fallback is removed
+
+### 7c. C Rewrite Implementation Strategy
+
+#### Shared Library (`libocws/`)
+
+Extract common utilities into a shared library:
+
+```
+src/libocws/
+├── easing.h          # ease_out_cubic(), ease_in_out_cubic()
+├── sysfs.h           # sysfs_read_int(), sysfs_read_string()
+├── config.h          # ini_parse(), xml_parse(), css_parse()
+├── ipc.h             # sfwbar_emit(), dbus_emit()
+├── process.h         # process_exec(), process_kill()
+└── file.h            # file_atomic_write(), file_lock()
+```
+
+#### Build Integration
+
+Update `build.zig` to build shared library:
+
+```zig
+const lib = b.addStaticLibrary("ocws", "src/libocws/lib.zig");
+lib.linkSystemLibrary("gtk+-3.0");
+lib.linkSystemLibrary("glib-2.0");
+```
+
+#### Migration Strategy
+
+1. **Phase 1**: Create `libocws/` with shared utilities
+2. **Phase 2**: Rewrite `ocws-emit.sh` -> `ocws-emit.c` (most called)
+3. **Phase 3**: Rewrite `ocws-daemon.sh` -> `ocws-daemon.c` (longest running)
+4. **Phase 4**: Integrate `ocws-state.sh` into `ocws-kv`
+5. **Phase 5**: Rewrite remaining scripts based on usage patterns
+
+### 7d. Bash Script Quality Improvements
+
+#### Add `set -euo pipefail` to All Scripts
+
+Currently 14 scripts have no shell options. Fix:
+
+```bash
+#!/bin/bash
+set -euo pipefail
+```
+
+#### Add Proper Error Handling
+
+```bash
+# Before
+some_command
+
+# After
+if ! some_command; then
+    echo "Error: some_command failed" >&2
+    exit 1
+fi
+```
+
+#### Add Input Validation
+
+```bash
+# Before
+VAR="$1"
+
+# After
+if [[ -z "${1:-}" ]]; then
+    echo "Usage: $0 <variable> <value>" >&2
+    exit 1
+fi
+VAR="$1"
+```
+
+#### Add Logging Support
+
+```bash
+# Add to all scripts
+OCWS_LOG="${OCWS_LOG:-/tmp/ocws.log}"
+log() { echo "[$(date '+%H:%M:%S')] $*" >> "$OCWS_LOG"; }
+```
+
+### 7e. Testing Strategy
+
+#### Unit Tests for Bash Scripts
+
+Create `tests/` directory:
+
+```
+tests/
+├── test-ocws-emit.sh
+├── test-ocws-state.sh
+├── test-ocws-plugin-loader.sh
+├── test-font-scale.sh
+└── run-all-tests.sh
+```
+
+#### Integration Tests for C Utilities
+
+```bash
+# Test ocws-emit.c
+./zig-out/bin/ocws-emit System.Volume 75
+sfwbar -R "GetVal XVolLevel" | grep -q "75"
+
+# Test ocws-kv.c
+./zig-out/bin/ocws-kv set test key value
+./zig-out/bin/ocws-kv get test key | grep -q "value"
+```
 
 ---
 
@@ -476,3 +766,4 @@ no error handling. Broken widget silently takes down entire bar.
 | Phase 4 | Distribution | Not Started |
 | Phase 5 | Ecosystem enrichment | Foundation Laid |
 | Phase 6 | Architecture abstractions | Partial (3 delivered, 2 skipped) |
+| Phase 7 | Bash enrichment & C rewrite | Planning |

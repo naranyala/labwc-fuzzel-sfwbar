@@ -23,18 +23,18 @@ reload_ui() {
   notify "Reloading Desktop UI..." "view-refresh"
   # Reload labwc config
   labwc -r 2>/dev/null || true
-  
-  # Restart sfwbar
-  if pgrep -x sfwbar >/dev/null; then
-    killall sfwbar 2>/dev/null
-    nohup sfwbar >/dev/null 2>&1 &
-  fi
-  
-  # Restart crystal-dock if running
+
+  # Restart crystal-dock (default shell) if running
   if pgrep -x crystal-dock >/dev/null; then
     killall crystal-dock 2>/dev/null
     rm -f /tmp/qipc_sharedmemory_crystaldock* /tmp/qipc_systemsem_crystaldock* 2>/dev/null || true
     nohup crystal-dock >/dev/null 2>&1 &
+  fi
+
+  # Restart sfwbar (alternative shell) if running
+  if pgrep -x sfwbar >/dev/null; then
+    killall sfwbar 2>/dev/null
+    nohup sfwbar >/dev/null 2>&1 &
   fi
   
   # Restart noctalia if running
