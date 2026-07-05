@@ -47,7 +47,7 @@ fetch_and_scale_art() {
         return 1
     fi
     
-    local safe_name="${artist//["']/ }-${title//["']/ }"
+    local safe_name="${artist//[\"\']/ }-${title//[\"\']/ }"
     local art_file="$output_dir/${safe_name}.png"
     
     if [[ -f "$art_file" ]]; then
@@ -125,7 +125,7 @@ EOF
     
     # Add cover art handling to popup if needed
     if [[ -f "$media_widget" ]]; then
-        local art_file="$ART_DIR/$(echo "${artist//["']/ }-${title//["']/ }.png" | tr '[:upper:]' '[:lower:]')"
+        local art_file="$ART_DIR/$(echo "${artist//[\"\']/ }-${title//[\"\']/ }.png" | tr '[:upper:]' '[:lower:]')"
         if [[ -f "$art_file" ]]; then
             # Update the image reference in the popup
             sed -i "s|.*\\(value = \"/tmp/ocws-cover.jpg\"\\).*|\1 \"value = \"$art_file\",\n      \"style = 'media_cover'\",\n      \"interval = 2000\",\n      \"value = If(XCoverArtReq != 'empty', '${artist} — ${title}', 'No album art found')\",|" "$media_widget" 2>/dev/null || true

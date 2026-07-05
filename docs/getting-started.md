@@ -1,282 +1,273 @@
 # Getting Started with OCWS
 
-This guide covers the installation and usage of the OCWS (Our C-Written Shell) Wayland desktop environment built upon labwc, sfwbar, and fuzzel.
-
-OCWS implements a complete desktop shell using only C and GTK3 for predictable performance and zero runtime overhead.
+This guide covers the installation and first-run usage of **OCWS** (Our C-Written Shell) —
+a Wayland desktop environment built on `labwc`, `sfwbar`, and `fuzzel` using only C and GTK3.
 
 ---
 
-## Core Platform Components
+## Architecture Overview
 
-OCWS implements a complete desktop shell using only C and GTK3:
+OCWS is built on four layers:
 
-### Platform Architecture
+| Layer | Component | Role |
+|-------|-----------|------|
+| Compositor | `labwc` | Wayland session, window management, input, keybindings |
+| Shell UI | `sfwbar` | GTK3 panel engine: widgets, tray, taskbar, popups |
+| Launcher | `fuzzel` | App launcher and dmenu-mode script runner |
+| Wallpaper | `ocws-wallpaper` | Time-of-day wallpaper transitions (or `swaybg` fallback) |
 
-OCWS follows a four-layer architectural pattern for organized system management:
-
-- **labwc**: Wayland compositor providing window management and input handling
-- **sfwbar**: GTK3 engine driving the visual shell interface with widget system
-- **fuzzel**: Wayland-native application launcher with glassmorphic styling
-- **swaybg**: Desktop wallpaper management
+Supporting services: `ocws-notify` (notifications), `swayidle` + `swaylock` (idle/lock),
+`cliphist` + `wl-clipboard` (clipboard), `playerctl` (media), `ocws-brightness` (backlight),
+`gammastep` (night light), `grim` + `slurp` (screenshots).
 
 ---
 
 ## Installation
 
 ### Step 1: Install Dependencies
-Ensure you have all core Wayland and OCWS dependencies. On Arch Linux:
+
+On **Arch Linux**:
 ```bash
-sudo pacman -S labwc sfwbar fuzzel gtk-layer-shell pipewire wireplumber libpulse brightnessctl inotify-tools playerctl bc swaybg wl-clipboard cliphist mako polkit-gnome swayidle swaylock grim slurp
+sudo pacman -S labwc sfwbar fuzzel gtk-layer-shell pipewire wireplumber libpulse \
+  inotify-tools playerctl bc wl-clipboard cliphist \
+  polkit-gnome swayidle swaylock grim slurp foot tesseract leptonica
 ```
 
-### Step 2: Deploy OCWS Configuration
-Run the installer to set up the OCWS environment:
+To compile the latest upstream versions from source instead:
 ```bash
-./dotfiles/install.sh
+./build-ocws-core.sh all
 ```
 
-Installation process:
-1. System dependency verification
-2. Backup existing labwc configurations
-3. Install labwc window management rules
-4. Deploy complete OCWS ecosystem to ~/.config/ocws/
-5. Configure GTK styling and fuzzel launcher parameters
-6. Link IPC scripts to ~/.local/bin/
-
-### Step 3: Launch Session
-**From Display Manager:**
-- Log out and select "labwc" from your login screen (GDM, SDDM, etc.)
-
-**From TTY:**
+### Step 2: Run the Installer
 ```bash
-Ctrl+Alt+F2    # Switch to TTY
-# Login
-labwc          # Launch OCWS
+git clone <this-repo> && cd labwc-fuzzel-sfwbar
+./install.sh
+```
+
+The installer:
+1. Checks system dependencies
+2. Backs up any existing `~/.config/labwc/` and `~/.config/ocws/`
+3. Deploys `dotfiles/labwc/` → `~/.config/labwc/`
+4. Deploys `dotfiles/ocws/` → `~/.config/ocws/`
+5. Deploys `dotfiles/fuzzel/` → `~/.config/fuzzel/`
+6. Deploys GTK settings to `~/.config/gtk-3.0/` and `~/.config/gtk-4.0/`
+7. Links all scripts from `scripts/` → `~/.local/bin/`
+8. Links action scripts from `scripts/actions/` → `~/.local/bin/actions/`
+9. Installs built C binaries from `zig-out/bin/` → `~/.local/bin/`
+
+### Step 3: Launch the Session
+
+**From a display manager** (GDM, SDDM, ly): log out and select **labwc**.
+
+**From a TTY**:
+```bash
+labwc
 ```
 
 ---
 
-## Default OCWS Environment
+## Installed File Layout
 
-The installed OCWS provides a cohesive, glassmorphic desktop interface:
+| Path | Contents |
+|------|----------|
+| `~/.config/labwc/` | `rc.xml`, `menu.xml`, `autostart`, `environment`, `themerc-override` |
+| `~/.config/ocws/` | `ocws.config`, `*.widget`, `ocws-daemon.sh`, `plugins/`, `state.kv` |
+| `~/.config/fuzzel/` | `fuzzel.ini` |
+| `~/.config/foot/` | `foot.ini` |
+| `~/.local/bin/` | All `scripts/*.sh` and C helper binaries (`ocws-*`) |
+| `~/.local/bin/actions/` | All `scripts/actions/*.sh` |
 
-### Control Center
-System management is accessible from the right side modules of the top panel (or via designated keybinding). The unified OCWS Control Center includes:
-- **Audio & Display**: Volume and brightness sliders with visual feedback
-- **Power Management**: Battery status and charging controls
-- **Network Controls**: WiFi and Bluetooth toggles
-- **Media Playback**: MPRIS media player controls with artwork
+---
 
-### Application Launcher
-The Super (Windows) key launches `fuzzel`, maintaining identical glassmorphic aesthetics with the main shell interface.
+## What Starts at Boot
 
-### Essential Keybindings
-Located in ~/.config/labwc/rc.xml:
-- Super + Return: Launch terminal (foot)
-- Super + D: Launch application menu (fuzzel)
-- Super + Q: Close focused window
-- Super + V: Open clipboard history (cliphist)
-- Super + F: Toggle fullscreen
-- Super + 1-9: Switch to workspace 1-9
-- Super + Shift + 1-9: Move window to workspace 1-9
-- Alt + Tab: Cycle through active windows
-- Volume/Brightness: Hardware media key controls
-- Print Screen: Capture area screenshots
+`~/.config/labwc/autostart` runs automatically when labwc starts. Key services launched:
+
+| Service | Command | Role |
+|---------|---------|------|
+| Wallpaper | `ocws-wallpaper ~/Pictures/wallpapers/` | Time-of-day wallpaper transitions |
+| Shell UI | `sfwbar -f ~/.config/ocws/ocws.config` | The entire OCWS panel |
+| OCWS Daemon | `~/.config/ocws/ocws-daemon.sh` | Event Bus IPC listener |
+| Notifications | `ocws-notify` | D-Bus notification daemon (replaces mako) |
+| Clipboard | `wl-paste --watch cliphist store` | Clipboard history daemon |
+| Idle/Lock | `swayidle -w timeout 300 'swaylock -f'` | Auto-lock after 5 min |
+| Night light | `gammastep -t 6500:3500 -g 1.0 -r` | Day/night color temp |
+
+---
+
+## Default Keybindings
+
+Keybindings are defined in `~/.config/labwc/rc.xml`.
+
+### Application Keybindings
+| Key | Action |
+|-----|--------|
+| `Super+Enter` | Launch terminal (`foot`) |
+| `Super+D` | Launch app launcher (`fuzzel`) |
+| `Super+V` | Open clipboard history (`cliphist` + `fuzzel`) |
+| `Super+Q` | Close focused window |
+| `Super+F` | Toggle fullscreen |
+
+### Workspace Keybindings
+| Key | Action |
+|-----|--------|
+| `Super+1–9` | Switch to workspace 1–9 |
+| `Super+Shift+1–9` | Move window to workspace 1–9 |
+| `Alt+Tab` | Cycle through windows |
 
 ### System Keybindings
-- Volume Up/Down: Adjust volume (triggers OCWS UI updates)
-- Mute: Toggle mute state
-- Brightness Up/Down: Adjust screen backlight
-- Super + Print: Capture full desktop screenshot
+| Key | Action |
+|-----|--------|
+| `XF86AudioRaiseVolume` | Volume up |
+| `XF86AudioLowerVolume` | Volume down |
+| `XF86AudioMute` | Toggle mute |
+| `XF86MonBrightnessUp` | Brightness up |
+| `XF86MonBrightnessDown` | Brightness down |
+| `Print` | Screenshot region → save |
+| `Super+Print` | Screenshot fullscreen → save |
+| `Shift+Print` | Screenshot region → clipboard |
 
 ---
 
-## Component Installation Details
+## Using the Shell
 
-### Core System Files
-- ~/.config/labwc/: Compositor rules and autostart script for OCWS bootstrap
-- ~/.config/ocws/: Shell heart including ocws.config and plugins/ directory
-- ~/.config/gtk-3.0/ and gtk-4.0/: Global GTK application styling
-- ~/.config/fuzzel/: Application launcher styling
-- ~/.local/bin/: IPC automation scripts (ocws-emit, ocws-plugin-loader, etc.)
+### Control Center
+Click the clock or system tray area on the panel to open the **OCWS Control Center** popup.
+It includes volume, brightness, battery, WiFi, Bluetooth, and media controls.
 
-### OCWS Development Components
-- dotfiles/ocws/: Heart of the shell with ocws.config, ocws-control-center.widget, ocws-daemon.sh
-- dotfiles/ocws/plugins/: Drop-in directory for third-party extensions
-- dotfiles/labwc/: Compositor configurations including autostart, rc.xml
-- scripts/: Validation, repair, health check, and debugging tools
+### Application Launcher
+Press `Super+D` or click the launcher button in the panel to open `fuzzel`.
+Start typing to fuzzy-search installed apps.
+
+### Theme Switching
+```bash
+# List available themes
+theme-engine.sh list
+
+# Preview a theme (live preview, reverts on Ctrl+C)
+theme-engine.sh preview themes/catppuccin-mocha.ini
+
+# Apply permanently
+theme-engine.sh apply themes/catppuccin-mocha.ini
+```
+
+Available themes in `themes/`:
+`catppuccin-mocha`, `tokyo-night`, `dracula`, `nord`, `rose-pine`, `gruvbox`,
+`everforest`, `kanagawa`, `one-dark`, `solarized-dark`, `flexoki`
+
+### Wallpaper-Adaptive Theming
+Extract palette from your current wallpaper and auto-generate a matching theme:
+```bash
+# Extract 6 dominant colors from wallpaper
+ocws-color -n 6 -f ini ~/Pictures/wallpaper.png
+
+# Use with theme engine (future: auto-integration)
+ocws-color -f scss ~/Pictures/wallpaper.png > ~/.config/ocws/palette.scss
+```
+
+### Smooth Hardware Control
+All hardware controls use animated transitions (cubic easing):
+```bash
+ocws-brightness set 50    # Smooth fade to 50%
+ocws-brightness up        # +5% with animation
+ocws-volume set 75        # Smooth fade to 75%
+ocws-volume up            # +5% with animation
+```
+
+### Screen OCR
+Extract text from any screen region:
+```bash
+ocws-ocr                  # Select region → OCR → stdout
+ocws-ocr -c               # Select region → OCR → clipboard
+ocws-ocr screenshot.png   # OCR an image file
+```
+
+### Plugin Widgets
+Drop any `.widget` file into `~/.config/ocws/plugins/` and reload the shell.
+The `ocws-plugin-loader.sh` auto-injects it into the running configuration.
 
 ---
 
-## Verifying OCWS Installation
+## Verifying the Installation
 
-### Component Verification
 ```bash
-# Verify OCWS components are installed
-labwc --version              # Wayland compositor
-labwc --help                  # Built-in help
+# Check core binaries are in PATH
+which labwc sfwbar fuzzel foot ocws-notify ocws-brightness ocws-volume
 
-# Verify OCWS shell engine (sfwbar) is installed
-sfwbar --help                # sfwbar help
+# Check OCWS config directories exist
+ls ~/.config/ocws/
+ls ~/.config/labwc/
 
-# Check configuration directories exist
-ls -la ~/.config/ocws/
-ls -la ~/.config/labwc/
-ls -la ~/.config/sfwbar/
-ls -la ~/.config/fuzzel/
-```
+# Check C helper binaries are installed
+ls ~/.local/bin/ocws-*
 
-### System Health Check
-```bash
-# Run OCWS validation script
-./scripts/validate.sh
-
-# Execute health check
-./scripts/health-check.sh
-
-# Check for widget file issues
-./scripts/debug-sfwbar.sh
-```
-
-### Basic Functionality Test
-```bash
-# Test OCWS event bus communication
-ocws-emit System.Test "OK"
-cat ~/.config/ocws/test.log
-
-# Verify plugin autoloader is working
-ls ~/.config/ocws/plugins/
+# Test the Event Bus
+ocws-emit.sh System.Volume 75
 ```
 
 ---
-
-## Customization Options
-
-### Theme Application
-```bash
-# Apply available themes
-./scripts/theme-engine.sh apply themes/catppuccin-mocha.ini
-./scripts/theme-engine.sh list
-./scripts/theme-engine.sh preview themes/dracula.ini
-```
-
-### Widget Management
-```bash
-# Add custom widgets to plugins directory
-cp my-widget.widget ~/.config/ocws/plugins/
-
-# Restart OCWS to load new plugin
-./scripts/ocws-restart.sh
-```
-
-### Keybinding Modification
-```bash
-# Edit keybindings in ~/.config/labwc/rc.xml
-# See documentation for XML syntax and formatting
-```
-
-### Configuration Adjustment
-```bash
-# Modify OCWS visual styling
-# Edit ~/.config/ocws/ocws.config for glassmorphic parameters
-# Adjust background colors, blur, shadows, etc.
-```
 
 ## Troubleshooting
 
-### Common Issues and Solutions
-
-**Problem: sfwbar not starting**
+### sfwbar panel doesn't start
 ```bash
-# Check configuration syntax
-sfwbar -f ~/.config/sfwbar/sfwbar.config -c ~/.config/sfwbar/theme.css
+# Run sfwbar manually to see errors
+sfwbar -f ~/.config/ocws/ocws.config
 
-# Verify widget files exist
-grep 'widget "' ~/.config/sfwbar/sfwbar.config | while read line; do
-  name=$(echo "$line" | grep -oP 'widget "\K[^"]+')
-  [ ! -f ~/.config/sfwbar/$name ] && echo "MISSING: $name"
-done
+# Check for missing widget includes
+grep -r 'Include\|Scanner' ~/.config/ocws/ocws.config
 ```
 
-**Problem: GTK apps show empty text**
+### labwc won't start / black screen
 ```bash
-# Fix font configuration
-./scripts/fix-gtk-fonts.sh
+# Debug labwc directly
+debug-labwc.sh
 
-# Verify fontconfig is working
-ls ~/.config/fontconfig/fonts.conf
+# Or run with verbose output from TTY
+labwc 2>&1 | tee /tmp/labwc.log
 ```
 
-**Problem: Click forwarding broken**
+### Theme not applying
 ```bash
-# Check for client context bug
-grep -A5 'context name="Client"' ~/.config/labwc/rc.xml
-# Should only have A-Left Drag (Move) and A-Right Drag (Resize)
-
-# Fix click issues
-./scripts/fix.sh
+theme-engine.sh list
+theme-engine.sh apply themes/catppuccin-mocha.ini
+# Then reload labwc
+labwc --reconfigure
 ```
 
-**Problem: Theme not applying**
+### Clipboard history empty
 ```bash
-# Check theme engine
-./scripts/theme-engine.sh list
-./scripts/theme-engine.sh preview themes/catppuccin-mocha.ini
-./scripts/theme-engine.sh apply themes/catppuccin-mocha.ini
-
-# Restart sfwbar
-./scripts/ocws-restart.sh sfwbar
+# Ensure cliphist daemon is running
+pgrep -a wl-paste
+# If not running, start it
+wl-paste --type text/plain --watch cliphist store &
 ```
 
-## Support and Resources
+### Volume/brightness keys not working
+```bash
+# Test scripts directly
+~/.local/bin/actions/audio.sh up
+~/.local/bin/actions/brightness.sh up
 
-### Documentation
-- docs/getting-started.md: Setup and basic usage guide
-- docs/configuration.md: Complete OCWS configuration reference
-- shell/OCWS.md: Comprehensive design philosophy and architecture documentation
+# Verify keybinds in rc.xml
+grep -A3 'XF86Audio\|XF86MonBrightness' ~/.config/labwc/rc.xml
+```
 
-### Community Resources
-- **Configuration**: All components use standard Wayland/GTK configurations
-- **Key Bindings**: Defined in ~/.config/labwc/rc.xml in standard XML format
-- **Scripting**: Uses standard bash and event-driven IPC (ocws-emit)
+### Screenshots not saving
+```bash
+# Test grim directly
+grim ~/Pictures/test.png && echo "OK"
 
-### Development Documentation
-- **source/**: Implementation details and design decisions
-- **examples/**: Usage patterns and customization examples
+# Check save directory
+ls ~/Pictures/Screenshots/ 2>/dev/null || mkdir -p ~/Pictures/Screenshots
+```
 
-## OCWS Platform Integration
+---
 
-OCWS integrates with the broader Wayland ecosystem while maintaining its distinct C-native approach:
+## Further Reading
 
-### Wayland Integration
-- **Wayland Protocols**: Standard Wayland protocol implementations
-- **Layer Shell**: GTK3 layer-shell for multi-monitor support
-- **Foreign Toplevel**: Standard window management interface
-- **Input Handling**: Native Wayland input device management
-
-### Desktop Integration
-- **Session Management**: Standard login/logout handling
-- **Notification Systems**: mako/dunst integration with glassmorphic styling
-- **Hardware Support**: Audio, display, and input device drivers
-- **Font Rendering**: System font configuration and scaling
-
-### Platform Exclusivity
-OCWS deliberately excludes non-C frameworks to maintain maximum performance and system predictability.
-- **Performance Consistency**: Predictable execution profiles
-- **Zero Runtime Overhead**: No dynamic code loading or interpretation
-- **Direct System Access**: No FFI boundaries or abstraction layers
-- **Static Linking**: Complete control over compiled binaries
-
-This architecture makes OCWS particularly suitable for:
-- Resource-constrained systems
-- Security-sensitive environments
-- Performance-critical applications
-- Systems requiring deterministic behavior
-
-**Installation Time:** 5-15 minutes
-**Platform Support:** Arch Linux, Void Linux, and any wlroots-compatible compositor
-**Total Dependencies:** Minimal (15 runtime packages, 25 development packages)
-**Memory Usage:** ~15MB at startup
-**Startup Time:** <1 second
-
-OCWS provides a production-ready, fully-featured desktop environment optimized for performance and predictability.
+- `docs/configuration.md` — Event Bus API, plugin system, CSS customization, window rules
+- `sources-learn/labwc.md` — labwc config deep dive
+- `sources-learn/sfwbar.md` — sfwbar widget DSL reference
+- `sources-learn/fuzzel.md` — fuzzel config and dmenu scripting
+- `dotfiles/ocws/README.md` — OCWS widget file inventory

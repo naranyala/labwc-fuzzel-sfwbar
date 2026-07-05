@@ -19,7 +19,7 @@ fetch_album_art() {
         title="Unknown Title"
     fi
     
-    local safe_name="${artist//["']/ }-${title//["']/ }"
+    local safe_name="${artist//[\"\']/ }-${title//[\"\']/ }"
     local art_file="$ART_DIR/${safe_name// /-}.png"
     
     if [[ -f "$art_file" ]]; then
@@ -60,7 +60,7 @@ find_art_path() {
         return
     fi
     
-    local safe_name="${artist//["']/ }-${title//["']/ }"
+    local safe_name="${artist//[\"\']/ }-${title//[\"\']/ }"
     local art_file="$ART_DIR/${safe_name// /-}.png"
     
     if [[ -f "$art_file" ]]; then

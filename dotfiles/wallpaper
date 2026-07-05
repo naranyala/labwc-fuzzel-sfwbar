@@ -83,12 +83,13 @@ set_wallpaper() {
         gsettings set org.gnome.desktop.background picture-uri-dark "file://$img"
 
     # 2. Hyprland
-    elif [[ "$XDG_CURRENT_DESKTOP" == "Hyprland" ]] || command -v hyprctl >/dev/null 2>&1 && hyprctl version >/dev/null 2>&1; then
+    elif [[ "$XDG_CURRENT_DESKTOP" == "Hyprland" ]] || [[ -n "$HYPRLAND_INSTANCE_SIGNATURE" ]]; then
         hyprctl hyprpaper preload "$img" && hyprctl hyprpaper wallpaper ",$img"
 
     # 3. Sway/labwc
     elif command -v swaybg >/dev/null 2>&1; then
-        pkill swaybg 2>/dev/null
+        pkill -x swaybg 2>/dev/null
+        sleep 0.05
         swaybg -i "$img" -m fill &
 
     # 4. swww (Generic Wayland)

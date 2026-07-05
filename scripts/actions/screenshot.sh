@@ -7,7 +7,7 @@
 
 set -euo pipefail
 
-MODE="${1:-area}"
+MODE="${1:-menu}"
 DELAY="${2:-0}"
 SAVE_DIR="${HOME}/Pictures/screenshots"
 CLIPBOARD=true
@@ -84,7 +84,42 @@ take_screenshot() {
   fi
 }
 
-take_screenshot
+show_menu() {
+  local opts=(
+    "  Area (Select region)"
+    "  Full Screen"
+    "  Active Window"
+    "  Area + Annotate"
+    "  Full Screen + Annotate"
+    "  Timer (3s delay)"
+  )
+
+  if command -v fuzzel &>/dev/null; then
+    choice=$(printf '%s\n' "${opts[@]}" | fuzzel -d -p "Screenshot ❯ " -w 30 -l 6)
+  elif command -v rofi &>/dev/null; then
+    choice=$(printf '%s\n' "${opts[@]}" | rofi -dmenu -p "Screenshot" -theme-str 'window {width: 300px;}')
+  else
+    echo "Select mode:"
+    select choice in "${opts[@]}"; do break; done
+  fi
+
+  case "$choice" in
+    *"Area (Select region)") MODE="area" ;;
+    *"Full Screen") MODE="full" ;;
+    *"Active Window") MODE="window" ;;
+    *"Area + Annotate") MODE="annotate" ;;
+    *"Full Screen + Annotate") MODE="annotate-full" ;;
+    *"Timer (3s delay)") MODE="timer"; DELAY=3 ;;
+    *) exit 0 ;;
+  esac
+  take_screenshot
+}
+
+if [[ "$MODE" == "menu" ]]; then
+  show_menu
+else
+  take_screenshot
+fi
 
 # Copy to clipboard (if file was created)
 if $CLIPBOARD && [ -f "$FILEPATH" ]; then

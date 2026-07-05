@@ -31,7 +31,11 @@ show_history() {
 select_and_paste() {
   if command -v cliphist &>/dev/null; then
     local selected
-    if command -v rofi &>/dev/null; then
+    if command -v fuzzel &>/dev/null; then
+      selected=$(cliphist list | fuzzel --dmenu --theme="$HOME/.config/fuzzel/fuzzel.ini" 
+          --prompt "Clipboard" --placeholder "Search clipboard history..." 
+          --match-mode="fuzzy" --width 400 --height 300)
+    elif command -v rofi &>/dev/null; then
       selected=$(cliphist list | rofi -dmenu -p "Clipboard" -theme-str 'window {width: 400px; height: 300px;}')
     elif command -v wofi &>/dev/null; then
       selected=$(cliphist list | wofi --dmenu -p "Clipboard")

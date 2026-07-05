@@ -24,10 +24,13 @@ BOLD='\033[1m'
 DIM='\033[2m'
 NC='\033[0m'
 
-pass()  { echo -e "  ${GREEN}✓${NC} $1"; }
-fail()  { echo -e "  ${RED}✗${NC} $1"; exit 1; }
-warn()  { echo -e "  ${YELLOW}⚠${NC} $1"; }
-info()  { echo -e "  ${CYAN}→${NC} $1"; }
+info() { echo -e "  ${CYAN}→${NC} $1" >&2; }
+pass()  { echo -e "  ${GREEN}✓${NC} $1" >&2; }
+fail()  { echo -e "  ${RED}✗${NC} $1" >&2; exit 1; }
+warn()  { echo -e "  ${YELLOW}⚠${NC} $1" >&2; }
+
+YELLOW='\033[1;33m'
+warn() { echo -e "  ${YELLOW}⚠${NC} $*" >&2; }
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 # Find project root: check env var, then walk up from script dir
@@ -175,7 +178,8 @@ render_template() {
                     COLOR_BORDER)    var_value=$(ini_get "colors.border" "#45475a") ;;
                     COLOR_ACCENT)    var_value=$(ini_get "colors.accent" "#89b4fa") ;;
                     COLOR_URGENT)     var_value=$(ini_get "colors.urgent" "#f38ba8") ;;
-                    COLOR_OK)        var_value=$(ini_get "colors.ok" "#a6e3a1") ;;
+                    COLOR_OK)         var_value=$(ini_get "colors.ok" "#a6e3a1") ;;
+                    COLOR_MUTED)     var_value=$(ini_get "colors.muted" "#a6adc8") ;;
                     OCWS_BLUR)       var_value=$(ini_get "ocws.blur" "5") ;;
                     OCWS_BORDER)     var_value=$(ini_get "ocws.border" "1") ;;
                     OCWS_RADIUS)     var_value=$(ini_get "ocws.radius" "8") ;;
@@ -194,7 +198,23 @@ render_template() {
                     OSD_BORDER)          var_value=$(ini_get "labwc.osd_border" "#45475a") ;;
                     OSD_TEXT)            var_value=$(ini_get "labwc.osd_text" "#cdd6f4") ;;
                     OSD_ACCENT)          var_value=$(ini_get "labwc.osd_accent" "#89b4fa") ;;
-                    *) warn "Unknown template variable: {{$var_name}}" ;;
+                    *)
+                        if [[ "$var_name" == FOOT_* ]]; then
+                            local foot_key="${var_name#FOOT_}"
+                            foot_key="${foot_key,,}"
+                            if [[ "$foot_key" == fg ]]; then foot_key="color_foreground"; fi
+                            if [[ "$foot_key" == bg ]]; then foot_key="color_background"; fi
+                            if [[ "$foot_key" == cursor ]]; then foot_key="color_cursor"; fi
+                            if [[ "$foot_key" == cursor_text ]]; then foot_key="color_cursor_text"; fi
+                            if [[ "$foot_key" == selection ]]; then foot_key="color_selection"; fi
+                            if [[ "$foot_key" == selection_fg ]]; then foot_key="color_selection_foreground"; fi
+                            if [[ "$foot_key" =~ ^regular_[0-7]$ ]]; then foot_key="color_${foot_key}"; fi
+                            if [[ "$foot_key" =~ ^bright_[0-7]$ ]]; then foot_key="color_${foot_key}"; fi
+                            var_value=$(ini_get "foot.$foot_key" "")
+                        else
+                            warn "Unknown template variable: {{$var_name}}"
+                        fi
+                        ;;
         esac
 
         # Always replace to prevent infinite loops on empty/unknown variables

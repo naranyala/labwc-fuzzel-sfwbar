@@ -2,7 +2,7 @@
 #
 # brightness.sh — Brightness control
 #
-# Modes: up, down, set, get
+# Modes: up, down, set, get, up-0.5, down-0.5
 # Tools: brightnessctl, light, xbacklight
 
 set -euo pipefail
@@ -59,6 +59,30 @@ case "$MODE" in
     fi
     val=$(get_brightness)
     notify "Brightness: ${val}%" "$val"
+    ;;
+
+  up-0.5|up-half|up-half-percent|brightness-up-0.5|inc-0.5|increase-0.5)
+    if command -v brightnessctl &>/dev/null; then
+      brightnessctl set "+0.5%" 2>/dev/null
+    elif command -v light &>/dev/null; then
+      light -A "0.5%" 2>/dev/null
+    else
+      fail "No brightness tool found. Install brightnessctl or light"
+    fi
+    val=$(get_brightness)
+    pass "Brightness increased by 0.5% to ${val}%"
+    ;;
+
+  down-0.5|down-half|down-half-percent|brightness-down-0.5|dec-0.5|decrease-0.5)
+    if command -v brightnessctl &>/dev/null; then
+      brightnessctl set "-0.5%" 2>/dev/null
+    elif command -v light &>/dev/null; then
+      light -U "0.5%" 2>/dev/null
+    else
+      fail "No brightness tool found. Install brightnessctl or light"
+    fi
+    val=$(get_brightness)
+    pass "Brightness decreased by 0.5% to ${val}%"
     ;;
 
   set)

@@ -2,7 +2,7 @@
 #
 # audio.sh — Audio control (volume, mute, sink switch)
 #
-# Modes: up, down, mute, mute-input, sink-list, sink-switch, mic-toggle
+# Modes: up, down, up-0.5, down-0.5, mute, mute-input, sink-list, sink-switch, mic-toggle
 
 set -euo pipefail
 
@@ -45,6 +45,20 @@ case "$MODE" in
     wpctl set-volume @DEFAULT_AUDIO_SINK@ "$STEP"- 2>/dev/null
     vol=$(get_volume)
     notify "Volume: ${vol}%" "$vol"
+    ;;
+
+  up-0.5|volume-up-0.5|volume-up-half|volume-up-half-percent|vol-up-0.5|vol-up-half|inc-0.5)
+    wpctl set-volume @DEFAULT_AUDIO_SINK@ "0.5%+" 2>/dev/null
+    vol=$(get_volume)
+    notify "Volume: ${vol}%" "$vol"
+    pass "Volume up by 0.5%"
+    ;;
+
+  down-0.5|volume-down-0.5|volume-down-half|volume-down-half-percent|vol-down-0.5|vol-down-half|dec-0.5)
+    wpctl set-volume @DEFAULT_AUDIO_SINK@ "0.5%-" 2>/dev/null
+    vol=$(get_volume)
+    notify "Volume: ${vol}%" "$vol"
+    pass "Volume down by 0.5%"
     ;;
 
   mute|toggle-mute)

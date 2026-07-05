@@ -3,29 +3,29 @@
 scanner {
   step = 2000
   exec("ocws-sysmon") {
-    SysMonLine = Grab(First)
+    SysMonLine = $0
     
-    If (RegEx("^BAT_LVL=", SysMonLine)) { XBatLvl = Val(Extract(SysMonLine, "BAT_LVL=([0-9]+)")) }
-    If (RegEx("^BAT_STAT=", SysMonLine)) { 
+    If (Match(SysMonLine, "^BAT_LVL=")) { XBatLvl = Val(Extract(SysMonLine, "BAT_LVL=([0-9]+)")) }
+    If (Match(SysMonLine, "^BAT_STAT=")) { 
       XBatStat = Extract(SysMonLine, "BAT_STAT=([a-zA-Z]+)") 
       XBatDischarging = (XBatStat = "Discharging")
     }
     
-    If (RegEx("^MEM_USED=", SysMonLine)) { XMemUsed = Val(Extract(SysMonLine, "MEM_USED=([0-9]+)")) }
-    If (RegEx("^MEM_TOT=", SysMonLine)) { XMemTot = Val(Extract(SysMonLine, "MEM_TOT=([0-9]+)")) }
-    If (RegEx("^MEM_PCT=", SysMonLine)) { XMemPct = Val(Extract(SysMonLine, "MEM_PCT=([0-9.]+)")) }
+    If (Match(SysMonLine, "^MEM_USED=")) { XMemUsed = Val(Extract(SysMonLine, "MEM_USED=([0-9]+)")) }
+    If (Match(SysMonLine, "^MEM_TOT=")) { XMemTot = Val(Extract(SysMonLine, "MEM_TOT=([0-9]+)")) }
+    If (Match(SysMonLine, "^MEM_PCT=")) { XMemPct = Val(Extract(SysMonLine, "MEM_PCT=([0-9.]+)")) }
     
-    If (RegEx("^NET_RX=", SysMonLine)) { XNetCurRx = Val(Extract(SysMonLine, "NET_RX=([0-9]+)")) }
-    If (RegEx("^NET_TX=", SysMonLine)) { XNetCurTx = Val(Extract(SysMonLine, "NET_TX=([0-9]+)")) }
+    If (Match(SysMonLine, "^NET_RX=")) { XNetCurRx = Val(Extract(SysMonLine, "NET_RX=([0-9]+)")) }
+    If (Match(SysMonLine, "^NET_TX=")) { XNetCurTx = Val(Extract(SysMonLine, "NET_TX=([0-9]+)")) }
     
-    If (RegEx("^WIFI_STATE=", SysMonLine)) { XNetState = Extract(SysMonLine, "WIFI_STATE=([a-zA-Z]+)") }
-    If (RegEx("^BT_STATE=", SysMonLine)) { XBtState = Extract(SysMonLine, "BT_STATE=([a-zA-Z]+)") }
-    If (RegEx("^BRIGHTNESS=", SysMonLine)) { XBrightness = Val(Extract(SysMonLine, "BRIGHTNESS=([0-9]+)")) }
+    If (Match(SysMonLine, "^WIFI_STATE=")) { XNetState = Extract(SysMonLine, "WIFI_STATE=([a-zA-Z]+)") }
+    If (Match(SysMonLine, "^BT_STATE=")) { XBtState = Extract(SysMonLine, "BT_STATE=([a-zA-Z]+)") }
+    If (Match(SysMonLine, "^BRIGHTNESS=")) { XBrightness = Val(Extract(SysMonLine, "BRIGHTNESS=([0-9]+)")) }
     
-    If (RegEx("^CPU_TOT=", SysMonLine)) { XCpuCurTot = Val(Extract(SysMonLine, "CPU_TOT=([0-9]+)")) }
-    If (RegEx("^CPU_IDLE=", SysMonLine)) { XCpuCurIdl = Val(Extract(SysMonLine, "CPU_IDLE=([0-9]+)")) }
+    If (Match(SysMonLine, "^CPU_TOT=")) { XCpuCurTot = Val(Extract(SysMonLine, "CPU_TOT=([0-9]+)")) }
+    If (Match(SysMonLine, "^CPU_IDLE=")) { XCpuCurIdl = Val(Extract(SysMonLine, "CPU_IDLE=([0-9]+)")) }
     
-    If (RegEx("^TEMP=", SysMonLine)) { 
+    If (Match(SysMonLine, "^TEMP=")) { 
       XTemp = Val(Extract(SysMonLine, "TEMP=([0-9]+)")) 
       
       # Since TEMP is the last line printed by ocws-sysmon, we can do calculations here!

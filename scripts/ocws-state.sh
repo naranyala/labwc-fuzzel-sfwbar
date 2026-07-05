@@ -86,7 +86,7 @@ save_system_state() {
     for key in "${!pairs[@]}"; do
         json_pairs="$json_pairs, \"$key\": \"${pairs[$key]}\""
     done
-    json_pairs="{${json_pairs#", }}"
+    json_pairs="{${json_pairs#\", }}"
     
     echo "$json_pairs" > "$state_file"
     echo "State $state_name saved"
@@ -214,7 +214,7 @@ backup_state() {
 verify_state() {
     local issues=""
     
-    for state_file in "$STATE_DIR"/*.json "$STATE_DIR"/*.state 2>/dev/null; do
+    for state_file in "$STATE_DIR"/*.json "$STATE_DIR"/*.state; do
         if [[ -f "$state_file" ]]; then
             if ! jq . "$state_file" >/dev/null 2>&1; then
                 issues="$issues $state_file (invalid JSON)"

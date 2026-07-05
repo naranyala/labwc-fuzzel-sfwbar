@@ -8,6 +8,10 @@ set -euo pipefail
 
 ACTION="${1:-}"
 
+if [[ "$ACTION" == "power" || "$ACTION" == "power-menu" ]]; then
+  ACTION=""
+fi
+
 # Colors
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -17,6 +21,7 @@ NC='\033[0m'
 
 show_menu() {
   local opts=(
+    "  Lock"
     "  Logout"
     "  Suspend"
     "  Hibernate"
@@ -25,7 +30,9 @@ show_menu() {
     "  Cancel"
   )
 
-  if command -v rofi &>/dev/null; then
+  if command -v fuzzel &>/dev/null; then
+    choice=$(printf '%s\n' "${opts[@]}" | fuzzel -d -p "Power ❯ " -w 20 -l 7)
+  elif command -v rofi &>/dev/null; then
     choice=$(printf '%s\n' "${opts[@]}" | rofi -dmenu -p "Power" -theme-str 'window {width: 200px;}')
   elif command -v wofi &>/dev/null; then
     choice=$(printf '%s\n' "${opts[@]}" | wofi --dmenu -p "Power")
@@ -37,6 +44,7 @@ show_menu() {
   fi
 
   case "$choice" in
+    *Lock)      do_action lock ;;
     *Logout)    do_action logout ;;
     *Suspend)   do_action suspend ;;
     *Hibernate) do_action hibernate ;;
@@ -49,6 +57,15 @@ show_menu() {
 do_action() {
   local action="$1"
   case "$action" in
+    lock)
+      if command -v swaylock &>/dev/null; then
+        swaylock -f -c 000000
+      elif command -v hyprlock &>/dev/null; then
+        hyprlock
+      else
+        echo "No screen locker found"
+      fi
+      ;;
     logout)
       if command -v labwc &>/dev/null; then
         labwc --exit

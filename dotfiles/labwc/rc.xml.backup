@@ -1,0 +1,260 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<labwc_config>
+  <core>
+    <decoration>server</decoration>
+  </core>
+
+  <theme>
+    <name>Clearlooks</name>
+    <font place="ActiveWindow">
+      <name>sans</name>
+      <size>10</size>
+    </font>
+    <font place="InactiveWindow">
+      <name>sans</name>
+      <size>10</size>
+    </font>
+    <font place="MenuHeader">
+      <name>sans</name>
+      <size>10</size>
+    </font>
+    <font place="MenuItem">
+      <name>sans</name>
+      <size>10</size>
+    </font>
+  </theme>
+
+  <desktops>
+    <number>9</number>
+    <firstdesk>1</firstdesk>
+  </desktops>
+
+  <keyboard>
+    <!-- System -->
+    <keybind key="A-r"><action name="Reconfigure"/></keybind>
+    <keybind key="W-r">
+      <action name="Reconfigure"/>
+      <action name="Execute"><command>sh -c '~/.config/labwc/autostart'</command></action>
+    </keybind>
+    <keybind key="A-q"><action name="Close"/></keybind>
+    <keybind key="A-F4"><action name="Close"/></keybind>
+    <keybind key="W-m"><action name="Exit"/></keybind>
+
+    <!-- Launchers -->
+    <keybind key="A-Return"><action name="Execute"><command>foot</command></action></keybind>
+    <keybind key="A-a"><action name="Execute"><command>fuzzel</command></action></keybind>
+    <keybind key="A-Down"><action name="Execute"><command>fuzzel</command></action></keybind>
+    <keybind key="A-Up"><action name="Execute"><command>fuzzel</command></action></keybind>
+
+    <!-- Window management -->
+    <keybind key="A-f"><action name="ToggleFullscreen"/></keybind>
+    <keybind key="W-a"><action name="ToggleMaximize"/></keybind>
+    <keybind key="A-space"><action name="ShowMenu"><menu>root-menu</menu></action></keybind>
+
+    <!-- Focus cycling -->
+    <keybind key="A-Left"><action name="PreviousWindow"/></keybind>
+    <keybind key="A-Right"><action name="NextWindow"/></keybind>
+    <keybind key="A-Tab"><action name="NextWindow"/></keybind>
+    <keybind key="A-S-Tab"><action name="PreviousWindow"/></keybind>
+
+    <!-- Window snapping (half/quarter screen) -->
+    <keybind key="S-A-Left"><action name="SnapToEdge" direction="left"/></keybind>
+    <keybind key="S-A-Right"><action name="SnapToEdge" direction="right"/></keybind>
+    <keybind key="S-A-Up"><action name="SnapToEdge" direction="up"/></keybind>
+    <keybind key="S-A-Down"><action name="SnapToEdge" direction="down"/></keybind>
+
+    <!-- Resize with arrow keys -->
+    <keybind key="W-Left"><action name="UnSnap"/><action name="ResizeRelative" right="-40"/></keybind>
+    <keybind key="W-Right"><action name="UnSnap"/><action name="ResizeRelative" right="40"/></keybind>
+    <keybind key="W-Up"><action name="UnSnap"/><action name="ResizeRelative" bottom="-40"/></keybind>
+    <keybind key="W-Down"><action name="UnSnap"/><action name="ResizeRelative" bottom="40"/></keybind>
+
+    <!-- Desktops -->
+    <keybind key="W-1"><action name="GoToDesktop"><to>1</to></action></keybind>
+    <keybind key="W-2"><action name="GoToDesktop"><to>2</to></action></keybind>
+    <keybind key="W-3"><action name="GoToDesktop"><to>3</to></action></keybind>
+    <keybind key="W-4"><action name="GoToDesktop"><to>4</to></action></keybind>
+    <keybind key="W-5"><action name="GoToDesktop"><to>5</to></action></keybind>
+    <keybind key="W-6"><action name="GoToDesktop"><to>6</to></action></keybind>
+    <keybind key="W-7"><action name="GoToDesktop"><to>7</to></action></keybind>
+    <keybind key="W-8"><action name="GoToDesktop"><to>8</to></action></keybind>
+    <keybind key="W-9"><action name="GoToDesktop"><to>9</to></action></keybind>
+
+    <!-- Send window to desktop -->
+    <keybind key="S-W-1"><action name="SendToDesktop"><to>1</to></action></keybind>
+    <keybind key="S-W-2"><action name="SendToDesktop"><to>2</to></action></keybind>
+    <keybind key="S-W-3"><action name="SendToDesktop"><to>3</to></action></keybind>
+    <keybind key="S-W-4"><action name="SendToDesktop"><to>4</to></action></keybind>
+    <keybind key="S-W-5"><action name="SendToDesktop"><to>5</to></action></keybind>
+    <keybind key="S-W-6"><action name="SendToDesktop"><to>6</to></action></keybind>
+    <keybind key="S-W-7"><action name="SendToDesktop"><to>7</to></action></keybind>
+    <keybind key="S-W-8"><action name="SendToDesktop"><to>8</to></action></keybind>
+    <keybind key="S-W-9"><action name="SendToDesktop"><to>9</to></action></keybind>
+
+
+    <!-- Media keys -->
+    <keybind key="XF86AudioRaiseVolume"><action name="Execute"><command>wpctl set-volume @DEFAULT_SINK@ 5%+</command></action></keybind>
+    <keybind key="XF86AudioLowerVolume"><action name="Execute"><command>wpctl set-volume @DEFAULT_SINK@ 5%-</command></action></keybind>
+    <keybind key="XF86AudioMute"><action name="Execute"><command>wpctl set-mute @DEFAULT_SINK@ toggle</command></action></keybind>
+    <keybind key="XF86AudioPlay"><action name="Execute"><command>playerctl play-pause</command></action></keybind>
+    <keybind key="XF86AudioNext"><action name="Execute"><command>playerctl next</command></action></keybind>
+    <keybind key="XF86AudioPrev"><action name="Execute"><command>playerctl previous</command></action></keybind>
+
+    <!-- Screenshots -->
+    <keybind key="Print"><action name="Execute"><command>grim -g "$(slurp)" - | wl-copy</command></action></keybind>
+    <keybind key="A-Print"><action name="Execute"><command>grim - | wl-copy</command></action></keybind>
+    <keybind key="S-Print"><action name="Execute"><command>grim - | wl-copy</command></action></keybind>
+    <keybind key="C-Print"><action name="Execute"><command>grim -g "$(slurp -w)" - | wl-copy</command></action></keybind>
+    <keybind key="S-A-Print"><action name="Execute"><command>screenshot.sh annotate</command></action></keybind>
+    <keybind key="S-C-Print"><action name="Execute"><command>screenshot.sh annotate-full</command></action></keybind>
+
+    <!-- Clipboard -->
+    <keybind key="W-v"><action name="Execute"><command>cliphist list | fuzzel -d | cliphist decode | wl-copy</command></action></keybind>
+
+    <!-- Quick Settings -->
+    <keybind key="C-S-n"><action name="Execute"><command>~/.config/labwc/autostart &amp; gammastep -m randr -t 6500:3500 -g 1.0 -r || pkill -x gammastep</command></action></keybind>
+
+    <!-- Toggle Shell -->
+    <keybind key="W-s"><action name="Execute"><command>toggle-shell</command></action></keybind>
+
+    <!-- App Launcher Variants -->
+
+    <!-- Calculator -->
+    <keybind key="A-c"><action name="Execute"><command>actions.sh fuzzel-calc</command></action></keybind>
+
+    <!-- Power & Maintenance Menus -->
+    <keybind key="A-F5"><action name="Execute"><command>actions.sh power-menu</command></action></keybind>
+    <keybind key="A-F6"><action name="Execute"><command>actions.sh maintenance</command></action></keybind>
+
+    <!-- Emoji Picker -->
+    <keybind key="A-period"><action name="Execute"><command>actions.sh fuzzel-emoji</command></action></keybind>
+
+    <!-- Workspace Navigation -->
+    <keybind key="C-A-Left"><action name="GoToDesktop"><to>left</to><wrap>yes</wrap></action></keybind>
+    <keybind key="C-A-Right"><action name="GoToDesktop"><to>right</to><wrap>yes</wrap></action></keybind>
+
+    <!-- Network/WiFi Toggle -->
+    <keybind key="XF86LaunchA"><action name="Execute"><command>nmcli radio wifi</command></action></keybind>
+
+    <!-- Bluetooth Toggle -->
+    <keybind key="XF86LaunchB"><action name="Execute"><command>bluetoothctl power on || bluetoothctl power off</command></action></keybind>
+
+    <!-- Brightness -->
+    <keybind key="XF86MonBrightnessUp"><action name="Execute"><command>brightnessctl set +10%</command></action></keybind>
+    <keybind key="XF86MonBrightnessDown"><action name="Execute"><command>brightnessctl set 10%-</command></action></keybind>
+
+    <!-- Window Management Extras -->
+    <keybind key="W-Return"><action name="Execute"><command>foot</command></action></keybind>
+    <keybind key="A-BackSpace"><action name="Execute"><command>sfwbar -c "SwitcherEvent('forward')"</command></action></keybind>
+    <keybind key="W-w"><action name="Execute"><command>wallpaper random</command></action></keybind>
+    <keybind key="W-f"><action name="Execute"><command>/media/naranyala/Data/projects-remote/labwc-fuzzel-sfwbar/scripts/actions//media/naranyala/Data/projects-remote/labwc-fuzzel-sfwbar/scripts/actions/workspace-actions.sh</command></action></keybind>
+    <keybind key="W-d"><action name="ToggleShowDesktop"/></keybind>
+
+    <!-- Theme Switcher -->
+    <keybind key="A-F12"><action name="Execute"><command>theme next</command></action></keybind>
+    <keybind key="A-S-F12"><action name="Execute"><command>theme</command></action></keybind>
+
+    <!-- Superkey+f - Rich Application & System Launcher -->
+    <keybind key="W-f"><action name="Execute"><command>/media/naranyala/Data/projects-remote/labwc-fuzzel-sfwbar/scripts/actions/workspace-actions.sh</command></action></keybind>
+  </keyboard>
+
+  <mouse>
+    <context name="Frame">
+      <mousebind button="A-Left" action="Drag">
+        <action name="Move"/>
+      </mousebind>
+    </context>
+    <context name="Titlebar">
+      <mousebind button="Left" action="Press">
+        <action name="Focus"/>
+        <action name="Raise"/>
+      </mousebind>
+      <mousebind button="Left" action="Drag">
+        <action name="Move"/>
+      </mousebind>
+      <mousebind button="Left" action="DoubleClick">
+        <action name="ToggleMaximize"/>
+      </mousebind>
+    </context>
+    <context name="Client">
+      <mousebind button="A-Left" action="Drag">
+        <action name="Move"/>
+      </mousebind>
+      <mousebind button="A-Right" action="Drag">
+        <action name="Resize"/>
+      </mousebind>
+    </context>
+    <context name="Root">
+      <mousebind button="Left" action="Press">
+        <action name="ShowMenu"><menu>root-menu</menu></action>
+      </mousebind>
+    </context>
+  </mouse>
+
+  <applications>
+    <!-- sfwbar: layer shell statusbar (default) -->
+    <application class="sfwbar">
+      <skip_taskbar>yes</skip_taskbar>
+      <skip_pager>yes</skip_pager>
+    </application>
+    <!-- noctalia: layer shell statusbar (alternative) -->
+    <application class="noctalia">
+      <skip_taskbar>yes</skip_taskbar>
+      <skip_pager>yes</skip_pager>
+    </application>
+    <!-- crystal-dock: layer shell, bottom, full width -->
+    <application class="crystal-dock">
+      <skip_taskbar>yes</skip_taskbar>
+      <skip_pager>yes</skip_pager>
+      <fixed_position>yes</fixed_position>
+    </application>
+  </applications>
+
+  <menu id="root-menu" label="Root Menu">
+    <item label="Terminal">
+      <action name="Execute"><command>foot</command></action>
+    </item>
+    <item label="Fuzzel Launcher">
+      <action name="Execute"><command>fuzzel</command></action>
+    </item>
+    <menu id="apps" label="Applications" execute="obamenu" />
+    <separator/>
+    <item label="Wallpaper (Random)">
+      <action name="Execute"><command>wallpaper random</command></action>
+    </item>
+    <item label="Wallpaper Sync">
+      <action name="Execute"><command>wallpaper sync</command></action>
+    </item>
+    <separator/>
+    <item label="crystal-dock">
+      <action name="Execute"><command>crystal-dock --start --overlay</command></action>
+    </item>
+    <item label="SFWBar Widgets">
+      <action name="Execute"><command>sfwbar</command></action>
+    </item>
+    <separator/>
+    <item label="Night Mode">
+      <action name="Execute"><command>quick-settings.sh night-mode</command></action>
+    </item>
+    <item label="Toggle Dark Mode">
+      <action name="Execute"><command>quick-settings.sh dark-mode</command></action>
+    </item>
+    <separator/>
+    <item label="Screenshot (Area)">
+      <action name="Execute"><command>grim -g "$(slurp)" - | wl-copy</command></action>
+    </item>
+    <item label="Screenshot (Full)">
+      <action name="Execute"><command>grim - | wl-copy</command></action>
+    </item>
+    <separator/>
+    <item label="Power Menu">
+      <action name="Execute"><command>power-menu.sh</command></action>
+    </item>
+    <item label="Reload Config">
+      <action name="Reconfigure"/>
+    </item>
+    <item label="Exit labwc">
+      <action name="Exit"/>
+    </item>
+  </menu>
+</labwc_config>

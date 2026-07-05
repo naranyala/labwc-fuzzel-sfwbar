@@ -1,114 +1,312 @@
 # OCWS Configuration Reference
 
-This document serves as the complete reference for configuring and extending the OCWS (Our C-Written Shell) Wayland platform.
+Complete reference for configuring and extending the OCWS Wayland shell platform.
 
 ---
 
 ## The OCWS Event Bus
 
-OCWS operates on a strict IPC (Inter-Process Communication) event bus. Background scripts and system events communicate with the UI exclusively through the `ocws-emit` command.
-
-### Standard Namespaces
-You can inject state changes into the shell from any terminal or bash script:
+Background scripts communicate with the sfwbar UI via `ocws-emit.sh`.
+This is the sanctioned way to push state updates into the shell.
 
 ```bash
-# Audio Subsystem
-ocws-emit System.Volume 75
-ocws-emit System.VolumeMuted 0
-
-# Display Subsystem
-ocws-emit System.Brightness 100
-
-# Power Subsystem
-ocws-emit System.Battery 80
-ocws-emit System.BatteryState "Charging"
-
-# Hardware Subsystems
-ocws-emit System.Cpu 15
-ocws-emit System.Memory 45
-ocws-emit System.Disk 60
-
-# Media Subsystem
-ocws-emit Media.Title "Song Name"
-ocws-emit Media.Artist "Artist Name"
-ocws-emit Media.Status "Playing"
-
-# Network Subsystem
-ocws-emit Network.WiFi "Connected"
-ocws-emit Network.Bluetooth "Disconnected"
-
-# Notification Subsystem
-ocws-emit System.DND 1  # Enable Do Not Disturb
+ocws-emit.sh <Namespace.Key> <Value>
 ```
 
-If you are developing a custom module (e.g., a Spotify listener), you do not need to learn sfwbar. You simply loop and call `ocws-emit Media.Title "..."`.
+### Full Namespace Reference
+
+#### Audio
+```bash
+ocws-emit.sh System.Volume 75          # 0–100 integer
+ocws-emit.sh System.VolumeMuted 1      # 1 = muted, 0 = unmuted
+```
+
+#### Display
+```bash
+ocws-emit.sh System.Brightness 80      # 0–100 integer
+```
+
+#### Power
+```bash
+ocws-emit.sh System.Battery 65         # percentage 0–100
+ocws-emit.sh System.BatteryState "Charging"   # Charging / Discharging / Full
+```
+
+#### Hardware Monitors
+```bash
+ocws-emit.sh System.Cpu 23             # CPU usage percentage
+ocws-emit.sh System.Memory 45          # RAM usage percentage
+ocws-emit.sh System.Disk 60            # Disk usage percentage
+ocws-emit.sh System.Temperature 52     # CPU temperature °C
+```
+
+#### Media
+```bash
+ocws-emit.sh Media.Title "Song Name"
+ocws-emit.sh Media.Artist "Artist Name"
+ocws-emit.sh Media.Album "Album Name"
+ocws-emit.sh Media.Status "Playing"    # Playing / Paused / Stopped
+ocws-emit.sh Media.Art "/tmp/cover.jpg"
+```
+
+#### Network
+```bash
+ocws-emit.sh Network.WiFi "Connected"
+ocws-emit.sh Network.WiFiSSID "MyNetwork"
+ocws-emit.sh Network.Bluetooth "Disconnected"
+```
+
+#### System
+```bash
+ocws-emit.sh System.DND 1              # Do Not Disturb: 1 = on, 0 = off
+```
+
+### How it works internally
+
+`ocws-emit.sh` writes the key-value pair to sfwbar's scanner socket. sfwbar updates
+any widget whose expression reads that variable (via `Val()`, `RegEx()`, `Extract()`, etc.).
+
+`dotfiles/ocws/ocws-daemon.sh` is the background daemon that listens to system events
+(ALSA, udev, playerctl) and calls `ocws-emit.sh` continuously.
 
 ---
 
 ## The Plugin Autoloader
 
-OCWS supports a drag-and-drop extension model without requiring manual edits to the core layout file.
+OCWS supports drag-and-drop widget extensibility without editing the core config.
 
 ### Adding a Plugin
-1. Create a widget file, for example, `my-weather.widget`.
-2. Place it in `~/.config/ocws/plugins/`.
-3. Reload the shell (or let it load naturally on next boot).
 
-The `ocws-plugin-loader` script runs dynamically at startup, scanning the `plugins/` directory and auto-generating the `plugins.config` manifest which is securely injected into the main `ocws.config`.
+1. Create a widget file, e.g. `my-weather.widget`
+2. Place it in `~/.config/ocws/plugins/`
+3. Reload the shell (restart sfwbar or log out/in)
+
+```bash
+cp my-weather.widget ~/.config/ocws/plugins/
+pkill sfwbar && sfwbar -f ~/.config/ocws/ocws.config &
+```
+
+`ocws-plugin-loader.sh` scans `plugins/` at startup and generates `plugins.config`,
+which is included by `ocws.config` automatically.
+
+### Plugin Widget Template
+
+```ini
+# ~/.config/ocws/plugins/my-widget.widget
+#Api2
+
+scanner {
+  step = 5000
+  exec("my-script.sh") {
+    MyWidgetData = Grab(First)
+  }
+}
+
+export button "my-widget" {
+  style = "module_pill"
+  class = "module"
+  tooltip = "My Widget"
+  action = Exec("my-script.sh action")
+
+  grid {
+    style = "pill_grid"
+    image { value = "my-icon-symbolic" }
+    label { value = MyWidgetData }
+  }
+}
+```
 
 ---
 
 ## Visual Configuration (Glassmorphism)
 
-OCWS uses standard GTK3 CSS to render its heavily translucent aesthetics.
+OCWS renders its translucent aesthetics via standard GTK3 CSS.
 
-### Modifying the Glass Engine
-The primary styling tokens are located inside `~/.config/ocws/ocws.config` in the `#CSS` block.
+### Theme Files
 
-To adjust the translucency or blur:
-1. Open `~/.config/ocws/ocws.config`.
-2. Locate `window#sfwbar`.
-3. Adjust `background-color: rgba(30, 30, 46, 0.65);` to change panel opacity.
-4. Adjust `box-shadow` to alter the depth perception.
+| File | Role |
+|------|------|
+| `~/.config/ocws/ocws.css` | Generated by theme-engine — glassmorphic panel CSS |
+| `~/.config/ocws/theme.css` | Static structural CSS (layout, widget geometry) |
+| `themes/*.ini` | Color palette profiles |
+| `templates/ocws.css.tmpl` | Template used by theme-engine to generate ocws.css |
+
+### Adjusting Transparency
+
+In `~/.config/ocws/ocws.css`, locate `window#sfwbar`:
+
+```css
+window#sfwbar {
+  background-color: rgba(30, 30, 46, 0.92);  /* last value = opacity 0.0–1.0 */
+  border-radius: 12px;
+}
+```
+
+Increase the alpha (4th value) toward `1.0` for a more opaque panel,
+decrease toward `0.0` for more transparency.
+
+### Applying a Color Theme
+
+```bash
+# List available themes
+theme-engine.sh list
+
+# Apply a theme (regenerates all CSS and config files)
+theme-engine.sh apply themes/catppuccin-mocha.ini
+
+# Preview without committing (Ctrl+C to revert)
+theme-engine.sh preview themes/tokyo-night.ini
+```
+
+Theme `.ini` files live in `themes/` and contain color variables. The theme-engine
+writes them into the CSS templates and regenerates `ocws.css`, `fuzzel.ini`, and `foot.ini`.
 
 ---
 
 ## Window Management (labwc)
 
-Window management, keybindings, and compositor rules are handled by `labwc` in `~/.config/labwc/rc.xml`.
+Window management, keybindings, and compositor rules are in `~/.config/labwc/rc.xml`.
 
-### Essential Keybindings
+### Keybinding Syntax
 
-| Keybinding | Action |
-|------------|--------|
-| Super + Enter | Launch terminal (foot) |
-| Super + D | Launch application menu (fuzzel) |
-| Super + Q | Close focused window |
-| Super + V | Open clipboard history |
-| Super + F | Toggle fullscreen |
-| Super + 1-9 | Switch to workspace 1-9 |
-| Super + Shift + 1-9 | Move window to workspace 1-9 |
-| Alt + Tab | Cycle through active windows |
+```xml
+<keybind key="Super+d">
+  <action name="Execute">
+    <command>fuzzel</command>
+  </action>
+</keybind>
 
-### System Keybindings
+<!-- Run an action script -->
+<keybind key="Print">
+  <action name="Execute">
+    <command>~/.local/bin/actions/screenshot.sh region</command>
+  </action>
+</keybind>
+```
 
-| Keybinding | Action |
-|------------|--------|
-| Volume Up/Down | Adjust volume (triggers ocws-emit) |
-| Mute Key | Toggle mute |
-| Brightness Up/Down | Adjust screen backlight |
-| Print Screen | Capture area screenshot |
-| Super + Print Screen | Capture full screenshot |
+### Default Keybindings
+
+| Key | Action |
+|-----|--------|
+| `Super+Enter` | Launch `foot` terminal |
+| `Super+D` | Launch `fuzzel` app launcher |
+| `Super+V` | Open clipboard history |
+| `Super+Q` | Close focused window |
+| `Super+F` | Toggle fullscreen |
+| `Super+1–9` | Switch workspace |
+| `Super+Shift+1–9` | Move window to workspace |
+| `Alt+Tab` | Cycle windows |
+| `XF86AudioRaiseVolume` | Volume up |
+| `XF86AudioLowerVolume` | Volume down |
+| `XF86AudioMute` | Toggle mute |
+| `XF86MonBrightnessUp` | Brightness up |
+| `XF86MonBrightnessDown` | Brightness down |
+| `Print` | Screenshot region → file |
+| `Shift+Print` | Screenshot region → clipboard |
+| `Super+Print` | Screenshot fullscreen → file |
 
 ### Window Rules
 
-OCWS automatically excludes itself from the taskbar and pager using labwc rules:
+OCWS shell windows are excluded from the taskbar and pager:
+
 ```xml
 <applications>
   <application class="sfwbar">
     <skip_taskbar>yes</skip_taskbar>
     <skip_pager>yes</skip_pager>
+    <layer>top</layer>
   </application>
 </applications>
 ```
-Do not remove this rule, or the OCWS UI panels will behave like standard movable windows.
+
+Do not remove this rule or OCWS panels will behave like normal movable windows.
+
+### Reload Config
+
+Apply rc.xml changes without restarting the session:
+
+```bash
+labwc --reconfigure
+```
+
+---
+
+## C Helper Binaries
+
+OCWS ships a suite of compiled C utilities in `zig-out/bin/`, installed to `~/.local/bin/`.
+
+| Binary | Purpose |
+|--------|---------|
+| `ocws-sysmon` | System metrics (CPU/mem/net/bat/bt/brightness/temp) in one pass |
+| `ocws-clip` | Clipboard manager (cliphist + fuzzel picker) |
+| `ocws-shot` | Screenshot tool (grim + slurp + annotation via satty/swappy) |
+| `ocws-lock` | Screen lock wrapper (swaylock) |
+| `ocws-kv` | Key-value persistent store (flat file at ~/.config/ocws/state.kv) |
+| `ocws-brightness` | Smooth backlight control with cubic easing animation |
+| `ocws-volume` | Smooth PulseAudio volume control with cubic easing |
+| `ocws-notify` | Native D-Bus notification daemon (replaces mako) |
+| `ocws-osd-notify` | Glassmorphic notification popup (gtk-layer-shell) |
+| `ocws-wallpaper` | Time-of-day wallpaper transitions (replaces swaybg) |
+| `ocws-color` | Wallpaper palette extraction (median-cut, outputs hex/ini/scss/json) |
+| `ocws-ocr` | Screen OCR via Tesseract (capture region or read image) |
+| `ocws-recorder` | Screen recording (wf-recorder wrapper with start/stop/pause) |
+| `ocws-live-bg` | Animated live background (GTK layer shell + cairo) |
+| `ocws-hypertile` | Dynamic tiling layout for labwc |
+
+Build all binaries:
+```bash
+zig build
+# Output in zig-out/bin/
+```
+
+---
+
+## Action Scripts
+
+All scripts in `scripts/actions/` are installed to `~/.local/bin/actions/` and can be called
+directly from labwc keybindings or sfwbar widget actions.
+
+| Script | Usage |
+|--------|-------|
+| `audio.sh up/down/mute/get` | Volume control + `ocws-emit` |
+| `brightness.sh up/down/get` | Backlight control + `ocws-emit` |
+| `screenshot.sh full/region/region-copy` | grim + slurp screenshot capture |
+| `clipboard.sh` | cliphist + fuzzel clipboard picker |
+| `launcher.sh` | Launch fuzzel app picker |
+| `power-menu.sh` | fuzzel power menu (shutdown/reboot/suspend/lock) |
+| `workspace.sh` | Workspace switching helpers |
+| `workspace-actions.sh` | Advanced workspace management |
+| `network.sh` | WiFi/network status and control |
+| `window.sh` | Window snap, maximize, float helpers |
+| `fuzzel-emoji.sh` | Emoji picker via fuzzel dmenu |
+| `fuzzel-calc.sh` | Calculator via fuzzel dmenu + bc |
+| `maintenance.sh` | System maintenance tasks |
+| `dock.sh` | Application dock management |
+| `menu-system.sh` | System submenu for right-click menu |
+| `menu-hardware.sh` | Hardware submenu |
+| `menu-aesthetics.sh` | Theme/aesthetics submenu |
+
+---
+
+## State Management
+
+OCWS persists state using the `ocws-kv` binary (flat file store).
+
+```bash
+# Set a value
+ocws-kv set theme catppuccin-mocha
+
+# Get a value
+ocws-kv get theme
+
+# List all keys
+ocws-kv list
+
+# Delete a key
+ocws-kv del old-key
+```
+
+State is stored at `~/.config/ocws/state.kv` (plain text, human-readable/editable).
+
+`scripts/ocws-state.sh` is the higher-level state coordinator used by `ocws-daemon.sh`.
+`dotfiles/ocws/ocws-daemon.sh` is the background daemon that bridges system events to sfwbar.

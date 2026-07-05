@@ -1,0 +1,175 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Super-based layout: Super for launchers/window mgmt, Alt for desktops -->
+<labwc_config>
+  <core>
+    <decoration>server</decoration>
+  </core>
+
+  <theme>
+    <name>Clearlooks</name>
+    <font place="ActiveWindow">
+      <name>sans</name>
+      <size>10</size>
+    </font>
+    <font place="InactiveWindow">
+      <name>sans</name>
+      <size>10</size>
+    </font>
+    <font place="MenuHeader">
+      <name>sans</name>
+      <size>10</size>
+    </font>
+    <font place="MenuItem">
+      <name>sans</name>
+      <size>10</size>
+    </font>
+  </theme>
+
+  <desktops>
+    <number>9</number>
+    <firstdesk>1</firstdesk>
+  </desktops>
+
+  <keyboard>
+    <!-- System -->
+    <keybind key="S-r"><action name="Reload"/></keybind>
+    <keybind key="S-q"><action name="Close"/></keybind>
+    <keybind key="A-F4"><action name="Close"/></keybind>
+    <keybind key="S-m"><action name="Exit"/></keybind>
+
+    <!-- Launchers (Super-based) -->
+    <keybind key="S-Return"><action name="Execute"><command>foot</command></action></keybind>
+    <keybind key="S-d"><action name="Execute"><command>rofi -show drun</command></action></keybind>
+
+    <!-- Window management (Super-based) -->
+    <keybind key="S-e"><action name="ToggleFloating"/></keybind>
+    <keybind key="S-f"><action name="ToggleFullscreen"/></keybind>
+    <keybind key="S-a"><action name="ToggleMaximize"/></keybind>
+    <keybind key="S-space"><action name="ShowMenu"><menu>root-menu</menu></action></keybind>
+
+    <!-- Focus cycling -->
+    <keybind key="A-Tab"><action name="NextWindow"/></keybind>
+    <keybind key="A-S-Tab"><action name="PreviousWindow"/></keybind>
+
+    <!-- Focus (Super + arrows) -->
+    <keybind key="S-Left"><action name="Focus"><direction>left</direction></action></keybind>
+    <keybind key="S-Right"><action name="Focus"><direction>right</direction></action></keybind>
+    <keybind key="S-Up"><action name="Focus"><direction>up</direction></action></keybind>
+    <keybind key="S-Down"><action name="Focus"><direction>down</direction></action></keybind>
+
+    <!-- Window movement (Super+Shift + arrows) -->
+    <keybind key="S-S-Left"><action name="Swap"><direction>left</direction></action></keybind>
+    <keybind key="S-S-Right"><action name="Swap"><direction>right</direction></action></keybind>
+    <keybind key="S-S-Up"><action name="Swap"><direction>up</direction></action></keybind>
+    <keybind key="S-S-Down"><action name="Swap"><direction>down</direction></action></keybind>
+
+    <!-- Window resize (Super+Ctrl + arrows) -->
+    <keybind key="C-S-Left"><action name="Unsnap"/><action name="Resize"><direction>left</direction><size>40px</size></action></keybind>
+    <keybind key="C-S-Right"><action name="Unsnap"/><action name="Resize"><direction>right</direction><size>40px</size></action></keybind>
+    <keybind key="C-S-Up"><action name="Unsnap"/><action name="Resize"><direction>up</direction><size>40px</size></action></keybind>
+    <keybind key="C-S-Down"><action name="Unsnap"/><action name="Resize"><direction>down</direction><size>40px</size></action></keybind>
+
+    <!-- Desktops (Super+number) -->
+    <keybind key="W-1"><action name="GoToDesktop"><to>1</to></action></keybind>
+    <keybind key="W-2"><action name="GoToDesktop"><to>2</to></action></keybind>
+    <keybind key="W-3"><action name="GoToDesktop"><to>3</to></action></keybind>
+    <keybind key="W-4"><action name="GoToDesktop"><to>4</to></action></keybind>
+    <keybind key="W-5"><action name="GoToDesktop"><to>5</to></action></keybind>
+    <keybind key="W-6"><action name="GoToDesktop"><to>6</to></action></keybind>
+    <keybind key="W-7"><action name="GoToDesktop"><to>7</to></action></keybind>
+    <keybind key="W-8"><action name="GoToDesktop"><to>8</to></action></keybind>
+    <keybind key="W-9"><action name="GoToDesktop"><to>9</to></action></keybind>
+
+    <!-- Send window to desktop -->
+    <keybind key="S-A-1"><action name="SendToDesktop"><to>1</to></action></keybind>
+    <keybind key="S-A-2"><action name="SendToDesktop"><to>2</to></action></keybind>
+    <keybind key="S-A-3"><action name="SendToDesktop"><to>3</to></action></keybind>
+    <keybind key="S-A-4"><action name="SendToDesktop"><to>4</to></action></keybind>
+    <keybind key="S-A-5"><action name="SendToDesktop"><to>5</to></action></keybind>
+    <keybind key="S-A-6"><action name="SendToDesktop"><to>6</to></action></keybind>
+    <keybind key="S-A-7"><action name="SendToDesktop"><to>7</to></action></keybind>
+    <keybind key="S-A-8"><action name="SendToDesktop"><to>8</to></action></keybind>
+    <keybind key="S-A-9"><action name="SendToDesktop"><to>9</to></action></keybind>
+
+    <!-- Gaps -->
+    <keybind key="A-comma"><action name="SetGap"><amount>+5</amount><side>all</side></action></keybind>
+    <keybind key="A-period"><action name="SetGap"><amount>-5</amount><side>all</side></action></keybind>
+
+    <!-- Media keys -->
+    <keybind key="XF86AudioRaiseVolume"><action name="Execute"><command>wpctl set-volume @DEFAULT_SINK@ 5%+</command></action></keybind>
+    <keybind key="XF86AudioLowerVolume"><action name="Execute"><command>wpctl set-volume @DEFAULT_SINK@ 5%-</command></action></keybind>
+    <keybind key="XF86AudioMute"><action name="Execute"><command>wpctl set-mute @DEFAULT_SINK@ toggle</command></action></keybind>
+    <keybind key="XF86AudioPlay"><action name="Execute"><command>playerctl play-pause</command></action></keybind>
+    <keybind key="XF86AudioNext"><action name="Execute"><command>playerctl next</command></action></keybind>
+    <keybind key="XF86AudioPrev"><action name="Execute"><command>playerctl previous</command></action></keybind>
+
+    <!-- Screenshots -->
+    <keybind key="Print"><action name="Execute"><command>grim -g "$(slurp)" - | wl-copy</command></action></keybind>
+    <keybind key="S-Print"><action name="Execute"><command>grim - | wl-copy</command></action></keybind>
+    <keybind key="S-A-Print"><action name="Execute"><command>screenshot.sh annotate</command></action></keybind>
+    <keybind key="S-C-Print"><action name="Execute"><command>screenshot.sh annotate-full</command></action></keybind>
+
+    <!-- Theme Switcher -->
+    <keybind key="A-F12"><action name="Execute"><command>theme next</command></action></keybind>
+    <keybind key="A-S-F12"><action name="Execute"><command>theme</command></action></keybind>
+  </keyboard>
+
+  <mouse>
+    <context name="Frame">
+      <mousebind button="A-Left" action="Drag">
+        <action name="Move"/>
+      </mousebind>
+    </context>
+    <context name="Titlebar">
+      <mousebind button="Left" action="Press">
+        <action name="Focus"/>
+        <action name="Raise"/>
+      </mousebind>
+      <mousebind button="Left" action="Drag">
+        <action name="Move"/>
+      </mousebind>
+      <mousebind button="Left" action="DoubleClick">
+        <action name="ToggleMaximize"/>
+      </mousebind>
+    </context>
+    <context name="Client">
+      <mousebind button="S-Left" action="Drag">
+        <action name="Move"/>
+      </mousebind>
+      <mousebind button="S-Right" action="Drag">
+        <action name="Resize"/>
+      </mousebind>
+    </context>
+    <context name="Root">
+      <mousebind button="Left" action="Press">
+        <action name="ShowMenu"><menu>root-menu</menu></action>
+      </mousebind>
+    </context>
+  </mouse>
+
+  <applications>
+    <application class="crystal-dock">
+      <skip_taskbar>yes</skip_taskbar>
+      <skip_pager>yes</skip_pager>
+      <fixed_position>yes</fixed_position>
+    </application>
+  </applications>
+
+  <menu id="root-menu" label="Root Menu">
+    <item label="Terminal">
+      <action name="Execute"><command>foot</command></action>
+    </item>
+    <item label="Rofi Launcher">
+      <action name="Execute"><command>rofi -show drun</command></action>
+    </item>
+    <item label="Wallpaper (Random)">
+      <action name="Execute"><command>wallpaper random</command></action>
+    </item>
+    <item label="Reload Config">
+      <action name="Reload"/>
+    </item>
+    <item label="Exit labwc">
+      <action name="Exit"/>
+    </item>
+  </menu>
+</labwc_config>

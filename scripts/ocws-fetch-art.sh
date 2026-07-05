@@ -26,8 +26,8 @@ LOCAL_FALLBACKS=(
 get_art() {
     local artist="$1"
     local title="$2"
-    local artist_safe="${artist//["']/ }"
-    local title_safe="${title//["']/ }"
+    local artist_safe="${artist//[\"\']/ }"
+    local title_safe="${title//[\"\']/ }"
     local cache_key="${artist_safe}::${title_safe}"
     
     # Check cache for pre-fetched art

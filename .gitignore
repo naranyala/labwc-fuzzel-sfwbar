@@ -6,8 +6,11 @@ result-*
 zig-out/
 zig-cache/
 
-# Source clones
-labwc/
+# Source clones (upstream repos, not tracked)
+sources/
+
+# Learning materials are tracked — do not ignore sources-learn/
+
 
 # Debian packages
 *.deb

@@ -1,0 +1,284 @@
+#!/bin/bash
+# workspace-actions.sh — Simple Superkey+f launcher
+# Flat structure: Category > Action format
+
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_DIR=""
+
+# Find project root
+if [[ -d "$SCRIPT_DIR/../actions" ]]; then
+    PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
+elif [[ -d "/media/naranyala/Data/projects-remote/labwc-fuzzel-sfwbar/scripts/actions" ]]; then
+    PROJECT_DIR="/media/naranyala/Data/projects-remote/labwc-fuzzel-sfwbar"
+fi
+
+# Colors
+GREEN='\033[0;32m'
+YELLOW='\033[1;33m'
+CYAN='\033[0;36m'
+RED='\033[0;31m'
+BOLD='\033[1m'
+NC='\033[0m'
+
+info() { echo -e "${CYAN}→${NC} $1"; }
+warn() { echo -e "${YELLOW}⚠${NC} $1"; }
+fail() { echo -e "${RED}✗${NC} $1"; exit 1; }
+
+# Display flat fuzzel menu
+show_fuzzel_menu() {
+    if ! command -v fuzzel >/dev/null 2>&1; then
+        warn "Fuzzel not found, cannot show interactive menu."
+        exit 1
+    fi
+
+    local options=(
+        "Audio > Volume Up"
+        "Audio > Volume Down"
+        "Audio > Mute Toggle"
+        "Display > Brightness Up"
+        "Display > Brightness Down"
+        "Display > Auto-Rotate"
+        "Windows > Center Window"
+        "Windows > Focus Floating"
+        "Windows > Next Workspace"
+        "Windows > Workspace 1"
+        "Windows > Workspace 2"
+        "System > System Status"
+        "System > File Manager"
+        "System > Terminal"
+        "System > Web Browser"
+        "Tools > App Launcher"
+        "Tools > Run Command"
+        "Tools > Screenshot"
+        "Tools > Lock Screen"
+        "Tools > Theme Switcher"
+        "Network > Network Status"
+        "Network > WiFi Toggle"
+        "Network > Bluetooth Toggle"
+        "Settings > Quick Settings"
+    )
+
+    local choice=$(printf '%s\n' "${options[@]}" | fuzzel -d -p "Action ❯ " -w 40 -l 15)
+
+    case "$choice" in
+        "Audio > Volume Up") execute_action "volume-up" ;;
+        "Audio > Volume Down") execute_action "volume-down" ;;
+        "Audio > Mute Toggle") execute_action "mute" ;;
+        "Display > Brightness Up") execute_action "brightness-up" ;;
+        "Display > Brightness Down") execute_action "brightness-down" ;;
+        "Display > Auto-Rotate") execute_action "auto-rotate" ;;
+        "Windows > Center Window") execute_action "center" ;;
+        "Windows > Focus Floating") execute_action "floating" ;;
+        "Windows > Next Workspace") execute_action "next-workspace" ;;
+        "Windows > Workspace 1") execute_action "workspace-1" ;;
+        "Windows > Workspace 2") execute_action "workspace-2" ;;
+        "System > System Status") execute_action "status" ;;
+        "System > File Manager") execute_action "file" ;;
+        "System > Terminal") execute_action "terminal" ;;
+        "System > Web Browser") execute_action "browser" ;;
+        "Tools > App Launcher") execute_action "launcher" ;;
+        "Tools > Run Command") execute_action "run-cmd" ;;
+        "Tools > Screenshot") execute_action "screenshot" ;;
+        "Tools > Lock Screen") execute_action "lock" ;;
+        "Tools > Theme Switcher") execute_action "theme" ;;
+        "Network > Network Status") execute_action "network" ;;
+        "Network > WiFi Toggle") execute_action "wifi" ;;
+        "Network > Bluetooth Toggle") execute_action "bt" ;;
+        "Settings > Quick Settings") execute_action "settings" ;;
+        *) exit 0 ;;
+    esac
+}
+
+# Execute action
+execute_action() {
+    local action="$1"
+    
+    case "$action" in
+        dock|dashboard|menu|dock-menu|app-dock)
+            # Launch enhanced dock with app pinning and task management
+            if command -v sh >/dev/null 2>&1; then
+                scripts/actions/dock.sh
+            else
+                info "Dock not available"
+            fi
+            ;;
+        # Audio Controls
+        up|volume-up|vol-up|add-volume)
+            ./scripts/actions/audio.sh up 5%
+            ;;
+        down|volume-down|vol-down|sub-volume)
+            ./scripts/actions/audio.sh down 5%
+            ;;
+        mute|toggle-mute|mute-audio)
+            ./scripts/actions/audio.sh mute
+            ;;
+        vol-up-0.5|volume-up-0.5|vol-up-half)
+            ./scripts/actions/audio.sh up-0.5
+            ;;
+        vol-down-0.5|volume-down-0.5|vol-down-half)
+            ./scripts/actions/audio.sh down-0.5
+            ;;
+        
+        # Brightness Controls
+        bright-up|brightness-up|inc-bright)
+            ./scripts/actions/brightness.sh up 10%
+            ;;
+        bright-down|brightness-down|dec-bright)
+            ./scripts/actions/brightness.sh down 10%
+            ;;
+        bright-up-0.5|brightness-up-0.5)
+            ./scripts/actions/brightness.sh up-0.5
+            ;;
+        bright-down-0.5|brightness-down-0.5)
+            ./scripts/actions/brightness.sh down-0.5
+            ;;
+        auto-rotate|rotate)
+            # Auto-rotate toggle (placeholder)
+            info "Auto-rotate display toggle"
+            ;;
+        
+        # Window Management
+        center|center-window|zentern)
+            xdotool key --clearmodifiers super+c
+            ;;
+        floating|focus-floating|focus-float)
+            xdotool key --clearmodifiers super+f
+            ;;
+        next-workspace|ws-next|super-tab)
+            xdotool key --clearmodifiers super+Tab
+            ;;
+        ws|workspace|workspaces)
+            xdotool key --clearmodifiers super+space
+            ;;
+        ws1|workspace-1|super-1)
+            xdotool key --clearmodifiers super+1
+            ;;
+        ws2|workspace-2|super-2)
+            xdotool key --clearmodifiers super+2
+            ;;
+        ws9|workspace-9|super-9)
+            xdotool key --clearmodifiers super+9
+            ;;
+        
+        # System Services
+        system|status|sysinfo|sys)
+            ./scripts/actions/system-info.sh
+            ;;
+        file|files|file-manager|files)
+            xdg-open ~ 2>/dev/null || nautilus ~ 2>/dev/null || dolphin ~ 2>/dev/null
+            ;;
+        term|terminal|shell|bash)
+            if command -v foot >/dev/null; then
+                foot &
+            elif command -v kitty >/dev/null; then
+                kitty &
+            elif command -v gnome-terminal >/dev/null; then
+                gnome-terminal &
+            else
+                info "No terminal found"
+            fi
+            ;;
+        browser|web|surf|www)
+            if command -v chromium >/dev/null; then
+                chromium &
+            elif command -v firefox >/dev/null; then
+                firefox &
+            elif command -v brave >/dev/null; then
+                brave &
+            else
+                info "No browser found"
+            fi
+            ;;
+        quit|exit|close)
+            # Generic quit action (placeholder - user should use window manager shortcuts)
+            info "Use window manager shortcut (e.g., Super+q)"
+            ;;
+        
+        # Quick Tools
+        launcher|search|find|run)
+            if command -v fuzzel >/dev/null; then
+                fuzzel --config "$HOME/.config/fuzzel/fuzzel.ini"
+            else
+                info "Launchy not available"
+            fi
+            ;;
+        run-cmd|run-command|execute)
+            if command -v fuzzel >/dev/null; then
+                fuzzel --config "$HOME/.config/fuzzel/fuzzel.ini" -p "Run:" --placeholder "Type command..."
+            else
+                ./scripts/actions/launcher.sh run "$@"
+            fi
+            ;;
+        screenshot|capture|screen)
+            ./scripts/actions/screenshot.sh
+            ;;
+        lock|lock-screen)
+            if command -v loginctl >/dev/null; then
+                loginctl lock-session
+            else
+                xset s activate
+            fi
+            ;;
+        theme|theme-switch|colors)
+            ./scripts/actions/theme-engine.sh list
+            if command -v fuzzel >/dev/null; then
+                selected=$(./scripts/theme-engine.sh list | fuzzel --config "$HOME/.config/fuzzel/fuzzel.ini" --width 50 --height 15 --prompt "🎨 Select Theme:")
+                if [[ -n "$selected" ]]; then
+                    ./scripts/theme-engine.sh apply "themes/${selected}.ini"
+                fi
+            fi
+            ;;
+        
+        # Communication & Network
+        network|net|status)
+            ./scripts/actions/network.sh status
+            ;;
+        wifi|wireless)
+            ./scripts/actions/network.sh wifi-toggle
+            ;;
+        bt|bluetooth)
+            ./scripts/actions/network.sh bt-toggle
+            ;;
+        
+        # System Settings
+        settings|prefs|config)
+            if command -v rofi >/dev/null; then
+                rofi -show drun -theme-str 'window {width: 600px;}'
+            else
+                info "Open settings from system menu"
+            fi
+            ;;
+        help|about|info|manual)
+            show_fuzzel_menu
+            ;;
+        
+        # Default action
+        *)
+            warn "Unknown action: $action"
+            show_fuzzel_menu
+            ;;
+    esac
+}
+
+# Execute based on argument
+MODE="${1:-list}"
+shift
+
+# Main execution logic
+case "$MODE" in
+    list|ls|help|--help|-h|*)
+        show_fuzzel_menu
+        ;;
+    *)
+        # Try to execute the action
+        # Handle both form: workspace-actions.sh <action>
+        # And the original form: workspace-actions.sh list
+        if [[ "$1" == "list" ]] || [[ "$1" == "ls" ]] || [[ "$1" == "help" ]]; then
+            show_fuzzel_menu
+        else
+            execute_action "$1"
+        fi
+        ;;
+esac
