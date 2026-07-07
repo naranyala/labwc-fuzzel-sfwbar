@@ -405,6 +405,92 @@ for script in "${BUILD_SCRIPTS[@]}"; do
 done
 
 # ============================================================
+# 10. font-scale.sh float support
+# ============================================================
+header "font-scale.sh Float Support"
+FONT_SCALE="$PROJECT_DIR/scripts/font-scale.sh"
+if [ -f "$FONT_SCALE" ] && [ -x "$FONT_SCALE" ]; then
+    # Test set command with integer
+    OUTPUT=$(bash "$FONT_SCALE" set 10 2>&1 || true)
+    if echo "$OUTPUT" | grep -q "Font Scale"; then
+        pass "font-scale.sh set <int> works"
+    else
+        fail "font-scale.sh set <int> produced unexpected output"
+    fi
+
+    # Test set command with float
+    OUTPUT=$(bash "$FONT_SCALE" set 10.5 2>&1 || true)
+    if echo "$OUTPUT" | grep -q "10.5"; then
+        pass "font-scale.sh set <float> accepts decimals"
+    else
+        fail "font-scale.sh set <float> did not process decimal"
+    fi
+
+    # Test status command
+    OUTPUT=$(bash "$FONT_SCALE" status 2>&1 || true)
+    if echo "$OUTPUT" | grep -q "Current Status"; then
+        pass "font-scale.sh status works"
+    else
+        fail "font-scale.sh status failed"
+    fi
+
+    # Reset to default
+    bash "$FONT_SCALE" set 10 &>/dev/null
+    pass "font-scale.sh reset to default"
+else
+    skip "font-scale.sh not found or not executable"
+fi
+
+# ============================================================
+# 11. labwc environment file
+# ============================================================
+header "Labwc Environment File"
+ENV_FILE="$PROJECT_DIR/dotfiles/labwc/environment"
+if [ -f "$ENV_FILE" ]; then
+    pass "environment file exists"
+
+    # Must set PATH
+    if grep -q "^PATH=" "$ENV_FILE"; then
+        pass "environment sets PATH"
+    else
+        fail "environment missing PATH"
+    fi
+
+    # Must set XDG_CURRENT_DESKTOP
+    if grep -q "^XDG_CURRENT_DESKTOP=" "$ENV_FILE"; then
+        pass "environment sets XDG_CURRENT_DESKTOP"
+    else
+        fail "environment missing XDG_CURRENT_DESKTOP"
+    fi
+
+    # PATH must include ~/.local/bin
+    if grep -q '\$HOME/\.local/bin' "$ENV_FILE"; then
+        pass "PATH includes \$HOME/.local/bin"
+    else
+        fail "PATH missing \$HOME/.local/bin"
+    fi
+else
+    fail "environment file not found"
+fi
+
+# ============================================================
+# 12. autorun.conf contains ocws-welcome
+# ============================================================
+header "Autorun Configuration"
+AUTORUN="$PROJECT_DIR/dotfiles/labwc/autorun.conf"
+if [ -f "$AUTORUN" ]; then
+    pass "autorun.conf exists"
+
+    if grep -q "ocws-welcome" "$AUTORUN"; then
+        pass "autorun.conf includes ocws-welcome"
+    else
+        fail "autorun.conf missing ocws-welcome"
+    fi
+else
+    fail "autorun.conf not found"
+fi
+
+# ============================================================
 # Summary
 # ============================================================
 echo ""

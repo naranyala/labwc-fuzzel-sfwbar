@@ -1,0 +1,10 @@
+[Desktop Entry]
+Name=OCWS Package Manager
+Comment=Resolve dependencies and build OCWS engines from source
+Exec=ocws-pkgmgr
+Icon=system-software-install
+Terminal=false
+Type=Application
+Categories=System;Utility;
+Keywords=ocws;package;manager;dependencies;build;
+StartupNotify=true

@@ -20,6 +20,7 @@ configuration {
     fg-alt:     #a6adc8;
     accent:     #89b4fa;
     urgent:     #f38ba8;
+    error:      #f38ba8;
     selected:   #45475a;
 
     background-color: transparent;
@@ -88,4 +89,17 @@ element-icon {
 element-text {
     vertical-align: 0.5;
     expand:         true;
+}
+
+message {
+    background-color: @bg-alt;
+    border:           1px solid;
+    border-color:     @error;
+    border-radius:    8px;
+    padding:          12px;
+    margin-top:       8px;
+}
+
+textbox {
+    text-color: @error;
 }

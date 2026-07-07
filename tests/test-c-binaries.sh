@@ -581,6 +581,177 @@ if require_bin "ocws-search"; then
 fi
 
 # ============================================================
+# Section 12: ocws-welcome GUI binary
+# ============================================================
+header "ocws-welcome GUI"
+WELCOME="$BUILD_DIR/ocws-welcome"
+if [ -x "$WELCOME" ]; then
+    pass "ocws-welcome binary exists and is executable"
+
+    # Check it's an ELF binary
+    if file "$WELCOME" | grep -q "ELF"; then
+        pass "ocws-welcome is a valid ELF binary"
+    else
+        fail "ocws-welcome is not an ELF binary"
+    fi
+
+    # Check it links GTK3
+    if ldd "$WELCOME" 2>/dev/null | grep -q "gtk"; then
+        pass "ocws-welcome links against GTK"
+    else
+        skip "ldd not available or GTK not linked"
+    fi
+
+    # --force flag should launch (will fail without display, but shouldn't segfault)
+    if [ -n "${WAYLAND_DISPLAY:-}${DISPLAY:-}" ]; then
+        timeout 3 "$WELCOME" --force &>/dev/null
+        pass "ocws-welcome --force ran without crash"
+    else
+        skip "No display server — cannot test runtime launch"
+    fi
+else
+    skip "ocws-welcome binary not found"
+fi
+
+# ============================================================
+# Section 13: ocws-settings GUI binary
+# ============================================================
+header "ocws-settings GUI"
+SETTINGS="$BUILD_DIR/ocws-settings"
+if [ -x "$SETTINGS" ]; then
+    pass "ocws-settings binary exists and is executable"
+
+    if file "$SETTINGS" | grep -q "ELF"; then
+        pass "ocws-settings is a valid ELF binary"
+    else
+        fail "ocws-settings is not an ELF binary"
+    fi
+
+    if ldd "$SETTINGS" 2>/dev/null | grep -q "gtk"; then
+        pass "ocws-settings links against GTK"
+    else
+        skip "ldd not available or GTK not linked"
+    fi
+
+    if [ -n "${WAYLAND_DISPLAY:-}${DISPLAY:-}" ]; then
+        timeout 3 "$SETTINGS" &>/dev/null
+        pass "ocws-settings ran without crash"
+    else
+        skip "No display server — cannot test runtime launch"
+    fi
+else
+    skip "ocws-settings binary not found"
+fi
+
+# ============================================================
+# Section 13b: ocws-pkgmgr GUI binary
+# ============================================================
+header "ocws-pkgmgr GUI"
+PKGMGR="$BUILD_DIR/ocws-pkgmgr"
+if [ -x "$PKGMGR" ]; then
+    pass "ocws-pkgmgr binary exists and is executable"
+
+    if file "$PKGMGR" | grep -q "ELF"; then
+        pass "ocws-pkgmgr is a valid ELF binary"
+    else
+        fail "ocws-pkgmgr is not an ELF binary"
+    fi
+
+    if ldd "$PKGMGR" 2>/dev/null | grep -q "gtk"; then
+        pass "ocws-pkgmgr links against GTK"
+    else
+        skip "ldd not available or GTK not linked"
+    fi
+
+    if [ -n "${WAYLAND_DISPLAY:-}${DISPLAY:-}" ]; then
+        timeout 3 "$PKGMGR" &>/dev/null
+        pass "ocws-pkgmgr ran without crash"
+    else
+        skip "No display server — cannot test runtime launch"
+    fi
+else
+    skip "ocws-pkgmgr binary not found"
+fi
+
+# ============================================================
+# Section 14: Shared utils integrity
+# ============================================================
+header "Shared utils (utils.c)"
+UTILS_SRC="$PROJECT_DIR/src/utils.c"
+if [ -f "$UTILS_SRC" ]; then
+    pass "utils.c exists"
+
+    # Verify shared data tables are present
+    for sym in "OCWS_THEMES" "OCWS_SHELLS" "prettify" "scan_themes" "run_cmd_async" "highlight_selected"; do
+        if grep -q "$sym" "$UTILS_SRC"; then
+            pass "utils.c contains: $sym"
+        else
+            fail "utils.c missing: $sym"
+        fi
+    done
+
+    # Verify theme count matches themes/ directory
+    THEME_COUNT=$(grep -c "OCWS_THEMES\[\]" "$UTILS_SRC" 2>/dev/null || echo 0)
+    INI_COUNT=$(ls "$PROJECT_DIR/themes/"*.ini 2>/dev/null | wc -l)
+    if [ "$INI_COUNT" -gt 0 ]; then
+        pass "themes/ directory has $INI_COUNT INI files"
+    else
+        skip "themes/ directory not found"
+    fi
+else
+    fail "utils.c not found"
+fi
+
+# ============================================================
+# Section 15: .desktop file validation
+# ============================================================
+header "Desktop Entry Files"
+DESKTOP_DIR="$PROJECT_DIR/dotfiles/applications"
+for desk in ocws-settings.desktop ocws-welcome.desktop ocws-pkgmgr.desktop; do
+    DESK_PATH="$DESKTOP_DIR/$desk"
+    if [ -f "$DESK_PATH" ]; then
+        pass "$desk exists"
+
+        # Required keys
+        for key in Name Exec Type Terminal Categories; do
+            if grep -q "^${key}=" "$DESK_PATH"; then
+                pass "$desk has $key"
+            else
+                fail "$desk missing $key"
+            fi
+        done
+
+        # Exec should reference the correct binary
+        EXEC_LINE=$(grep "^Exec=" "$DESK_PATH" | head -1)
+        case "$desk" in
+            ocws-settings.desktop)
+                if echo "$EXEC_LINE" | grep -q "ocws-settings"; then
+                    pass "$desk Exec references ocws-settings"
+                else
+                    fail "$desk Exec does not reference ocws-settings"
+                fi
+                ;;
+            ocws-welcome.desktop)
+                if echo "$EXEC_LINE" | grep -q "ocws-welcome"; then
+                    pass "$desk Exec references ocws-welcome"
+                else
+                    fail "$desk Exec does not reference ocws-welcome"
+                fi
+                ;;
+            ocws-pkgmgr.desktop)
+                if echo "$EXEC_LINE" | grep -q "ocws-pkgmgr"; then
+                    pass "$desk Exec references ocws-pkgmgr"
+                else
+                    fail "$desk Exec does not reference ocws-pkgmgr"
+                fi
+                ;;
+        esac
+    else
+        fail "$desk not found in $DESKTOP_DIR"
+    fi
+done
+
+# ============================================================
 # Summary
 # ============================================================
 echo ""

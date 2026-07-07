@@ -55,6 +55,7 @@ static void activate(GtkApplication *app, gpointer user_data) {
     gtk_stack_add_titled(GTK_STACK(stack), build_diagnostics_tab(),     "diagnostics",     "System Health");
     gtk_stack_add_titled(GTK_STACK(stack), build_quick_settings_tab(),  "quick_settings",  "Quick Settings");
     gtk_stack_add_titled(GTK_STACK(stack), build_keybinds_tab(),        "keybinds",        "Keybinds");
+    gtk_stack_add_titled(GTK_STACK(stack), build_credits_tab(),         "credits",         "Credits");
     gtk_stack_add_titled(GTK_STACK(stack), build_about_tab(),           "about",           "About");
 
     gtk_widget_show_all(window);

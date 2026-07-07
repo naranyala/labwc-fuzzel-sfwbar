@@ -1,0 +1,10 @@
+[Desktop Entry]
+Name=OCWS Welcome
+Comment=Welcome wizard and first-run setup for OCWS desktop
+Exec=ocws-welcome --force
+Icon=help-about
+Terminal=false
+Type=Application
+Categories=Settings;DesktopSettings;
+Keywords=ocws;welcome;setup;wizard;first-run;
+StartupNotify=true

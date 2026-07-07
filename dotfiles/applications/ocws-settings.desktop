@@ -1,0 +1,10 @@
+[Desktop Entry]
+Name=OCWS Settings
+Comment=Advanced Control Center for Our C-Written Shell
+Exec=ocws-settings
+Icon=preferences-desktop
+Terminal=false
+Type=Application
+Categories=Settings;DesktopSettings;HardwareSettings;
+Keywords=ocws;settings;shell;labwc;configuration;theming;
+StartupNotify=true

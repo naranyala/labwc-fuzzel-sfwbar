@@ -293,8 +293,10 @@ case "$LAUNCHER" in
         fi
         ;;
     fuzzel)
-        info "Using fuzzel as application launcher..."
-        pass "fuzzel requires no configuration — ready out of the box."
+        info "Deploying Fuzzel configuration..."
+        mkdir -p ~/.config/fuzzel
+        cp -r "$SCRIPT_DIR/dotfiles/fuzzel/"* ~/.config/fuzzel/ 2>/dev/null || true
+        pass "Fuzzel synced."
         ;;
 esac
 
@@ -359,6 +361,16 @@ chmod +x ~/.local/bin/*.sh 2>/dev/null || fail "Failed to set execute permission
 chmod +x ~/.local/bin/actions/* 2>/dev/null || true
 pass "Scripts and IPC mapped to ~/.local/bin"
 
+# 7b. Build & Deploy zig-built C binaries (ocws-welcome, ocws-settings, ocws-pkgmgr, etc.)
+if command -v zig &>/dev/null && [ -f "$SCRIPT_DIR/build.zig" ]; then
+    info "Building C binaries with zig..."
+    (cd "$SCRIPT_DIR" && zig build 2>&1) || warn "zig build had issues, deploying existing binaries"
+fi
+if [ -d "$SCRIPT_DIR/zig-out/bin" ]; then
+    find "$SCRIPT_DIR/zig-out/bin" -maxdepth 1 -type f -executable -exec cp {} ~/.local/bin/ \; 2>/dev/null || true
+    pass "C binaries (zig-out/bin) deployed to ~/.local/bin"
+fi
+
 # 7b. Deploy dotfiles/wallpaper script
 if [ -f "$SCRIPT_DIR/dotfiles/wallpaper" ]; then
     cp "$SCRIPT_DIR/dotfiles/wallpaper" ~/.local/bin/wallpaper
@@ -370,6 +382,13 @@ fi
 if [ -f "$SCRIPT_DIR/dotfiles/wallpaper-sources.txt" ]; then
     cp "$SCRIPT_DIR/dotfiles/wallpaper-sources.txt" ~/.config/ocws/wallpaper-sources.txt
     pass "wallpaper-sources.txt deployed to ~/.config/ocws/"
+fi
+
+# 7d. Deploy .desktop files for GUI apps
+mkdir -p ~/.local/share/applications
+if [ -d "$SCRIPT_DIR/dotfiles/applications" ]; then
+    cp "$SCRIPT_DIR/dotfiles/applications/"*.desktop ~/.local/share/applications/ 2>/dev/null || true
+    pass ".desktop entries deployed to ~/.local/share/applications"
 fi
 
 # 8. Strict Installation Validation
@@ -541,6 +560,17 @@ validate_file "$HOME/.config/labwc/menu.xml" || ((ERRORS++))
 if [[ "$MODE" == "doublepanel" || "$MODE" == "crystaldock" ]]; then
     validate_file "$HOME/.config/ocws/ocws.config" || ((ERRORS++))
 fi
+
+# Verify OCWS GUI apps
+validate_file "$HOME/.local/bin/ocws-settings" || ((ERRORS++))
+validate_executable "$HOME/.local/bin/ocws-settings" || ((ERRORS++))
+validate_file "$HOME/.local/bin/ocws-welcome" || ((ERRORS++))
+validate_executable "$HOME/.local/bin/ocws-welcome" || ((ERRORS++))
+validate_file "$HOME/.local/bin/ocws-pkgmgr" || ((ERRORS++))
+validate_executable "$HOME/.local/bin/ocws-pkgmgr" || ((ERRORS++))
+validate_file "$HOME/.local/share/applications/ocws-settings.desktop" || ((ERRORS++))
+validate_file "$HOME/.local/share/applications/ocws-welcome.desktop" || ((ERRORS++))
+validate_file "$HOME/.local/share/applications/ocws-pkgmgr.desktop" || ((ERRORS++))
 
 # Verify Launcher
 if [[ "$LAUNCHER" == "rofi" ]]; then

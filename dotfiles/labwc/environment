@@ -6,6 +6,9 @@ XDG_CURRENT_DESKTOP=labwc
 XDG_SESSION_TYPE=wayland
 XDG_SESSION_DESKTOP=labwc
 
+# PATH — ensure ~/.local/bin is available to all launched apps
+PATH=$HOME/.local/bin:$HOME/.cargo/bin:$HOME/go/bin:$HOME/.npm-global/bin:$HOME/.bun/bin:$PATH
+
 # Qt
 QT_QPA_PLATFORM=wayland
 QT_WAYLAND_DISABLE_WINDOWDECORATION=1

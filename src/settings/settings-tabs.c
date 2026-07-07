@@ -5,6 +5,7 @@
 
 #include "settings-ui.h"
 #include "settings-tabs.h"
+#include "../utils.h"
 #include <stdlib.h>
 #include <string.h>
 
@@ -26,10 +27,10 @@ GtkWidget* build_shell_tab(void) {
     gtk_flow_box_set_max_children_per_line(GTK_FLOW_BOX(flowbox), 4);
     gtk_flow_box_set_selection_mode(GTK_FLOW_BOX(flowbox), GTK_SELECTION_NONE);
 
-    gtk_flow_box_insert(GTK_FLOW_BOX(flowbox), create_shell_card("OCWS", "Our C-Written Shell (default)", "dms", "preferences-desktop-symbolic"), -1);
-    gtk_flow_box_insert(GTK_FLOW_BOX(flowbox), create_shell_card("Dank Material", "Material Design 3 integrated shell", "dms", "view-app-grid-symbolic"), -1);
+    gtk_flow_box_insert(GTK_FLOW_BOX(flowbox), create_shell_card("OCWS Double Panel", "Dual-panel sfwbar — the default OCWS experience", "doublepanel", "preferences-desktop-symbolic"), -1);
+    gtk_flow_box_insert(GTK_FLOW_BOX(flowbox), create_shell_card("Crystal Dock", "SFWBar + bottom macOS-style dock", "crystaldock", "computer-apple-symbolic"), -1);
+    gtk_flow_box_insert(GTK_FLOW_BOX(flowbox), create_shell_card("DankMaterialShell", "Material Design 3 integrated shell", "dms", "view-app-grid-symbolic"), -1);
     gtk_flow_box_insert(GTK_FLOW_BOX(flowbox), create_shell_card("Noctalia", "Minimalist plugin-driven shell", "noctalia", "weather-clear-night-symbolic"), -1);
-    gtk_flow_box_insert(GTK_FLOW_BOX(flowbox), create_shell_card("Crystal Dock", "SFWBar + bottom macOS style dock", "crystal", "computer-apple-symbolic"), -1);
 
     gtk_box_pack_start(GTK_BOX(vbox), flowbox, TRUE, TRUE, 0);
     return vbox;
@@ -47,6 +48,30 @@ static void on_theme_color_clicked(GtkWidget *widget, gpointer data) {
     system(cmd);
 }
 
+static void on_icon_apply_clicked(GtkWidget *widget, gpointer data) {
+    (void)widget;
+    GtkWidget *combo = GTK_WIDGET(data);
+    char *active = gtk_combo_box_text_get_active_text(GTK_COMBO_BOX_TEXT(combo));
+    if (active) {
+        char cmd[256];
+        snprintf(cmd, sizeof(cmd), "gsettings set org.gnome.desktop.interface icon-theme '%s' &", active);
+        system(cmd);
+        g_free(active);
+    }
+}
+
+static void on_cursor_apply_clicked(GtkWidget *widget, gpointer data) {
+    (void)widget;
+    GtkWidget *combo = GTK_WIDGET(data);
+    char *active = gtk_combo_box_text_get_active_text(GTK_COMBO_BOX_TEXT(combo));
+    if (active) {
+        char cmd[256];
+        snprintf(cmd, sizeof(cmd), "gsettings set org.gnome.desktop.interface cursor-theme '%s' &", active);
+        system(cmd);
+        g_free(active);
+    }
+}
+
 GtkWidget* build_appearance_tab(void) {
     GtkWidget *scroll = gtk_scrolled_window_new(NULL, NULL);
     gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(scroll), GTK_POLICY_NEVER, GTK_POLICY_AUTOMATIC);
@@ -59,32 +84,25 @@ GtkWidget* build_appearance_tab(void) {
     GtkWidget *card = create_card("Theme Colors", "🎨");
     gtk_box_pack_start(GTK_BOX(vbox), card, FALSE, FALSE, 0);
 
-    const char *theme_ids[] = {
-        "catppuccin-mocha", "dracula", "everforest", "flexoki", "gruvbox",
-        "kanagawa", "nord", "one-dark", "rose-pine", "solarized-dark"
-    };
-    const char *theme_colors[] = {
-        "#cba6f7", "#bd93f9", "#a7c080", "#af3029", "#fe8019",
-        "#7e9cd8", "#81a1c1", "#61afef", "#ebbcba", "#b58900"
-    };
     GtkWidget *grid = gtk_grid_new();
     gtk_grid_set_column_spacing(GTK_GRID(grid), 8);
     gtk_grid_set_row_spacing(GTK_GRID(grid), 8);
     gtk_box_pack_start(GTK_BOX(card), grid, FALSE, FALSE, 0);
 
-    for (int i = 0; i < 10; i++) {
+    for (int i = 0; i < OCWS_THEME_COUNT; i++) {
         GtkWidget *color_btn = gtk_button_new();
         GtkStyleContext *ctx = gtk_widget_get_style_context(color_btn);
         gtk_widget_set_size_request(color_btn, 32, 32);
-        gtk_widget_set_tooltip_text(color_btn, theme_ids[i]);
+        gtk_widget_set_tooltip_text(color_btn, OCWS_THEMES[i].slug);
 
         char css[256];
-        snprintf(css, sizeof(css), "* { background-color: %s; border-radius: 16px; }", theme_colors[i]);
+        snprintf(css, sizeof(css), "* { background-color: %s; border-radius: 16px; }", OCWS_THEMES[i].accent);
         GtkCssProvider *provider = gtk_css_provider_new();
         gtk_css_provider_load_from_data(provider, css, -1, NULL);
         gtk_style_context_add_provider(ctx, GTK_STYLE_PROVIDER(provider), GTK_STYLE_PROVIDER_PRIORITY_APPLICATION);
+        g_object_unref(provider);
 
-        g_signal_connect_data(color_btn, "clicked", G_CALLBACK(on_theme_color_clicked), (gpointer)theme_ids[i], NULL, 0);
+        g_signal_connect_data(color_btn, "clicked", G_CALLBACK(on_theme_color_clicked), (gpointer)OCWS_THEMES[i].slug, NULL, 0);
         gtk_grid_attach(GTK_GRID(grid), color_btn, i % 5, i / 5, 1, 1);
     }
 
@@ -101,6 +119,7 @@ GtkWidget* build_appearance_tab(void) {
     gtk_combo_box_set_active(GTK_COMBO_BOX(icon_combo), 0);
     gtk_widget_set_hexpand(icon_combo, TRUE);
     GtkWidget *icon_apply = gtk_button_new_with_label("Apply");
+    g_signal_connect(icon_apply, "clicked", G_CALLBACK(on_icon_apply_clicked), icon_combo);
     gtk_box_pack_start(GTK_BOX(icon_row), icon_combo, TRUE, TRUE, 0);
     gtk_box_pack_start(GTK_BOX(icon_row), icon_apply, FALSE, FALSE, 0);
     gtk_box_pack_start(GTK_BOX(content), icon_row, FALSE, FALSE, 0);
@@ -117,6 +136,7 @@ GtkWidget* build_appearance_tab(void) {
     gtk_combo_box_set_active(GTK_COMBO_BOX(cursor_combo), 0);
     gtk_widget_set_hexpand(cursor_combo, TRUE);
     GtkWidget *cursor_apply = gtk_button_new_with_label("Apply");
+    g_signal_connect(cursor_apply, "clicked", G_CALLBACK(on_cursor_apply_clicked), cursor_combo);
     gtk_box_pack_start(GTK_BOX(cursor_row), cursor_combo, TRUE, TRUE, 0);
     gtk_box_pack_start(GTK_BOX(cursor_row), cursor_apply, FALSE, FALSE, 0);
     gtk_box_pack_start(GTK_BOX(content), cursor_row, FALSE, FALSE, 0);
@@ -124,7 +144,7 @@ GtkWidget* build_appearance_tab(void) {
     // Font Scaling (always visible)
     card = create_card("Font Scaling", "🔤");
     gtk_box_pack_start(GTK_BOX(vbox), card, FALSE, FALSE, 0);
-    gtk_box_pack_start(GTK_BOX(card), create_live_slider_row("UI Scale", 100, 50, 200, "%", "font-scale.sh %d &"), FALSE, FALSE, 0);
+    gtk_box_pack_start(GTK_BOX(card), create_live_slider_row("Font Size", 10, 6, 24, "pt", "font-scale.sh set %.1f &"), FALSE, FALSE, 0);
 
     // Compositor Effects (collapsible, starts collapsed)
     card = create_collapsible_card("Compositor Effects", "✨", FALSE);
@@ -427,6 +447,7 @@ GtkWidget* build_keybinds_tab(void) {
 
     // Populate with keybindings from rc.xml
     const char *home = getenv("HOME");
+    if (!home) home = "/tmp";
     char rc_path[512];
     snprintf(rc_path, sizeof(rc_path), "%s/.config/labwc/rc.xml", home);
 
@@ -589,6 +610,12 @@ GtkWidget* build_about_tab(void) {
     GtkWidget *github_btn = gtk_button_new_with_label("GitHub");
     GtkWidget *docs_btn = gtk_button_new_with_label("Documentation");
     GtkWidget *report_btn = gtk_button_new_with_label("Report Issue");
+    g_signal_connect(github_btn, "clicked", G_CALLBACK(execute_command),
+                     (gpointer)"xdg-open https://github.com/naranyala/labwc-fuzzel-sfwbar &");
+    g_signal_connect(docs_btn, "clicked", G_CALLBACK(execute_command),
+                     (gpointer)"xdg-open https://github.com/naranyala/labwc-fuzzel-sfwbar/tree/main/docs &");
+    g_signal_connect(report_btn, "clicked", G_CALLBACK(execute_command),
+                     (gpointer)"xdg-open https://github.com/naranyala/labwc-fuzzel-sfwbar/issues &");
     gtk_box_pack_start(GTK_BOX(link_box), github_btn, FALSE, FALSE, 0);
     gtk_box_pack_start(GTK_BOX(link_box), docs_btn, FALSE, FALSE, 0);
     gtk_box_pack_start(GTK_BOX(link_box), report_btn, FALSE, FALSE, 0);
@@ -599,4 +626,91 @@ GtkWidget* build_about_tab(void) {
     gtk_box_pack_start(GTK_BOX(vbox), license, FALSE, FALSE, 0);
 
     return vbox;
+}
+
+// ============================================================
+// Tab: Credits / Thanks
+// ============================================================
+
+static void on_credit_url_clicked(GtkWidget *widget, gpointer data) {
+    (void)widget;
+    const char *url = (const char *)data;
+    char cmd[256];
+    snprintf(cmd, sizeof(cmd), "xdg-open '%s' &", url);
+    system(cmd);
+}
+
+GtkWidget* build_credits_tab(void) {
+    GtkWidget *scroll = gtk_scrolled_window_new(NULL, NULL);
+    gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(scroll), GTK_POLICY_NEVER, GTK_POLICY_AUTOMATIC);
+
+    GtkWidget *vbox = gtk_box_new(GTK_ORIENTATION_VERTICAL, 12);
+    gtk_container_set_border_width(GTK_CONTAINER(vbox), 20);
+    gtk_container_add(GTK_CONTAINER(scroll), vbox);
+
+    GtkWidget *title = gtk_label_new(NULL);
+    gtk_label_set_markup(GTK_LABEL(title),
+        "<span size='x-large' weight='bold'>Credits &amp; Dependencies</span>");
+    gtk_label_set_xalign(GTK_LABEL(title), 0.0);
+    gtk_box_pack_start(GTK_BOX(vbox), title, FALSE, FALSE, 0);
+
+    GtkWidget *desc = gtk_label_new(
+        "OCWS is built on the shoulders of amazing open-source projects.\n"
+        "Please visit and support these upstream repositories.");
+    gtk_label_set_line_wrap(GTK_LABEL(desc), TRUE);
+    gtk_label_set_xalign(GTK_LABEL(desc), 0.0);
+    gtk_box_pack_start(GTK_BOX(vbox), desc, FALSE, FALSE, 0);
+
+    gtk_box_pack_start(GTK_BOX(vbox),
+        gtk_separator_new(GTK_ORIENTATION_HORIZONTAL), FALSE, FALSE, 4);
+
+    struct { const char *name; const char *desc; const char *url; } deps[] = {
+        {"labwc",             "Wayland compositor",           "https://github.com/labwc/labwc"},
+        {"sfwbar",            "Status bar for Wayland",       "https://github.com/LBCrion/sfwbar"},
+        {"fuzzel",            "Application launcher",         "https://codeberg.org/dnkl/fuzzel"},
+        {"foot",              "Terminal emulator",            "https://codeberg.org/dnkl/foot"},
+        {"mako",              "Notification daemon",          "https://github.com/emersion/mako"},
+        {"rofi",              "Window switcher & launcher",   "https://github.com/DaveDavenport/rofi"},
+        {"DankMaterialShell", "Material Design 3 shell",     "https://github.com/DankShrine/dms"},
+        {"wl-clipboard",      "Clipboard utilities",          "https://github.com/bugaevc/wl-clipboard"},
+        {"cliphist",          "Clipboard history",            "https://github.com/sentriz/cliphist"},
+        {"swaybg",            "Wallpaper setter",             "https://github.com/swaywm/swaybg"},
+        {"swaylock",          "Screen locker",                "https://github.com/swaywm/swaylock"},
+        {"swayidle",          "Idle management",              "https://github.com/swaywm/swayidle"},
+        {"grim & slurp",      "Screenshot tools",             "https://github.com/emersion/grim"},
+        {"playerctl",         "Media player controller",      "https://github.com/altdesktop/playerctl"},
+        {"brightnessctl",     "Brightness control",           "https://github.com/Hummer12007/brightnessctl"},
+        {"wlr-randr",         "Output configuration",         "https://gitlab.freedesktop.org/emersion/wlr-randr"},
+        {"gammastep",         "Color temperature",            "https://gitlab.com/chinstrap/gammastep"},
+    };
+    int n_deps = sizeof(deps) / sizeof(deps[0]);
+
+    GtkWidget *grid = gtk_grid_new();
+    gtk_grid_set_column_spacing(GTK_GRID(grid), 12);
+    gtk_grid_set_row_spacing(GTK_GRID(grid), 6);
+    gtk_box_pack_start(GTK_BOX(vbox), grid, FALSE, FALSE, 0);
+
+    for (int i = 0; i < n_deps; i++) {
+        int row = i;
+
+        GtkWidget *name_lbl = gtk_label_new(NULL);
+        char *markup = g_strdup_printf("<b>%s</b>", deps[i].name);
+        gtk_label_set_markup(GTK_LABEL(name_lbl), markup);
+        g_free(markup);
+        gtk_widget_set_size_request(name_lbl, 160, -1);
+        gtk_label_set_xalign(GTK_LABEL(name_lbl), 0.0);
+        gtk_grid_attach(GTK_GRID(grid), name_lbl, 0, row, 1, 1);
+
+        GtkWidget *desc_lbl = gtk_label_new(deps[i].desc);
+        gtk_style_context_add_class(gtk_widget_get_style_context(desc_lbl), "dim-label");
+        gtk_label_set_xalign(GTK_LABEL(desc_lbl), 0.0);
+        gtk_grid_attach(GTK_GRID(grid), desc_lbl, 1, row, 1, 1);
+
+        GtkWidget *link_btn = gtk_button_new_with_label("Visit");
+        g_signal_connect(link_btn, "clicked", G_CALLBACK(on_credit_url_clicked),
+                         (gpointer)deps[i].url);
+        gtk_grid_attach(GTK_GRID(grid), link_btn, 2, row, 1, 1);
+    }
+
+    return scroll;
 }

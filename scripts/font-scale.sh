@@ -489,7 +489,7 @@ case "${1:-}" in
   +[0-9]*) cmd_up "${1#+}" ;;
   -[0-9]*) cmd_down "${1#-}" ;;
   -h|--help|help) usage ;;
-  [0-9]*)  cmd_set "$1" ;;
+  [0-9]*|[0-9]*.[0-9]*)  cmd_set "$1" ;;
   *)
     usage
     exit 1

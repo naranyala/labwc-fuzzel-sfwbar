@@ -246,6 +246,31 @@ pub fn build(b: *std.Build) void {
         b.installArtifact(hypertile);
     }
 
+    // ocws-welcome: GTK3 Welcome GUI
+    {
+        const welcome = b.addExecutable(.{
+            .name = "ocws-welcome",
+            .root_module = b.createModule(.{
+                .target = target,
+                .optimize = optimize,
+                .link_libc = true,
+            }),
+        });
+
+        welcome.root_module.addCSourceFile(.{
+            .file = b.path("src/ocws-welcome.c"),
+            .flags = c_flags,
+        });
+        welcome.root_module.addCSourceFile(.{
+            .file = b.path("src/utils.c"),
+            .flags = c_flags,
+        });
+        welcome.root_module.linkSystemLibrary("gtk+-3.0", .{});
+        welcome.root_module.linkSystemLibrary("glib-2.0", .{});
+
+        b.installArtifact(welcome);
+    }
+
     // ocws-settings: GTK3 Settings GUI
     {
         const settings = b.addExecutable(.{
@@ -269,9 +294,38 @@ pub fn build(b: *std.Build) void {
             .file = b.path("src/settings/settings-tabs.c"),
             .flags = c_flags,
         });
+        settings.root_module.addCSourceFile(.{
+            .file = b.path("src/utils.c"),
+            .flags = c_flags,
+        });
         settings.root_module.linkSystemLibrary("gtk+-3.0", .{});
         settings.root_module.linkSystemLibrary("glib-2.0", .{});
 
         b.installArtifact(settings);
+    }
+
+    // ocws-pkgmgr: GTK3 Package Manager GUI
+    {
+        const pkgmgr = b.addExecutable(.{
+            .name = "ocws-pkgmgr",
+            .root_module = b.createModule(.{
+                .target = target,
+                .optimize = optimize,
+                .link_libc = true,
+            }),
+        });
+
+        pkgmgr.root_module.addCSourceFile(.{
+            .file = b.path("src/ocws-pkgmgr.c"),
+            .flags = c_flags,
+        });
+        pkgmgr.root_module.addCSourceFile(.{
+            .file = b.path("src/utils.c"),
+            .flags = c_flags,
+        });
+        pkgmgr.root_module.linkSystemLibrary("gtk+-3.0", .{});
+        pkgmgr.root_module.linkSystemLibrary("glib-2.0", .{});
+
+        b.installArtifact(pkgmgr);
     }
 }

@@ -7,6 +7,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
+#include "../utils.h"
 
 // ============================================================
 // Configuration
@@ -41,8 +42,8 @@ char* kv_get(const char *key) {
 
 void kv_set(const char *key, const char *value) {
     char cmd[512];
-    snprintf(cmd, sizeof(cmd), "%s set %s '%s' 2>/dev/null", KV_BIN, key, value);
-    system(cmd);
+    snprintf(cmd, sizeof(cmd), "%s set %s '%s'", KV_BIN, key, value);
+    run_cmd_async(cmd);
 }
 
 // ============================================================
@@ -52,7 +53,7 @@ void kv_set(const char *key, const char *value) {
 void execute_command(GtkWidget *widget, gpointer data) {
     (void)widget;
     const char *cmd = (const char *)data;
-    if (cmd && cmd[0]) system(cmd);
+    if (cmd && cmd[0]) run_cmd_async(cmd);
 }
 
 // ============================================================
@@ -248,20 +249,30 @@ typedef struct {
     char cmd_template[256];
     GtkWidget *val_label;
     const char *unit;
+    double step;
 } SliderData;
 
 static void on_slider_changed(GtkRange *range, gpointer user_data) {
     SliderData *d = (SliderData *)user_data;
-    int val = (int)gtk_range_get_value(range);
+    double val = gtk_range_get_value(range);
 
     // Update value label
     char val_text[32];
-    snprintf(val_text, sizeof(val_text), "%d%s", val, d->unit ? d->unit : "");
+    if (val == (int)val)
+        snprintf(val_text, sizeof(val_text), "%d%s", (int)val, d->unit ? d->unit : "");
+    else
+        snprintf(val_text, sizeof(val_text), "%.1f%s", val, d->unit ? d->unit : "");
     gtk_label_set_text(GTK_LABEL(d->val_label), val_text);
 
     // Execute command
     char cmd[512];
-    snprintf(cmd, sizeof(cmd), d->cmd_template, val);
+    if (d->step < 1.0) {
+        // Float-capable command (e.g. font-scale.sh) — pass double for %f
+        snprintf(cmd, sizeof(cmd), d->cmd_template, val);
+    } else {
+        // Integer-only command
+        snprintf(cmd, sizeof(cmd), d->cmd_template, (int)(val + 0.5));
+    }
     if (cmd[0]) system(cmd);
 }
 
@@ -299,7 +310,8 @@ GtkWidget* create_live_slider_row(const char *label, int value, int min, int max
     gtk_widget_set_size_request(lbl, 140, -1);
     gtk_label_set_xalign(GTK_LABEL(lbl), 0.0);
 
-    GtkWidget *scale = gtk_scale_new_with_range(GTK_ORIENTATION_HORIZONTAL, min, max, 1);
+    double step = (min >= 6 && max <= 24 && value >= 6 && value <= 24) ? 0.5 : 1.0;
+    GtkWidget *scale = gtk_scale_new_with_range(GTK_ORIENTATION_HORIZONTAL, min, max, step);
     gtk_scale_set_value_pos(GTK_SCALE(scale), GTK_POS_RIGHT);
     gtk_range_set_value(GTK_RANGE(scale), value);
     gtk_widget_set_hexpand(scale, TRUE);
@@ -314,6 +326,7 @@ GtkWidget* create_live_slider_row(const char *label, int value, int min, int max
     if (cmd_template) g_strlcpy(d->cmd_template, cmd_template, sizeof(d->cmd_template));
     d->val_label = val_lbl;
     d->unit = unit;
+    d->step = step;
 
     g_signal_connect_data(scale, "value-changed", G_CALLBACK(on_slider_changed), d, (GClosureNotify)g_free, 0);
 
