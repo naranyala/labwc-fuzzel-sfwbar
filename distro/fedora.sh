@@ -4,7 +4,7 @@ set -euo pipefail
 echo "Installing OCWS dependencies for Fedora..."
 
 PKGS=(
-    labwc rofi-wayland foot rofi mako qt6ct
+    labwc rofi-wayland foot rofi mako qt6ct fuzzel bc
     swaybg swayidle swaylock gammastep dunst
     playerctl wl-clipboard cliphist grim slurp flameshot
     jq crudini libxml2 brightnessctl wlr-randr nautilus gnome-keyring xdotool inotify-tools ImageMagick wireplumber
