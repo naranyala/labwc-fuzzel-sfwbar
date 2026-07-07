@@ -9,6 +9,9 @@ set -euo pipefail
 MODE="${1:-apps}"
 QUERY="${2:-}"
 
+# Determine default launcher based on system config
+PREFERRED_LAUNCHER="$(cat "$HOME/.config/ocws/launcher" 2>/dev/null || echo fuzzel)"
+
 # Colors
 GREEN='\033[0;32m'
 RED='\033[0;31m'
@@ -20,10 +23,12 @@ fail() { echo -e "${RED}✗${NC} $1"; exit 1; }
 
 # --- App Launcher ---
 launch_apps() {
-  if command -v rofi >/dev/null 2>&1; then
+  if [ "$PREFERRED_LAUNCHER" = "rofi" ] && command -v rofi >/dev/null 2>&1; then
     rofi -show drun -theme-str 'window {width: 600px;}'
+  elif command -v fuzzel >/dev/null 2>&1; then
+    fuzzel
   else
-    fail "No launcher found. Install rofi-wayland"
+    fail "No launcher found. Install fuzzel or rofi-wayland"
   fi
 }
 
@@ -31,8 +36,11 @@ launch_apps() {
 run_command() {
   local cmd="${*:-}"
   if [ -z "$cmd" ]; then
-    if command -v rofi >/dev/null 2>&1; then
+    if [ "$PREFERRED_LAUNCHER" = "rofi" ] && command -v rofi >/dev/null 2>&1; then
       cmd=$(rofi -show run -theme-str 'window {width: 600px;}')
+    elif command -v fuzzel >/dev/null 2>&1; then
+      # Fuzzel lacks a dedicated 'run' mode, but we can pass all executables
+      cmd=$(compgen -c | sort -u | fuzzel -d -p "Run: ")
     fi
   fi
   
@@ -45,8 +53,10 @@ run_command() {
 # --- Recent Files ---
 show_recent() {
   local files=$(find ~ -maxdepth 3 -type f \( -name "*.txt" -o -name "*.md" -o -name "*.pdf" \) -printf '%T@ %p\n' 2>/dev/null | sort -rn | head -20 | cut -d' ' -f2-)
-  if command -v rofi >/dev/null 2>&1; then
+  if [ "$PREFERRED_LAUNCHER" = "rofi" ] && command -v rofi >/dev/null 2>&1; then
     selected=$(echo "$files" | rofi -dmenu -p "Recent Files" -theme-str 'window {width: 500px;}')
+  elif command -v fuzzel >/dev/null 2>&1; then
+    selected=$(echo "$files" | fuzzel -d -p "Recent Files: ")
   fi
   if [ -n "$selected" ]; then
     xdg-open "$selected" 2>/dev/null &
@@ -63,11 +73,14 @@ show_favorites() {
     echo "firefox" >> "$FAVORITES_FILE"
   fi
   
-  if command -v rofi &>/dev/null; then
+  if [ "$PREFERRED_LAUNCHER" = "rofi" ] && command -v rofi &>/dev/null; then
     selected=$(cat "$FAVORITES_FILE" | grep -v '^#' | rofi -dmenu -p "Favorites" -theme-str 'window {width: 300px;}')
-    if [ -n "$selected" ]; then
-      eval "$selected" &
-    fi
+  elif command -v fuzzel &>/dev/null; then
+    selected=$(cat "$FAVORITES_FILE" | grep -v '^#' | fuzzel -d -p "Favorites: ")
+  fi
+  
+  if [ -n "${selected:-}" ]; then
+    eval "$selected" &
   fi
 }
 
@@ -75,8 +88,10 @@ show_favorites() {
 calculate() {
   local expr="${*:-}"
   if [ -z "$expr" ]; then
-    if command -v rofi &>/dev/null; then
+    if [ "$PREFERRED_LAUNCHER" = "rofi" ] && command -v rofi &>/dev/null; then
       expr=$(rofi -dmenu -p "Calculate" -theme-str 'window {width: 300px;}')
+    elif command -v fuzzel &>/dev/null; then
+      expr=$(echo "" | fuzzel -d -p "Calculate: ")
     fi
   fi
   
@@ -98,8 +113,11 @@ calculate() {
 show_emoji() {
   local emojis="😀 😃 😄 😁 😆 😅 🤣 😂 🙂 🙃 😉 😊 😇 🥰 😍 🤩 😘 😗 😚 😙 🥲 😋 😛 😜 🤪 😝 🤑 🤗 🤭 🤫 🤔 🫡 🤐 🤨 😐 😑 😶 🫥 😏 😒 🙄 😬 🤥 😌 😔 😪 🤤 😴 😷 🤒 🤕 🤢 🤮 🥵 🥶 🥴 😵 🤯 🤠 🥳 🥸 😎 🤓 🧐 😕 🫤 😟 🙁 ☹️ 😮 😯 😲 😳 🥺 🥹 😦 😧 😨 😰 😥 😢 😭 😱 😖 😣 😞 😓 😩 😫 🥱 😤 😡 😠 🤬 👍 👎 👊 ✊ 🤛 🤜 🤞 ✌️ 🤟 🤘 👌 🤏 👈 👉 👆 👇 ☝️ ✋ 🤚 🖐 🖖 👋 🤙 💪 🦾 🖕 ✍️ 🙏 🤝 🤗 🦻 🫂 👀 👁 👅 👄 💋"
   
-  if command -v rofi &>/dev/null; then
+  if [ "$PREFERRED_LAUNCHER" = "rofi" ] && command -v rofi &>/dev/null; then
     selected=$(echo "$emojis" | tr ' ' '\n' | rofi -dmenu -p "Emoji" -theme-str 'window {width: 400px; height: 400px;}')
+  elif command -v fuzzel &>/dev/null; then
+    selected=$(echo "$emojis" | tr ' ' '\n' | fuzzel -d -p "Emoji: ")
+  fi
     if [ -n "$selected" ]; then
       echo -n "$selected" | wl-copy 2>/dev/null || echo -n "$selected" | xclip 2>/dev/null
       pass "Copied: $selected"
@@ -131,8 +149,10 @@ pick_color() {
 open_url() {
   local url="${*:-}"
   if [ -z "$url" ]; then
-    if command -v rofi &>/dev/null; then
+    if [ "$PREFERRED_LAUNCHER" = "rofi" ] && command -v rofi &>/dev/null; then
       url=$(rofi -dmenu -p "URL" -theme-str 'window {width: 500px;}')
+    elif command -v fuzzel &>/dev/null; then
+      url=$(echo "" | fuzzel -d -p "URL: ")
     fi
   fi
   

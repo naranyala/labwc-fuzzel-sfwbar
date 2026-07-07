@@ -1,26 +1,11 @@
 #!/bin/bash
 # -------------------------------------------------------------------
-# OCWS Installer
-# Enhanced distribution-aware installer for OCWS ecosystem.
+# OCWS Installer - Question-Driven Shell Selection
+# Guides the user through picking their preferred desktop shell.
 # For comprehensive distro-specific installation, use ./install-distribution.sh
 # -------------------------------------------------------------------
 
 set -euo pipefail
-
-# Default installation mode: 'labwc-dms' (labwc + Dank Material Shell)
-# Available modes:
-#   labwc-dms : Core labwc + OCWS shell (recommended)
-#   full      : Includes legacy shells (Noctalia, Crystal Dock)
-MODE="labwc-dms"
-
-# Parse command-line arguments
-for arg in "$@"; do
-    case "$arg" in
-        --mode=*)
-            MODE="${arg#*=}"
-            ;;
-    esac
-done
 
 CYAN='\033[0;36m'
 GREEN='\033[0;32m'
@@ -35,7 +20,75 @@ fail() { echo -e "  ${RED}✗${NC} $*"; exit 1; }
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-info "Initializing OCWS Deployment..."
+info "OCWS Shell Selection"
+
+cat << 'MENU'
+
+  Choose your desktop shell:
+
+    1)  labwc + double-panel sfwbar
+        ──────────────────────────────
+        Dual-panel layout: top statusbar + bottom dock.
+        Full OCWS shell — the standard experience.
+        Statusbar + Dock via sfwbar.
+
+    2)  labwc + sfwbar statusbar + crystal-dock
+        ────────────────────────────────────────
+        Single sfwbar statusbar on top.
+        Application dock managed by crystal-dock.
+        Classic panel + dock separation.
+
+    3)  labwc + DankMaterialShell
+        ────────────────────────────────────────
+        Material Design-inspired shell by DankShrine.
+        Vertical panel + minimalist layout.
+
+    4)  labwc + Noctalia Shell
+        ────────────────────────────────────────
+        Quiet-by-design shell from the Noctalia project.
+        Minimalist, distraction-free interface.
+
+MENU
+
+echo -n "  Enter choice [1-4] (default: 1): "
+read -r mode_choice
+
+case "${mode_choice:-1}" in
+    1) MODE="doublepanel"
+       MODE_DESC="labwc + double-panel sfwbar"
+       ;;
+    2) MODE="crystaldock"
+       MODE_DESC="labwc + sfwbar statusbar + crystal-dock"
+       ;;
+    3) MODE="dms"
+       MODE_DESC="labwc + DankMaterialShell"
+       ;;
+    4) MODE="noctalia"
+       MODE_DESC="labwc + Noctalia Shell"
+       ;;
+    *) MODE="doublepanel"
+       MODE_DESC="labwc + double-panel sfwbar"
+       ;;
+esac
+
+echo -e "\n  Selected: ${CYAN}${MODE_DESC}${NC}"
+
+echo -e "\n  Choose your default application launcher:"
+echo -e "    1) fuzzel  (minimal, Wayland-native, runs out of the box)"
+echo -e "    2) rofi    (feature-rich, customized theme)"
+echo -n "  Enter choice [1-2] (default: 1): "
+read -r launcher_choice
+
+case "${launcher_choice:-1}" in
+    2) LAUNCHER="rofi"
+       LAUNCHER_DESC="rofi"
+       ;;
+    *) LAUNCHER="fuzzel"
+       LAUNCHER_DESC="fuzzel"
+       ;;
+esac
+
+echo -e "  Selected: ${CYAN}${LAUNCHER_DESC}${NC}"
 
 # 1. Check for comprehensive distro-specific installer
 if [ -f "${SCRIPT_DIR}/install-distribution.sh" ]; then
@@ -48,9 +101,9 @@ if [ -f "${SCRIPT_DIR}/install-distribution.sh" ]; then
     echo -e "    2) Full Install (automatic distro detection and package installation)"
     echo -e "\n  Default: 1 (Quick Install)"
     echo -n "    Enter choice [1-2]: "
-    
+
     read -r choice
-    
+
     case "${choice:-1}" in
         2)
             echo -e "\n${CYAN}==>${NC} Starting comprehensive distribution installer..."
@@ -63,14 +116,19 @@ if [ -f "${SCRIPT_DIR}/install-distribution.sh" ]; then
 fi
 
 # -------------------------------------------------------------------
-# Legacy Quick Installer
+# Quick Installer
 # Manual dependency installation and configuration deployment
 # -------------------------------------------------------------------
 
 # 1. Dependency Check
 info "Checking for required dependencies..."
-if ! command -v labwc >/dev/null 2>&1 || ! command -v sfwbar >/dev/null 2>&1 || ! command -v rofi >/dev/null 2>&1; then
-    echo -e "\n${YELLOW}⚠${NC} Core engines (labwc, sfwbar, rofi) are missing!"
+MISSING=""
+command -v labwc >/dev/null 2>&1 || MISSING="$MISSING labwc"
+command -v sfwbar >/dev/null 2>&1 || MISSING="$MISSING sfwbar"
+command -v "$LAUNCHER" >/dev/null 2>&1 || MISSING="$MISSING $LAUNCHER"
+
+if [ -n "$MISSING" ]; then
+    echo -e "\n${YELLOW}⚠${NC} Missing engines:$MISSING"
     echo -e "  ${RED}Options:${NC}"
     echo -e "    1) Install via package manager (${SCRIPT_DIR}/install-distribution.sh)"
     echo -e "    2) Build from source (${SCRIPT_DIR}/build-ocws-core.sh all)"
@@ -78,23 +136,52 @@ if ! command -v labwc >/dev/null 2>&1 || ! command -v sfwbar >/dev/null 2>&1 || 
     read -r
 fi
 
-if [[ "$MODE" == "labwc-dms" ]] && ! command -v dms >/dev/null 2>&1; then
+if [[ "$MODE" == "dms" ]] && ! command -v dms >/dev/null 2>&1; then
     echo -e "\n${YELLOW}⚠${NC} Dank Material Shell (dms) is missing!"
     echo -e "  You will need to install it manually for this mode to work correctly."
     echo -e "\n  Press [ENTER] to continue anyway, or Ctrl+C to cancel."
     read -r
 fi
 
+if [[ "$MODE" == "noctalia" ]] && ! command -v sfwbar >/dev/null 2>&1; then
+    echo -e "\n${YELLOW}⚠${NC} sfwbar is required for the Noctalia shell's statusbar."
+    echo -e "\n  Press [ENTER] to continue anyway, or Ctrl+C to cancel."
+    read -r
+fi
+
+if [[ "$MODE" == "crystaldock" ]]; then
+    if ! command -v crystal-dock >/dev/null 2>&1; then
+        echo -e "\n${YELLOW}⚠${NC} crystal-dock is not installed."
+        echo -e "  Press [ENTER] to continue anyway, or Ctrl+C to cancel."
+        read -r
+    fi
+fi
+
 # 1.5 Confirmation Prompt
 echo -e "\n${YELLOW}⚠ WARNING: This will deploy configurations to ~/.config/ and ~/.local/bin/${NC}"
-if [[ "$MODE" == "labwc-dms" ]]; then
-    echo -e "  Mode: ${CYAN}labwc + dms (Dank Material Shell)${NC}"
-    echo -e "  Affected directories: labwc, ocws, foot, gtk-3.0, gtk-4.0, rofi, mako, qt6ct, zebar"
-    echo -e "  Files to be overwritten: config files in these directories."
-else
-    echo -e "  Mode: ${CYAN}full${NC}"
-    echo -e "  Affected directories: labwc, ocws, foot, gtk-3.0, gtk-4.0, rofi, mako, qt6ct, zebar, crystal-dock, noctalia"
+echo -e "  Mode: ${CYAN}${MODE_DESC}${NC}"
+echo -e "  Launcher: ${CYAN}${LAUNCHER_DESC}${NC}"
+echo -e "  Affected directories: labwc, ocws, foot, gtk-3.0, gtk-4.0, mako, qt6ct"
+
+if [[ "$LAUNCHER" == "rofi" ]]; then
+    echo -e "  ${CYAN}  rofi${NC}: ~/.config/rofi/"
 fi
+
+case "$MODE" in
+    doublepanel)
+        echo -e "  Shell: OCWS full dual-panel setup"
+        ;;
+    crystaldock)
+        echo -e "  Shell: crystal-dock (${CYAN}requires crystal-dock${NC})"
+        ;;
+    dms)
+        echo -e "  Shell: DankMaterialShell (${CYAN}requires dms${NC})"
+        ;;
+    noctalia)
+        echo -e "  Shell: Noctalia (${CYAN}requires sfwbar${NC})"
+        ;;
+esac
+
 echo -n "  Are you sure you want to proceed? [y/N]: "
 read -r confirm
 if [[ ! "$confirm" =~ ^[Yy]$ ]]; then
@@ -109,6 +196,12 @@ mkdir -p ~/.config/rofi
 mkdir -p ~/.config/ocws/plugins
 mkdir -p ~/.config/gtk-3.0 ~/.config/gtk-4.0
 mkdir -p ~/.local/bin/actions
+
+case "$MODE" in
+    crystaldock) mkdir -p ~/.config/crystal-dock ;;
+    dms)         mkdir -p ~/.config/DankMaterialShell ;;
+    noctalia)    mkdir -p ~/.config/noctalia ;;
+esac
 pass "Directories created."
 
 # 3. Deploy Labwc Core
@@ -116,25 +209,58 @@ info "Deploying Compositor Rules (labwc)..."
 cp -r "$SCRIPT_DIR/dotfiles/labwc/"* ~/.config/labwc/ 2>/dev/null || fail "Failed to deploy labwc configurations"
 pass "labwc configurations synced."
 
-# 4. Deploy OCWS Shell
+# 4. Deploy OCWS Shell (common infrastructure for all modes)
 info "Deploying the OCWS Shell..."
-# Exclude user.config — it's the user's personal overlay, never overwritten
 rsync -a --exclude='user.config' "$SCRIPT_DIR/dotfiles/ocws/" ~/.config/ocws/ 2>/dev/null || cp -r "$SCRIPT_DIR/dotfiles/ocws/"* ~/.config/ocws/ 2>/dev/null || fail "Failed to deploy OCWS shell"
 
 if [ ! -f ~/.config/ocws/user.config ]; then
     cp "$SCRIPT_DIR/dotfiles/ocws/user.config" ~/.config/ocws/user.config 2>/dev/null || true
 fi
 
-# Record the installed mode in system configuration
 echo "$MODE" > ~/.config/ocws/mode
-pass "OCWS layout, plugins, and mode ($MODE) synced."
+echo "$LAUNCHER" > ~/.config/ocws/launcher
+pass "OCWS infrastructure, mode ($MODE), and launcher ($LAUNCHER) synced."
 
-# 5. Deploy Rofi Launcher (moved up)
-if [ -d "$SCRIPT_DIR/dotfiles/rofi" ]; then
-    info "Deploying Application Launcher (rofi)..."
-    cp -r "$SCRIPT_DIR/dotfiles/rofi/"* ~/.config/rofi/ 2>/dev/null || fail "Failed to deploy rofi configuration"
-    pass "Rofi synced."
-fi
+# 5. Deploy shell-specific configs
+case "$MODE" in
+    crystaldock)
+        if [ -d "$SCRIPT_DIR/dotfiles/crystal-dock" ]; then
+            info "Deploying crystal-dock configuration..."
+            rsync -a "$SCRIPT_DIR/dotfiles/crystal-dock/" ~/.config/crystal-dock/ 2>/dev/null || true
+            pass "crystal-dock config synced."
+        fi
+        ;;
+    dms)
+        if [ -d "$SCRIPT_DIR/dotfiles/DankMaterialShell" ]; then
+            info "Deploying Dank Material Shell configuration..."
+            rsync -a "$SCRIPT_DIR/dotfiles/DankMaterialShell/" ~/.config/DankMaterialShell/ 2>/dev/null || true
+            pass "Dank Material Shell config synced."
+        fi
+        ;;
+    noctalia)
+        if [ -d "$SCRIPT_DIR/dotfiles/noctalia" ]; then
+            info "Deploying Noctalia configuration..."
+            rsync -a "$SCRIPT_DIR/dotfiles/noctalia/" ~/.config/noctalia/ 2>/dev/null || true
+            pass "Noctalia config synced."
+        fi
+        ;;
+esac
+
+# 6. Deploy Application Launcher
+case "$LAUNCHER" in
+    rofi)
+        if [ -d "$SCRIPT_DIR/dotfiles/rofi" ]; then
+            info "Deploying Application Launcher (rofi)..."
+            mkdir -p ~/.config/rofi
+            cp -r "$SCRIPT_DIR/dotfiles/rofi/"* ~/.config/rofi/ 2>/dev/null || fail "Failed to deploy rofi configuration"
+            pass "Rofi synced."
+        fi
+        ;;
+    fuzzel)
+        info "Using fuzzel as application launcher..."
+        pass "fuzzel requires no configuration — ready out of the box."
+        ;;
+esac
 
 # Deploy Foot Terminal
 if [ -d "$SCRIPT_DIR/dotfiles/foot" ]; then
@@ -144,7 +270,7 @@ if [ -d "$SCRIPT_DIR/dotfiles/foot" ]; then
     pass "Foot synced."
 fi
 
-# 6. Deploy GTK Styling
+# 7. Deploy GTK Styling
 if [ -d "$SCRIPT_DIR/dotfiles/gtk-3.0" ] || [ -d "$SCRIPT_DIR/dotfiles/gtk-4.0" ] || [ -d "$SCRIPT_DIR/dotfiles/gtk" ]; then
     info "Deploying GTK Preferences..."
     mkdir -p ~/.config/gtk-3.0 ~/.config/gtk-4.0
@@ -153,14 +279,6 @@ if [ -d "$SCRIPT_DIR/dotfiles/gtk-3.0" ] || [ -d "$SCRIPT_DIR/dotfiles/gtk-4.0" 
     [ -d "$SCRIPT_DIR/dotfiles/gtk-3.0" ] && cp -r "$SCRIPT_DIR/dotfiles/gtk-3.0/"* ~/.config/gtk-3.0/ 2>/dev/null || true
     [ -d "$SCRIPT_DIR/dotfiles/gtk-4.0" ] && cp -r "$SCRIPT_DIR/dotfiles/gtk-4.0/"* ~/.config/gtk-4.0/ 2>/dev/null || true
     pass "GTK settings synced."
-fi
-
-# Deploy extra plugins
-if [ -d "$SCRIPT_DIR/dotfiles/zebar" ]; then
-    info "Deploying Zebar configuration..."
-    mkdir -p ~/.config/zebar
-    cp -r "$SCRIPT_DIR/dotfiles/zebar/"* ~/.config/zebar/ 2>/dev/null || true
-    pass "Zebar synced."
 fi
 
 # Deploy Mako
@@ -179,34 +297,19 @@ if [ -d "$SCRIPT_DIR/dotfiles/qt6ct" ]; then
     pass "Qt6ct synced."
 fi
 
-# Deploy crystal-dock
-if [[ "$MODE" == "full" ]] && [ -d "$SCRIPT_DIR/dotfiles/crystal-dock" ]; then
-    info "Deploying crystal-dock configuration..."
-    rsync -a "$SCRIPT_DIR/dotfiles/crystal-dock/" ~/.config/crystal-dock/ 2>/dev/null || true
-    pass "crystal-dock config synced."
-fi
-
-# Deploy noctalia
-if [[ "$MODE" == "full" ]] && [ -d "$SCRIPT_DIR/dotfiles/noctalia" ]; then
-    info "Deploying noctalia configuration..."
-    mkdir -p ~/.config/noctalia
-    rsync -a "$SCRIPT_DIR/dotfiles/noctalia/" ~/.config/noctalia/ 2>/dev/null || true
-    pass "noctalia config synced."
-fi
-
-# Deploy DankMaterialShell
-if [ -d "$SCRIPT_DIR/dotfiles/DankMaterialShell" ]; then
-    info "Deploying Dank Material Shell configuration..."
-    mkdir -p ~/.config/DankMaterialShell
-    rsync -a "$SCRIPT_DIR/dotfiles/DankMaterialShell/" ~/.config/DankMaterialShell/ 2>/dev/null || true
-    pass "Dank Material Shell config synced."
-fi
-
 # Deploy Zebar
 if [ -d "$SCRIPT_DIR/dotfiles/.glzr/zebar" ]; then
     info "Deploying Zebar configuration..."
     mkdir -p ~/.glzr/zebar
     cp -r "$SCRIPT_DIR/dotfiles/.glzr/zebar/"* ~/.glzr/zebar/ 2>/dev/null || true
+    pass "Zebar synced."
+fi
+
+# Deploy extra plugins
+if [ -d "$SCRIPT_DIR/dotfiles/zebar" ]; then
+    info "Deploying Zebar configuration..."
+    mkdir -p ~/.config/zebar
+    cp -r "$SCRIPT_DIR/dotfiles/zebar/"* ~/.config/zebar/ 2>/dev/null || true
     pass "Zebar synced."
 fi
 
@@ -252,10 +355,6 @@ validate_executable() {
         return 1
     fi
     return 0
-}
-
-warn() {
-    echo -e "  ${YELLOW}⚠${NC} $*"
 }
 
 validate_file_format() {
@@ -405,10 +504,20 @@ validate_file "$HOME/.config/labwc/menu.xml" || ((ERRORS++))
 # Verify OCWS
 validate_file "$HOME/.config/ocws/ocws.config" || ((ERRORS++))
 
-# Verify Rofi
-if [ -d "$SCRIPT_DIR/dotfiles/rofi" ]; then
+# Verify Launcher
+if [[ "$LAUNCHER" == "rofi" ]]; then
     validate_file "$HOME/.config/rofi/config.rasi" || ((ERRORS++))
 fi
+
+# Verify shell-specific configs
+case "$MODE" in
+    crystaldock)
+        validate_file "$HOME/.config/crystal-dock" || ((ERRORS++)) ;;
+    dms)
+        validate_file "$HOME/.config/DankMaterialShell" || ((ERRORS++)) ;;
+    noctalia)
+        validate_file "$HOME/.config/noctalia" || ((ERRORS++)) ;;
+esac
 
 # Verify Scripts
 for script in "$SCRIPT_DIR/scripts/"*.sh; do
@@ -429,7 +538,7 @@ if [ -f "$HOME/.config/ocws/ocws.config" ]; then
     validate_content "$HOME/.config/ocws/ocws.config" ocwsconfig
 fi
 
-if [ -f "$HOME/.config/rofi/config.rasi" ]; then
+if [[ "$LAUNCHER" == "rofi" ]] && [ -f "$HOME/.config/rofi/config.rasi" ]; then
     validate_file_format "$HOME/.config/rofi/config.rasi" rasi
     pass "Rofi format validated"
 fi
@@ -450,8 +559,9 @@ fi
 # 9. Success
 info "OCWS Deployment Complete! 🚀"
 echo -e "\n${CYAN}=== Quick Install Complete ===${NC}"
-echo -e "  Installed Mode: ${GREEN}$MODE${NC}"
-echo -e "${CYAN}  Note:${NC} You must manually install labwc, sfwbar, and rofi first."
+echo -e "  Installed Mode: ${GREEN}${MODE_DESC}${NC}"
+echo -e "  Launcher: ${GREEN}${LAUNCHER_DESC}${NC}"
+echo -e "${CYAN}  Note:${NC} You must manually install labwc, sfwbar, and ${LAUNCHER} first."
 echo -e "  Use ./install-distribution.sh for automatic distro detection and installation."
 echo -e "\n${CYAN}  Next Steps:${NC}"
 echo -e "  • Install dependencies using: ./install-distribution.sh (Recommended)"
