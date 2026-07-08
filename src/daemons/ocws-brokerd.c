@@ -26,6 +26,189 @@
 #include <dirent.h>
 #include <time.h>
 #include <fcntl.h>
+#include <dlfcn.h>
+#include "../libocws/plugin_api.h"
+#include "../libocws/bus.h"
+#include "../libocws/notify.h"
+
+/* ============================================================
+ * Plugin host — loads .so plugins and bridges the event bus
+ * ============================================================ */
+
+static void log_msg(const char *fmt, ...);
+
+#define MAX_PLUGINS 64
+
+/* Uses the established OcwsPlugin ABI (src/libocws/plugin_api.h). */
+typedef struct {
+    void       *handle;
+    OcwsPlugin *plugin;
+    time_t      next_tick;
+} loaded_plugin_t;
+
+static loaded_plugin_t g_plugins[MAX_PLUGINS];
+static int             g_nplugins = 0;
+static char            g_active_id[64] = {0};
+static char            g_cfg_buf[256]  = {0};
+
+/* Forward plugin events to sfwbar via ocws-emit (skip internal topics). */
+static void brokerd_sfwbar_bridge(const char *topic, const char *value) {
+    if (topic && topic[0] == '_') return;
+    pid_t pid = fork();
+    if (pid == 0) {
+        freopen("/dev/null", "w", stderr);
+        execlp("ocws-emit", "ocws-emit", topic, value, NULL);
+        _exit(1);
+    } else if (pid > 0) {
+        waitpid(pid, NULL, 0);
+    }
+}
+
+static void host_notify(const char *title, const char *body, const char *icon) {
+    ocws_notify(title, body, icon);
+}
+
+/* Read a key=value from ~/.config/ocws/plugins/<id>/config. */
+static const char *host_config_get(const char *key, const char *def) {
+    if (!g_active_id[0]) return def;
+    const char *h = getenv("HOME");
+    char home[512];
+    snprintf(home, sizeof(home), "%s", h ? h : "/tmp");
+    char path[768];
+    snprintf(path, sizeof(path), "%s/.config/ocws/plugins/%s/config", home, g_active_id);
+    FILE *f = fopen(path, "r");
+    if (!f) return def;
+    char line[256];
+    while (fgets(line, sizeof(line), f)) {
+        line[strcspn(line, "\n")] = '\0';
+        char *eq = strchr(line, '=');
+        if (!eq) continue;
+        *eq = '\0';
+        if (strcmp(line, key) == 0) {
+            strncpy(g_cfg_buf, eq + 1, sizeof(g_cfg_buf) - 1);
+            fclose(f);
+            return g_cfg_buf;
+        }
+    }
+    fclose(f);
+    return def;
+}
+
+static void plugin_on_event(const char *topic, const char *json, void *user) {
+    OcwsPlugin *p = (OcwsPlugin *)user;
+    if (p && p->on_event) p->on_event(topic, json);
+}
+
+/* Minimal manifest parse: extract "id" and "library" strings. */
+static void parse_manifest(const char *buf, char *id, size_t id_sz,
+                           char *library, size_t lib_sz) {
+    id[0] = library[0] = '\0';
+    char *p = strstr((char *)buf, "\"id\"");
+    if (p) { p = strchr(p, ':'); if (p) { p++; while (*p==' '||*p=='"') p++;
+             char *e = strchr(p, '"'); if (e) { size_t n = (size_t)(e-p);
+             if (n >= id_sz) n = id_sz-1; memcpy(id, p, n); id[n]='\0'; } } }
+    p = strstr((char *)buf, "\"library\"");
+    if (p) { p = strchr(p, ':'); if (p) { p++; while (*p==' '||*p=='"') p++;
+             char *e = strchr(p, '"'); if (e) { size_t n = (size_t)(e-p);
+             if (n >= lib_sz) n = lib_sz-1; memcpy(library, p, n); library[n]='\0'; } } }
+}
+
+static void load_plugins(void) {
+    /* Register host services so plugins can emit/notify/config via
+     * libocws-pluginrt (shared by host + plugins → one bus instance). */
+    ocws_plugin_set_host(ocws_bus_emit, host_notify, host_config_get);
+    ocws_bus_set_sfwbar_bridge(brokerd_sfwbar_bridge);
+
+    const char *env = getenv("OCWS_PLUGIN_DIR");
+    const char *h = getenv("HOME");
+    char home[512];
+    snprintf(home, sizeof(home), "%s", h ? h : "/tmp");
+
+    char dirs[2][768];
+    int ndirs = 0;
+    if (env && env[0]) snprintf(dirs[ndirs++], sizeof(dirs[0]), "%s", env);
+    snprintf(dirs[ndirs++], sizeof(dirs[0]), "%s/.local/share/ocws/plugins", home);
+
+    for (int d = 0; d < ndirs; d++) {
+        DIR *dp = opendir(dirs[d]);
+        if (!dp) continue;
+        struct dirent *ent;
+        while ((ent = readdir(dp)) != NULL) {
+            if (ent->d_name[0] == '.') continue;
+            char pdir[1024];
+            snprintf(pdir, sizeof(pdir), "%s/%s", dirs[d], ent->d_name);
+
+            char mjson[1024];
+            snprintf(mjson, sizeof(mjson), "%s/plugin.json", pdir);
+            FILE *mf = fopen(mjson, "r");
+            if (!mf) continue;
+            char buf[2048]; size_t total = 0;
+            while (total < sizeof(buf) - 1 &&
+                   fgets(buf + total, (int)(sizeof(buf) - total), mf))
+                total += strlen(buf + total);
+            fclose(mf);
+
+            char id[64] = {0}, library[128] = {0};
+            parse_manifest(buf, id, sizeof(id), library, sizeof(library));
+            if (!id[0]) snprintf(id, sizeof(id), "%s", ent->d_name);
+            if (!library[0]) snprintf(library, sizeof(library), "lib%s.so", id);
+
+            char libpath[1024];
+            snprintf(libpath, sizeof(libpath), "%s/%s", pdir, library);
+            void *hnd = dlopen(libpath, RTLD_NOW | RTLD_LOCAL);
+            if (!hnd) { log_msg("plugin load failed: %s (%s)", libpath, dlerror()); continue; }
+
+            OcwsPlugin *pl = dlsym(hnd, "OCWS_PLUGIN_ENTRY");
+            if (!pl) { log_msg("no OCWS_PLUGIN_ENTRY in %s", libpath); dlclose(hnd); continue; }
+            if (pl->api_version != OCWS_PLUGIN_API_VERSION) {
+                log_msg("plugin %s API mismatch (got %d)", id, pl->api_version);
+                dlclose(hnd); continue;
+            }
+            if (g_nplugins >= MAX_PLUGINS) { dlclose(hnd); break; }
+
+            loaded_plugin_t *lp = &g_plugins[g_nplugins];
+            lp->handle    = hnd;
+            lp->plugin    = pl;
+            lp->next_tick = 0;
+
+            snprintf(g_active_id, sizeof(g_active_id), "%s", id);
+            if (pl->init && pl->init() != 0) {
+                log_msg("plugin %s init failed", id);
+                dlclose(hnd);
+                g_active_id[0] = '\0';
+                continue;
+            }
+            g_active_id[0] = '\0';
+
+            if (pl->on_event)
+                ocws_bus_subscribe("*", plugin_on_event, pl);
+
+            g_nplugins++;
+            log_msg("loaded plugin: %s", id);
+        }
+        closedir(dp);
+    }
+    log_msg("plugins loaded: %d", g_nplugins);
+}
+
+static void run_plugin_ticks(void) {
+    time_t now = time(NULL);
+    for (int i = 0; i < g_nplugins; i++) {
+        OcwsPlugin *pl = g_plugins[i].plugin;
+        if (pl->on_tick && pl->tick_interval_sec > 0 && now >= g_plugins[i].next_tick) {
+            pl->on_tick();
+            g_plugins[i].next_tick = now + pl->tick_interval_sec;
+        }
+    }
+}
+
+static void unload_plugins(void) {
+    for (int i = 0; i < g_nplugins; i++) {
+        if (g_plugins[i].plugin->shutdown) g_plugins[i].plugin->shutdown();
+        if (g_plugins[i].handle) dlclose(g_plugins[i].handle);
+    }
+    g_nplugins = 0;
+}
 
 /* ============================================================
  * Configuration
@@ -377,6 +560,7 @@ static void check_media(void) {
  * ============================================================ */
 
 static void cleanup(void) {
+    unload_plugins();
     if (inotify_fd >= 0) {
         if (backlight_wd >= 0) inotify_rm_watch(inotify_fd, backlight_wd);
         close(inotify_fd);
@@ -427,12 +611,17 @@ int main(int argc, char *argv[]) {
 
     setup_signals();
 
+    ocws_bus_init();
+    ocws_bus_set_sfwbar_bridge(brokerd_sfwbar_bridge);
+
     log_msg("ocws-brokerd v%s starting", VERSION);
 
     /* Initialize watchers */
     init_backlight_watcher();
     init_volume_watcher();
     if (!no_media) init_media_watcher();
+
+    load_plugins();
 
     log_msg("Event loop running (Ctrl+C to stop)");
 
@@ -441,6 +630,7 @@ int main(int argc, char *argv[]) {
         check_backlight();
         check_volume();
         if (!no_media) check_media();
+        run_plugin_ticks();
         usleep(POLL_INTERVAL_MS * 1000);
     }
 

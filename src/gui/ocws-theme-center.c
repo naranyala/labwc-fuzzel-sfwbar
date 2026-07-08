@@ -306,15 +306,45 @@ static void run_theme_engine(const char *action, const char *theme_path) {
  * Color Swatch Widget
  * ============================================================ */
 
-static GtkWidget* make_swatch(const char *hex, int size) {
-    char css[128];
+
+/* ============================================================
+ * Glassmorphic UI Redesign
+ * ============================================================ */
+
+static void apply_custom_css(void) {
+    const char *css =
+        "window { background-color: alpha(@ocws_bg, 0.7); }\n"
+        "headerbar { background: transparent; border: none; box-shadow: none; }\n"
+        ".glass-card { background: alpha(@ocws_fg, 0.04); border: 1px solid alpha(@ocws_fg, 0.08); border-radius: 16px; transition: all 250ms cubic-bezier(0.25, 0.46, 0.45, 0.94); }\n"
+        ".glass-card:hover { background: alpha(@ocws_fg, 0.08); border: 1px solid alpha(@ocws_fg, 0.15); box-shadow: 0 8px 24px rgba(0,0,0,0.3); }\n"
+        ".glass-card.selected { border: 2px solid @ocws_accent; background: alpha(@ocws_accent, 0.15); box-shadow: 0 4px 16px alpha(@ocws_accent, 0.4); }\n"
+        ".color-swatch { border: 1px solid alpha(#000000, 0.3); box-shadow: 0 2px 6px rgba(0,0,0,0.2); }\n"
+        ".color-circle { border-radius: 50%; border: 1px solid alpha(#ffffff, 0.1); }\n"
+        ".surface-row { padding: 16px 20px; border-bottom: 1px solid alpha(@ocws_fg, 0.05); }\n"
+        ".surface-row:last-child { border-bottom: none; }\n"
+        ".surface-list { background: alpha(@ocws_fg, 0.03); border-radius: 16px; border: 1px solid alpha(@ocws_fg, 0.08); }\n"
+        ".status-pill { background: alpha(#000000, 0.6); color: #ffffff; border-radius: 20px; padding: 10px 24px; font-weight: bold; border: 1px solid alpha(#ffffff, 0.1); box-shadow: 0 4px 12px rgba(0,0,0,0.5); }\n"
+        ".big-button { padding: 16px 32px; font-size: 1.1em; border-radius: 12px; font-weight: bold; }\n"
+        ".big-button.suggested-action { background: @ocws_accent; color: #11111b; border: none; box-shadow: 0 4px 12px alpha(@ocws_accent, 0.4); }\n"
+        ".big-button.suggested-action:hover { box-shadow: 0 6px 16px alpha(@ocws_accent, 0.6); }\n"
+        ".dim-label { opacity: 0.7; }\n";
+    GtkCssProvider *provider = gtk_css_provider_new();
+    gtk_css_provider_load_from_data(provider, css, -1, NULL);
+    gtk_style_context_add_provider_for_screen(gdk_screen_get_default(),
+        GTK_STYLE_PROVIDER(provider), GTK_STYLE_PROVIDER_PRIORITY_APPLICATION);
+    g_object_unref(provider);
+}
+
+static GtkWidget* make_swatch(const char *hex, int size, gboolean circular) {
+    char css[256];
     snprintf(css, sizeof(css),
-        "background-color: %s; min-width: %dpx; min-height: %dpx; border-radius: 6px;",
-        hex, size, size);
+        "background-color: %s; min-width: %dpx; min-height: %dpx; %s",
+        hex, size, size, circular ? "border-radius: 50%;" : "border-radius: 8px;");
 
     GtkWidget *area = gtk_drawing_area_new();
     GtkStyleContext *ctx = gtk_widget_get_style_context(area);
     gtk_style_context_add_class(ctx, "color-swatch");
+    if (circular) gtk_style_context_add_class(ctx, "color-circle");
 
     GtkCssProvider *p = gtk_css_provider_new();
     gtk_css_provider_load_from_data(p, css, -1, NULL);
@@ -326,9 +356,12 @@ static GtkWidget* make_swatch(const char *hex, int size) {
     return area;
 }
 
-/* ============================================================
- * Page 1: Theme Browser
- * ============================================================ */
+static void show_toast(const char *msg) {
+    if (app.lbl_status) {
+        gtk_label_set_text(GTK_LABEL(app.lbl_status), msg);
+        gtk_widget_show(gtk_widget_get_parent(app.lbl_status));
+    }
+}
 
 static void on_theme_card_clicked(GtkWidget *event_box, GdkEventButton *event, gpointer data) {
     (void)event;
@@ -337,7 +370,6 @@ static void on_theme_card_clicked(GtkWidget *event_box, GdkEventButton *event, g
 
     app.selected = index;
 
-    /* Update card selection visuals */
     GList *children = gtk_container_get_children(GTK_CONTAINER(
         gtk_widget_get_parent(event_box)));
     for (GList *l = children; l; l = l->next) {
@@ -348,74 +380,67 @@ static void on_theme_card_clicked(GtkWidget *event_box, GdkEventButton *event, g
     g_list_free(children);
     gtk_style_context_add_class(gtk_widget_get_style_context(event_box), "selected");
 
-    /* Update status */
     char status[512];
-    snprintf(status, sizeof(status), "Selected: %s (%s)",
-             app.themes[index].name, app.themes[index].filepath);
-    if (app.lbl_status)
-        gtk_label_set_text(GTK_LABEL(app.lbl_status), status);
+    snprintf(status, sizeof(status), "Selected: %s", app.themes[index].name);
+    show_toast(status);
 }
 
 static GtkWidget* build_browser_page(void) {
-    GtkWidget *vbox = gtk_box_new(GTK_ORIENTATION_VERTICAL, 12);
-    gtk_widget_set_margin_start(vbox, 24);
-    gtk_widget_set_margin_end(vbox, 24);
-    gtk_widget_set_margin_top(vbox, 20);
-    gtk_widget_set_margin_bottom(vbox, 16);
+    GtkWidget *vbox = gtk_box_new(GTK_ORIENTATION_VERTICAL, 24);
+    gtk_widget_set_margin_start(vbox, 40);
+    gtk_widget_set_margin_end(vbox, 40);
+    gtk_widget_set_margin_top(vbox, 30);
+    gtk_widget_set_margin_bottom(vbox, 20);
 
-    /* Title row */
     GtkWidget *hbox = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 12);
     gtk_box_pack_start(GTK_BOX(vbox), hbox, FALSE, FALSE, 0);
 
     GtkWidget *lbl = gtk_label_new(NULL);
-    gtk_label_set_markup(GTK_LABEL(lbl),
-        "<span size='x-large' weight='bold'>Theme Browser</span>");
+    gtk_label_set_markup(GTK_LABEL(lbl), "<span size='xx-large' weight='heavy'>Theme Library</span>");
     gtk_box_pack_start(GTK_BOX(hbox), lbl, FALSE, FALSE, 0);
 
     GtkWidget *spacer = gtk_label_new(NULL);
     gtk_widget_set_hexpand(spacer, TRUE);
     gtk_box_pack_start(GTK_BOX(hbox), spacer, TRUE, TRUE, 0);
 
-    /* Active theme indicator */
     const char *cur = get_current_theme_name();
     char active_text[256];
-    snprintf(active_text, sizeof(active_text), "Active: %s", cur[0] ? cur : "(none)");
-    app.lbl_active = gtk_label_new(active_text);
+    snprintf(active_text, sizeof(active_text), "<b>Active:</b> %s", cur[0] ? cur : "(none)");
+    app.lbl_active = gtk_label_new(NULL);
+    gtk_label_set_markup(GTK_LABEL(app.lbl_active), active_text);
     gtk_style_context_add_class(gtk_widget_get_style_context(app.lbl_active), "dim-label");
     gtk_box_pack_start(GTK_BOX(hbox), app.lbl_active, FALSE, FALSE, 0);
 
-    /* Theme cards flow */
     app.browser_flow = gtk_flow_box_new();
     GtkWidget *flow = app.browser_flow;
     gtk_flow_box_set_homogeneous(GTK_FLOW_BOX(flow), TRUE);
-    gtk_flow_box_set_column_spacing(GTK_FLOW_BOX(flow), 12);
-    gtk_flow_box_set_row_spacing(GTK_FLOW_BOX(flow), 12);
-    gtk_flow_box_set_min_children_per_line(GTK_FLOW_BOX(flow), 3);
+    gtk_flow_box_set_column_spacing(GTK_FLOW_BOX(flow), 20);
+    gtk_flow_box_set_row_spacing(GTK_FLOW_BOX(flow), 20);
+    gtk_flow_box_set_min_children_per_line(GTK_FLOW_BOX(flow), 2);
+    gtk_flow_box_set_max_children_per_line(GTK_FLOW_BOX(flow), 5);
+    gtk_flow_box_set_selection_mode(GTK_FLOW_BOX(flow), GTK_SELECTION_NONE);
 
     for (int i = 0; i < app.count; i++) {
         Theme *t = &app.themes[i];
 
         GtkWidget *frame = gtk_frame_new(NULL);
         GtkStyleContext *fctx = gtk_widget_get_style_context(frame);
-        gtk_style_context_add_class(fctx, "theme-card");
+        gtk_style_context_add_class(fctx, "glass-card");
 
-        /* Highlight current */
         if (strstr(cur, t->name))
             gtk_style_context_add_class(fctx, "selected");
 
-        GtkWidget *inner = gtk_box_new(GTK_ORIENTATION_VERTICAL, 8);
-        gtk_container_set_border_width(GTK_CONTAINER(inner), 8);
+        GtkWidget *inner = gtk_box_new(GTK_ORIENTATION_VERTICAL, 12);
+        gtk_container_set_border_width(GTK_CONTAINER(inner), 16);
         gtk_container_add(GTK_CONTAINER(frame), inner);
 
-        /* Name */
-        char *markup = g_strdup_printf("<b>%s</b>", t->name);
+        char *markup = g_strdup_printf("<span size='large' weight='bold'>%s</span>", t->name);
         GtkWidget *n = gtk_label_new(NULL);
         gtk_label_set_markup(GTK_LABEL(n), markup);
         gtk_label_set_xalign(GTK_LABEL(n), 0.0);
         gtk_box_pack_start(GTK_BOX(inner), n, FALSE, FALSE, 0);
         g_free(markup);
 
-        /* Description */
         if (t->description[0]) {
             GtkWidget *d = gtk_label_new(t->description);
             gtk_label_set_xalign(GTK_LABEL(d), 0.0);
@@ -424,30 +449,19 @@ static GtkWidget* build_browser_page(void) {
             gtk_box_pack_start(GTK_BOX(inner), d, FALSE, FALSE, 0);
         }
 
-        /* Color palette strip */
-        GtkWidget *strip = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 3);
-        gtk_widget_set_margin_top(strip, 4);
-        const char *palette[] = {
-            "base", "mantle", "surface0", "surface1", "surface2",
-            "text", "subtext0", "blue", "green", "red", "yellow", "mauve"
-        };
-        for (int p = 0; p < 12; p++) {
+        GtkWidget *spacer_inner = gtk_label_new(NULL);
+        gtk_widget_set_vexpand(spacer_inner, TRUE);
+        gtk_box_pack_start(GTK_BOX(inner), spacer_inner, TRUE, TRUE, 0);
+
+        GtkWidget *strip = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, -8);
+        gtk_widget_set_margin_top(strip, 12);
+        const char *palette[] = { "base", "surface0", "text", "blue", "green", "red", "mauve" };
+        for (int p = 0; p < 7; p++) {
             const char *hex = theme_color_hex(t, palette[p]);
-            gtk_box_pack_start(GTK_BOX(strip), make_swatch(hex, 20), FALSE, FALSE, 0);
+            gtk_box_pack_start(GTK_BOX(strip), make_swatch(hex, 32, TRUE), FALSE, FALSE, 0);
         }
         gtk_box_pack_start(GTK_BOX(inner), strip, FALSE, FALSE, 0);
 
-        /* Author */
-        if (t->author[0]) {
-            char info[256];
-            snprintf(info, sizeof(info), "%s v%s", t->author, t->version_str[0] ? t->version_str : "?");
-            GtkWidget *ai = gtk_label_new(info);
-            gtk_style_context_add_class(gtk_widget_get_style_context(ai), "dim-label");
-            gtk_label_set_xalign(GTK_LABEL(ai), 0.0);
-            gtk_box_pack_start(GTK_BOX(inner), ai, FALSE, FALSE, 0);
-        }
-
-        /* Make clickable */
         GtkWidget *evt = gtk_event_box_new();
         gtk_container_add(GTK_CONTAINER(evt), frame);
         g_signal_connect(evt, "button-release-event",
@@ -465,33 +479,25 @@ static GtkWidget* build_browser_page(void) {
     return vbox;
 }
 
-/* ============================================================
- * Page 2: Color Preview (full palette + sections)
- * ============================================================ */
-
 static void update_preview(GtkComboBox *combo, gpointer data) {
     (void)data;
     int idx = gtk_combo_box_get_active(GTK_COMBO_BOX(combo));
     if (idx < 0 || idx >= app.count) return;
-
     Theme *t = &app.themes[idx];
 
-    /* Update color grid */
     if (app.preview_colors_grid) {
         gtk_container_foreach(GTK_CONTAINER(app.preview_colors_grid),
                               (GtkCallback)gtk_widget_destroy, NULL);
-
         for (int i = 0; i < t->color_count; i++) {
-            int row = i / 3;
-            int col = i % 3;
+            int row = i / 4;
+            int col = i % 4;
 
-            GtkWidget *hbox = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 8);
+            GtkWidget *hbox = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 12);
             gtk_widget_set_halign(hbox, GTK_ALIGN_START);
+            gtk_box_pack_start(GTK_BOX(hbox), make_swatch(t->colors[i][1], 40, TRUE), FALSE, FALSE, 0);
 
-            gtk_box_pack_start(GTK_BOX(hbox), make_swatch(t->colors[i][1], 28), FALSE, FALSE, 0);
-
-            char lbl_text[128];
-            snprintf(lbl_text, sizeof(lbl_text), "<b>%s</b>\n%s", t->colors[i][0], t->colors[i][1]);
+            char lbl_text[256];
+            snprintf(lbl_text, sizeof(lbl_text), "<b>%s</b>\n<span size='small' alpha='70%%'>%s</span>", t->colors[i][0], t->colors[i][1]);
             GtkWidget *l = gtk_label_new(NULL);
             gtk_label_set_markup(GTK_LABEL(l), lbl_text);
             gtk_label_set_xalign(GTK_LABEL(l), 0.0);
@@ -502,26 +508,8 @@ static void update_preview(GtkComboBox *combo, gpointer data) {
         gtk_widget_show_all(app.preview_colors_grid);
     }
 
-    /* Update sections breakdown */
-    if (app.preview_sections_box) {
-        gtk_container_foreach(GTK_CONTAINER(app.preview_sections_box),
-                              (GtkCallback)gtk_widget_destroy, NULL);
-        for (int s = 0; s < t->section_count; s++) {
-            ThemeSection *sec = &t->sections[s];
-            char sec_markup[256];
-            snprintf(sec_markup, sizeof(sec_markup), "<b>[%s]</b>  %d keys", sec->name, sec->key_count);
-            GtkWidget *sl = gtk_label_new(NULL);
-            gtk_label_set_markup(GTK_LABEL(sl), sec_markup);
-            gtk_label_set_xalign(GTK_LABEL(sl), 0.0);
-            gtk_box_pack_start(GTK_BOX(app.preview_sections_box), sl, FALSE, FALSE, 0);
-        }
-        gtk_widget_show_all(app.preview_sections_box);
-    }
-
-    /* Update source view */
     if (app.preview_source_view) {
-        GtkTextBuffer *buf = gtk_text_view_get_buffer(
-            GTK_TEXT_VIEW(app.preview_source_view));
+        GtkTextBuffer *buf = gtk_text_view_get_buffer(GTK_TEXT_VIEW(app.preview_source_view));
         FILE *f = fopen(t->filepath, "r");
         if (f) {
             fseek(f, 0, SEEK_END);
@@ -538,75 +526,66 @@ static void update_preview(GtkComboBox *combo, gpointer data) {
 }
 
 static GtkWidget* build_preview_page(void) {
-    GtkWidget *vbox = gtk_box_new(GTK_ORIENTATION_VERTICAL, 12);
-    gtk_widget_set_margin_start(vbox, 24);
-    gtk_widget_set_margin_end(vbox, 24);
-    gtk_widget_set_margin_top(vbox, 20);
-    gtk_widget_set_margin_bottom(vbox, 16);
+    GtkWidget *vbox = gtk_box_new(GTK_ORIENTATION_VERTICAL, 24);
+    gtk_widget_set_margin_start(vbox, 40);
+    gtk_widget_set_margin_end(vbox, 40);
+    gtk_widget_set_margin_top(vbox, 30);
+    gtk_widget_set_margin_bottom(vbox, 20);
 
     GtkWidget *lbl = gtk_label_new(NULL);
-    gtk_label_set_markup(GTK_LABEL(lbl),
-        "<span size='x-large' weight='bold'>Theme Preview</span>");
+    gtk_label_set_markup(GTK_LABEL(lbl), "<span size='xx-large' weight='heavy'>Live Preview</span>");
+    gtk_label_set_xalign(GTK_LABEL(lbl), 0.0);
     gtk_box_pack_start(GTK_BOX(vbox), lbl, FALSE, FALSE, 0);
 
-    /* Theme selector */
-    GtkWidget *hbox = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 8);
+    GtkWidget *hbox = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 12);
     gtk_box_pack_start(GTK_BOX(vbox), hbox, FALSE, FALSE, 0);
-    gtk_box_pack_start(GTK_BOX(hbox), gtk_label_new("Theme:"), FALSE, FALSE, 0);
+    GtkWidget *tlbl = gtk_label_new(NULL);
+    gtk_label_set_markup(GTK_LABEL(tlbl), "<span weight='bold'>Select Theme:</span>");
+    gtk_box_pack_start(GTK_BOX(hbox), tlbl, FALSE, FALSE, 0);
 
     app.combo_preview = gtk_combo_box_text_new();
     for (int i = 0; i < app.count; i++)
-        gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(app.combo_preview),
-                                       app.themes[i].name);
+        gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(app.combo_preview), app.themes[i].name);
     if (app.count > 0)
         gtk_combo_box_set_active(GTK_COMBO_BOX(app.combo_preview), 0);
     gtk_box_pack_start(GTK_BOX(hbox), app.combo_preview, TRUE, TRUE, 0);
     g_signal_connect(app.combo_preview, "changed", G_CALLBACK(update_preview), NULL);
 
-    /* Split: colors grid (left) + source (right) */
     GtkWidget *hpaned = gtk_paned_new(GTK_ORIENTATION_HORIZONTAL);
 
-    /* Left: color palette */
     GtkWidget *left_scroll = gtk_scrolled_window_new(NULL, NULL);
-    gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(left_scroll),
-        GTK_POLICY_NEVER, GTK_POLICY_AUTOMATIC);
+    gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(left_scroll), GTK_POLICY_NEVER, GTK_POLICY_AUTOMATIC);
 
-    GtkWidget *left_vbox = gtk_box_new(GTK_ORIENTATION_VERTICAL, 12);
+    GtkWidget *left_frame = gtk_frame_new(NULL);
+    gtk_style_context_add_class(gtk_widget_get_style_context(left_frame), "glass-card");
+    gtk_container_set_border_width(GTK_CONTAINER(left_frame), 16);
+    gtk_container_add(GTK_CONTAINER(left_scroll), left_frame);
+
+    GtkWidget *left_vbox = gtk_box_new(GTK_ORIENTATION_VERTICAL, 16);
+    gtk_container_add(GTK_CONTAINER(left_frame), left_vbox);
 
     GtkWidget *lbl_colors = gtk_label_new(NULL);
-    gtk_label_set_markup(GTK_LABEL(lbl_colors), "<b>Color Palette</b>");
+    gtk_label_set_markup(GTK_LABEL(lbl_colors), "<span size='large' weight='bold'>Palette</span>");
     gtk_label_set_xalign(GTK_LABEL(lbl_colors), 0.0);
     gtk_box_pack_start(GTK_BOX(left_vbox), lbl_colors, FALSE, FALSE, 0);
 
     app.preview_colors_grid = gtk_grid_new();
-    gtk_grid_set_column_spacing(GTK_GRID(app.preview_colors_grid), 16);
-    gtk_grid_set_row_spacing(GTK_GRID(app.preview_colors_grid), 8);
+    gtk_grid_set_column_spacing(GTK_GRID(app.preview_colors_grid), 24);
+    gtk_grid_set_row_spacing(GTK_GRID(app.preview_colors_grid), 16);
     gtk_box_pack_start(GTK_BOX(left_vbox), app.preview_colors_grid, FALSE, FALSE, 0);
 
-    /* Sections breakdown */
-    GtkWidget *lbl_sections = gtk_label_new(NULL);
-    gtk_label_set_markup(GTK_LABEL(lbl_sections), "<b>Config Sections</b>");
-    gtk_label_set_xalign(GTK_LABEL(lbl_sections), 0.0);
-    gtk_box_pack_start(GTK_BOX(left_vbox), lbl_sections, FALSE, FALSE, 0);
-
-    app.preview_sections_box = gtk_box_new(GTK_ORIENTATION_VERTICAL, 4);
-    gtk_box_pack_start(GTK_BOX(left_vbox), app.preview_sections_box, FALSE, FALSE, 0);
-
-    gtk_container_add(GTK_CONTAINER(left_scroll), left_vbox);
     gtk_paned_pack1(GTK_PANED(hpaned), left_scroll, TRUE, TRUE);
 
-    /* Right: source view */
     GtkWidget *right_scroll = gtk_scrolled_window_new(NULL, NULL);
-    gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(right_scroll),
-        GTK_POLICY_AUTOMATIC, GTK_POLICY_AUTOMATIC);
+    gtk_scrolled_window_set_policy(GTK_SCROLLED_WINDOW(right_scroll), GTK_POLICY_AUTOMATIC, GTK_POLICY_AUTOMATIC);
 
     GtkWidget *source_view = gtk_text_view_new();
     gtk_text_view_set_editable(GTK_TEXT_VIEW(source_view), FALSE);
     gtk_text_view_set_monospace(GTK_TEXT_VIEW(source_view), TRUE);
-    gtk_text_view_set_left_margin(GTK_TEXT_VIEW(source_view), 12);
-    gtk_text_view_set_right_margin(GTK_TEXT_VIEW(source_view), 12);
-    gtk_text_view_set_top_margin(GTK_TEXT_VIEW(source_view), 8);
-    gtk_text_view_set_bottom_margin(GTK_TEXT_VIEW(source_view), 8);
+    gtk_text_view_set_left_margin(GTK_TEXT_VIEW(source_view), 16);
+    gtk_text_view_set_right_margin(GTK_TEXT_VIEW(source_view), 16);
+    gtk_text_view_set_top_margin(GTK_TEXT_VIEW(source_view), 16);
+    gtk_text_view_set_bottom_margin(GTK_TEXT_VIEW(source_view), 16);
     GtkStyleContext *sctx = gtk_widget_get_style_context(source_view);
     gtk_style_context_add_class(sctx, "source");
     app.preview_source_view = source_view;
@@ -615,34 +594,25 @@ static GtkWidget* build_preview_page(void) {
     gtk_paned_pack2(GTK_PANED(hpaned), right_scroll, TRUE, TRUE);
 
     gtk_box_pack_start(GTK_BOX(vbox), hpaned, TRUE, TRUE, 0);
-
-    /* Initial load */
     update_preview(GTK_COMBO_BOX(app.combo_preview), NULL);
 
     return vbox;
 }
 
-/* ============================================================
- * Page 3: Surface Manager
- * ============================================================ */
-
 static GtkWidget* build_surfaces_page(void) {
-    GtkWidget *vbox = gtk_box_new(GTK_ORIENTATION_VERTICAL, 12);
-    gtk_widget_set_margin_start(vbox, 24);
-    gtk_widget_set_margin_end(vbox, 24);
-    gtk_widget_set_margin_top(vbox, 20);
-    gtk_widget_set_margin_bottom(vbox, 16);
+    GtkWidget *vbox = gtk_box_new(GTK_ORIENTATION_VERTICAL, 24);
+    gtk_widget_set_margin_start(vbox, 40);
+    gtk_widget_set_margin_end(vbox, 40);
+    gtk_widget_set_margin_top(vbox, 30);
+    gtk_widget_set_margin_bottom(vbox, 20);
 
     GtkWidget *lbl = gtk_label_new(NULL);
-    gtk_label_set_markup(GTK_LABEL(lbl),
-        "<span size='x-large' weight='bold'>Config Surfaces</span>");
+    gtk_label_set_markup(GTK_LABEL(lbl), "<span size='xx-large' weight='heavy'>Config Surfaces</span>");
+    gtk_label_set_xalign(GTK_LABEL(lbl), 0.0);
     gtk_box_pack_start(GTK_BOX(vbox), lbl, FALSE, FALSE, 0);
 
-    GtkWidget *desc = gtk_label_new(
-        "Toggle which config surfaces are written when applying a theme.\n"
-        "All surfaces are enabled by default. Disable specific ones to preserve manual edits.");
+    GtkWidget *desc = gtk_label_new("Select which configuration files should be regenerated when applying a theme.");
     gtk_label_set_xalign(GTK_LABEL(desc), 0.0);
-    gtk_label_set_line_wrap(GTK_LABEL(desc), TRUE);
     gtk_style_context_add_class(gtk_widget_get_style_context(desc), "dim-label");
     gtk_box_pack_start(GTK_BOX(vbox), desc, FALSE, FALSE, 0);
 
@@ -661,420 +631,223 @@ static GtkWidget* build_surfaces_page(void) {
     };
     app.surface_count = 11;
 
-    GtkWidget *grid = gtk_grid_new();
-    gtk_grid_set_column_spacing(GTK_GRID(grid), 16);
-    gtk_grid_set_row_spacing(GTK_GRID(grid), 10);
-    gtk_box_pack_start(GTK_BOX(vbox), grid, FALSE, FALSE, 0);
+    GtkWidget *list_frame = gtk_frame_new(NULL);
+    gtk_style_context_add_class(gtk_widget_get_style_context(list_frame), "surface-list");
+    gtk_box_pack_start(GTK_BOX(vbox), list_frame, FALSE, FALSE, 0);
+
+    GtkWidget *list_vbox = gtk_box_new(GTK_ORIENTATION_VERTICAL, 0);
+    gtk_container_add(GTK_CONTAINER(list_frame), list_vbox);
 
     for (int i = 0; i < app.surface_count; i++) {
-        int row = i / 2;
-        int col = (i % 2) * 2;
+        GtkWidget *hbox = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 16);
+        gtk_style_context_add_class(gtk_widget_get_style_context(hbox), "surface-row");
 
-        GtkWidget *hbox = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 10);
+        char txt[256];
+        snprintf(txt, sizeof(txt), "<span size='large' weight='bold'>%s</span>\n<span size='small' alpha='70%%'>%s</span>", surfaces[i].name, surfaces[i].desc);
+        GtkWidget *l = gtk_label_new(NULL);
+        gtk_label_set_markup(GTK_LABEL(l), txt);
+        gtk_label_set_xalign(GTK_LABEL(l), 0.0);
+        gtk_box_pack_start(GTK_BOX(hbox), l, TRUE, TRUE, 0);
 
         GtkWidget *sw = gtk_switch_new();
         gtk_switch_set_active(GTK_SWITCH(sw), TRUE);
         gtk_widget_set_valign(sw, GTK_ALIGN_CENTER);
-        gtk_box_pack_start(GTK_BOX(hbox), sw, FALSE, FALSE, 0);
+        gtk_box_pack_end(GTK_BOX(hbox), sw, FALSE, FALSE, 0);
+
         app.surface_toggles[i] = sw;
-
-        char txt[256];
-        snprintf(txt, sizeof(txt), "<b>%s</b>\n<span size='small'>%s</span>",
-                 surfaces[i].name, surfaces[i].desc);
-        GtkWidget *l = gtk_label_new(NULL);
-        gtk_label_set_markup(GTK_LABEL(l), txt);
-        gtk_label_set_xalign(GTK_LABEL(l), 0.0);
-        gtk_box_pack_start(GTK_BOX(hbox), l, FALSE, FALSE, 0);
-
         app.surface_names[i] = surfaces[i].name;
-        gtk_grid_attach(GTK_GRID(grid), hbox, col, row, 2, 1);
+
+        gtk_box_pack_start(GTK_BOX(list_vbox), hbox, FALSE, FALSE, 0);
     }
 
     return vbox;
 }
 
-/* ============================================================
- * Page 4: Import / Export
- * ============================================================ */
-
 static void on_import_clicked(GtkButton *button, gpointer data) {
     (void)button; (void)data;
-    GtkWidget *dialog = gtk_file_chooser_dialog_new(
-        "Import Theme INI",
-        NULL,
-        GTK_FILE_CHOOSER_ACTION_OPEN,
-        "_Cancel", GTK_RESPONSE_CANCEL,
-        "_Import", GTK_RESPONSE_ACCEPT,
-        NULL);
-
+    GtkWidget *dialog = gtk_file_chooser_dialog_new("Import Theme INI", NULL, GTK_FILE_CHOOSER_ACTION_OPEN, "_Cancel", GTK_RESPONSE_CANCEL, "_Import", GTK_RESPONSE_ACCEPT, NULL);
     GtkFileFilter *filter = gtk_file_filter_new();
     gtk_file_filter_set_name(filter, "Theme INI files");
     gtk_file_filter_add_pattern(filter, "*.ini");
     gtk_file_chooser_add_filter(GTK_FILE_CHOOSER(dialog), filter);
 
-    int res = gtk_dialog_run(GTK_DIALOG(dialog));
-    if (res == GTK_RESPONSE_ACCEPT) {
+    if (gtk_dialog_run(GTK_DIALOG(dialog)) == GTK_RESPONSE_ACCEPT) {
         char *filename = gtk_file_chooser_get_filename(GTK_FILE_CHOOSER(dialog));
         if (filename) {
             char dest[1024];
             const char *base = strrchr(filename, '/');
             base = base ? base + 1 : filename;
             snprintf(dest, sizeof(dest), "%s/themes/%s", app.project_dir, base);
-
             GError *err = NULL;
             GFile *src = g_file_new_for_path(filename);
             GFile *dst = g_file_new_for_path(dest);
             g_file_copy(src, dst, G_FILE_COPY_OVERWRITE, NULL, NULL, NULL, &err);
-
             if (!err) {
-                /* Refresh theme list */
                 discover_themes();
-
-                /* Rebuild browser grid */
-                if (app.browser_flow) {
-                    gtk_container_foreach(GTK_CONTAINER(app.browser_flow),
-                                          (GtkCallback)gtk_widget_destroy, NULL);
-                    for (int i = 0; i < app.count; i++) {
-                        Theme *t = &app.themes[i];
-                        GtkWidget *frame = gtk_frame_new(NULL);
-                        GtkStyleContext *fctx = gtk_widget_get_style_context(frame);
-                        gtk_style_context_add_class(fctx, "theme-card");
-
-                        GtkWidget *inner = gtk_box_new(GTK_ORIENTATION_VERTICAL, 8);
-                        gtk_container_set_border_width(GTK_CONTAINER(inner), 8);
-                        gtk_container_add(GTK_CONTAINER(frame), inner);
-
-                        char *markup = g_strdup_printf("<b>%s</b>", t->name);
-                        GtkWidget *n = gtk_label_new(NULL);
-                        gtk_label_set_markup(GTK_LABEL(n), markup);
-                        gtk_label_set_xalign(GTK_LABEL(n), 0.0);
-                        gtk_box_pack_start(GTK_BOX(inner), n, FALSE, FALSE, 0);
-                        g_free(markup);
-
-                        if (t->description[0]) {
-                            GtkWidget *d = gtk_label_new(t->description);
-                            gtk_label_set_xalign(GTK_LABEL(d), 0.0);
-                            gtk_label_set_line_wrap(GTK_LABEL(d), TRUE);
-                            gtk_style_context_add_class(gtk_widget_get_style_context(d), "dim-label");
-                            gtk_box_pack_start(GTK_BOX(inner), d, FALSE, FALSE, 0);
-                        }
-
-                        GtkWidget *strip = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 3);
-                        const char *palette[] = {"base", "surface0", "blue", "green", "red"};
-                        for (int p = 0; p < 5; p++) {
-                            const char *hex = theme_color_hex(t, palette[p]);
-                            gtk_box_pack_start(GTK_BOX(strip), make_swatch(hex, 20), FALSE, FALSE, 0);
-                        }
-                        gtk_box_pack_start(GTK_BOX(inner), strip, FALSE, FALSE, 0);
-
-                        GtkWidget *evt = gtk_event_box_new();
-                        gtk_container_add(GTK_CONTAINER(evt), frame);
-                        g_signal_connect(evt, "button-release-event",
-                                         G_CALLBACK(on_theme_card_clicked), GINT_TO_POINTER(i));
-                        gtk_container_add(GTK_CONTAINER(app.browser_flow), evt);
-                    }
-                    gtk_widget_show_all(app.browser_flow);
-                }
-
-                if (app.lbl_status)
-                    gtk_label_set_text(GTK_LABEL(app.lbl_status), "Theme imported.");
+                show_toast("Theme successfully imported.");
             } else {
-                if (app.lbl_status)
-                    gtk_label_set_text(GTK_LABEL(app.lbl_status), err->message);
+                show_toast(err->message);
                 g_error_free(err);
             }
-            g_object_unref(src);
-            g_object_unref(dst);
-            g_free(filename);
+            g_object_unref(src); g_object_unref(dst); g_free(filename);
         }
     }
     gtk_widget_destroy(dialog);
 }
 
 static void on_export_clicked(GtkButton *button, gpointer data) {
-    (void)button;
-    (void)data;
+    (void)button; (void)data;
     int idx = app.combo_export ? gtk_combo_box_get_active(GTK_COMBO_BOX(app.combo_export)) : -1;
     if (idx < 0 || idx >= app.count) idx = 0;
-
-    GtkWidget *dialog = gtk_file_chooser_dialog_new(
-        "Export Theme INI",
-        NULL,
-        GTK_FILE_CHOOSER_ACTION_SAVE,
-        "_Cancel", GTK_RESPONSE_CANCEL,
-        "_Export", GTK_RESPONSE_ACCEPT,
-        NULL);
-
-    gtk_file_chooser_set_current_name(GTK_FILE_CHOOSER(dialog),
-        app.themes[idx].name);
-
+    GtkWidget *dialog = gtk_file_chooser_dialog_new("Export Theme INI", NULL, GTK_FILE_CHOOSER_ACTION_SAVE, "_Cancel", GTK_RESPONSE_CANCEL, "_Export", GTK_RESPONSE_ACCEPT, NULL);
+    gtk_file_chooser_set_current_name(GTK_FILE_CHOOSER(dialog), app.themes[idx].name);
     GtkFileFilter *filter = gtk_file_filter_new();
     gtk_file_filter_set_name(filter, "Theme INI files");
     gtk_file_filter_add_pattern(filter, "*.ini");
     gtk_file_chooser_add_filter(GTK_FILE_CHOOSER(dialog), filter);
 
-    int res = gtk_dialog_run(GTK_DIALOG(dialog));
-    if (res == GTK_RESPONSE_ACCEPT) {
+    if (gtk_dialog_run(GTK_DIALOG(dialog)) == GTK_RESPONSE_ACCEPT) {
         char *filename = gtk_file_chooser_get_filename(GTK_FILE_CHOOSER(dialog));
         if (filename) {
             GError *err = NULL;
             GFile *src = g_file_new_for_path(app.themes[idx].filepath);
             GFile *dst = g_file_new_for_path(filename);
             g_file_copy(src, dst, G_FILE_COPY_OVERWRITE, NULL, NULL, NULL, &err);
-            if (err) {
-                if (app.lbl_status)
-                    gtk_label_set_text(GTK_LABEL(app.lbl_status), err->message);
-                g_error_free(err);
-            } else {
-                if (app.lbl_status)
-                    gtk_label_set_text(GTK_LABEL(app.lbl_status), "Theme exported.");
-            }
-            g_object_unref(src);
-            g_object_unref(dst);
-            g_free(filename);
+            if (!err) show_toast("Theme exported.");
+            else { show_toast(err->message); g_error_free(err); }
+            g_object_unref(src); g_object_unref(dst); g_free(filename);
         }
     }
     gtk_widget_destroy(dialog);
 }
 
 static GtkWidget* build_import_page(void) {
-    GtkWidget *vbox = gtk_box_new(GTK_ORIENTATION_VERTICAL, 12);
-    gtk_widget_set_margin_start(vbox, 24);
-    gtk_widget_set_margin_end(vbox, 24);
-    gtk_widget_set_margin_top(vbox, 20);
-    gtk_widget_set_margin_bottom(vbox, 16);
+    GtkWidget *vbox = gtk_box_new(GTK_ORIENTATION_VERTICAL, 24);
+    gtk_widget_set_margin_start(vbox, 40);
+    gtk_widget_set_margin_end(vbox, 40);
+    gtk_widget_set_margin_top(vbox, 30);
+    gtk_widget_set_margin_bottom(vbox, 20);
+    gtk_widget_set_halign(vbox, GTK_ALIGN_CENTER);
 
     GtkWidget *lbl = gtk_label_new(NULL);
-    gtk_label_set_markup(GTK_LABEL(lbl),
-        "<span size='x-large' weight='bold'>Import / Export</span>");
+    gtk_label_set_markup(GTK_LABEL(lbl), "<span size='xx-large' weight='heavy'>Import &amp; Export</span>");
     gtk_box_pack_start(GTK_BOX(vbox), lbl, FALSE, FALSE, 0);
 
-    /* Import section */
+    GtkWidget *grid = gtk_grid_new();
+    gtk_grid_set_column_spacing(GTK_GRID(grid), 32);
+    gtk_box_pack_start(GTK_BOX(vbox), grid, FALSE, FALSE, 0);
+
     GtkWidget *import_card = gtk_frame_new(NULL);
-    GtkStyleContext *ictx = gtk_widget_get_style_context(import_card);
-    gtk_style_context_add_class(ictx, "theme-card");
-    gtk_container_set_border_width(GTK_CONTAINER(import_card), 16);
-    gtk_box_pack_start(GTK_BOX(vbox), import_card, FALSE, FALSE, 0);
-
-    GtkWidget *ivbox = gtk_box_new(GTK_ORIENTATION_VERTICAL, 8);
+    gtk_style_context_add_class(gtk_widget_get_style_context(import_card), "glass-card");
+    gtk_container_set_border_width(GTK_CONTAINER(import_card), 32);
+    GtkWidget *ivbox = gtk_box_new(GTK_ORIENTATION_VERTICAL, 16);
     gtk_container_add(GTK_CONTAINER(import_card), ivbox);
-
     GtkWidget *ilbl = gtk_label_new(NULL);
-    gtk_label_set_markup(GTK_LABEL(ilbl), "<b>Import Theme</b>");
-    gtk_label_set_xalign(GTK_LABEL(ilbl), 0.0);
+    gtk_label_set_markup(GTK_LABEL(ilbl), "<span size='x-large' weight='bold'>Import</span>");
     gtk_box_pack_start(GTK_BOX(ivbox), ilbl, FALSE, FALSE, 0);
-
-    GtkWidget *idesc = gtk_label_new(
-        "Import an external .ini theme file into the project themes directory.");
-    gtk_label_set_xalign(GTK_LABEL(idesc), 0.0);
-    gtk_style_context_add_class(gtk_widget_get_style_context(idesc), "dim-label");
-    gtk_box_pack_start(GTK_BOX(ivbox), idesc, FALSE, FALSE, 0);
-
-    GtkWidget *ibtn = gtk_button_new_with_label("Import Theme File...");
+    GtkWidget *ibtn = gtk_button_new_with_label("Import .ini Theme");
+    gtk_style_context_add_class(gtk_widget_get_style_context(ibtn), "big-button");
     g_signal_connect(ibtn, "clicked", G_CALLBACK(on_import_clicked), NULL);
     gtk_box_pack_start(GTK_BOX(ivbox), ibtn, FALSE, FALSE, 0);
+    gtk_grid_attach(GTK_GRID(grid), import_card, 0, 0, 1, 1);
 
-    /* Export section */
     GtkWidget *export_card = gtk_frame_new(NULL);
-    GtkStyleContext *ectx = gtk_widget_get_style_context(export_card);
-    gtk_style_context_add_class(ectx, "theme-card");
-    gtk_container_set_border_width(GTK_CONTAINER(export_card), 16);
-    gtk_box_pack_start(GTK_BOX(vbox), export_card, FALSE, FALSE, 0);
-
-    GtkWidget *evbox = gtk_box_new(GTK_ORIENTATION_VERTICAL, 8);
+    gtk_style_context_add_class(gtk_widget_get_style_context(export_card), "glass-card");
+    gtk_container_set_border_width(GTK_CONTAINER(export_card), 32);
+    GtkWidget *evbox = gtk_box_new(GTK_ORIENTATION_VERTICAL, 16);
     gtk_container_add(GTK_CONTAINER(export_card), evbox);
-
     GtkWidget *elbl = gtk_label_new(NULL);
-    gtk_label_set_markup(GTK_LABEL(elbl), "<b>Export Theme</b>");
-    gtk_label_set_xalign(GTK_LABEL(elbl), 0.0);
+    gtk_label_set_markup(GTK_LABEL(elbl), "<span size='x-large' weight='bold'>Export</span>");
     gtk_box_pack_start(GTK_BOX(evbox), elbl, FALSE, FALSE, 0);
-
-    GtkWidget *edescl = gtk_label_new("Export the selected theme to a standalone .ini file:");
-    gtk_label_set_xalign(GTK_LABEL(edescl), 0.0);
-    gtk_style_context_add_class(gtk_widget_get_style_context(edescl), "dim-label");
-    gtk_box_pack_start(GTK_BOX(evbox), edescl, FALSE, FALSE, 0);
-
-    /* Theme selector for export */
-    GtkWidget *ehbox = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 8);
-    gtk_box_pack_start(GTK_BOX(evbox), ehbox, FALSE, FALSE, 0);
-
+    
     app.combo_export = gtk_combo_box_text_new();
-    for (int i = 0; i < app.count; i++)
-        gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(app.combo_export), app.themes[i].name);
-    if (app.count > 0)
-        gtk_combo_box_set_active(GTK_COMBO_BOX(app.combo_export), 0);
-    gtk_box_pack_start(GTK_BOX(ehbox), app.combo_export, TRUE, TRUE, 0);
-
-    GtkWidget *ebtn = gtk_button_new_with_label("Export...");
-    gtk_box_pack_start(GTK_BOX(ehbox), ebtn, FALSE, FALSE, 0);
+    for (int i = 0; i < app.count; i++) gtk_combo_box_text_append_text(GTK_COMBO_BOX_TEXT(app.combo_export), app.themes[i].name);
+    if (app.count > 0) gtk_combo_box_set_active(GTK_COMBO_BOX(app.combo_export), 0);
+    gtk_box_pack_start(GTK_BOX(evbox), app.combo_export, FALSE, FALSE, 0);
+    
+    GtkWidget *ebtn = gtk_button_new_with_label("Export to .ini");
+    gtk_style_context_add_class(gtk_widget_get_style_context(ebtn), "big-button");
     g_signal_connect(ebtn, "clicked", G_CALLBACK(on_export_clicked), NULL);
-
-    /* Output file map */
-    GtkWidget *map_card = gtk_frame_new(NULL);
-    GtkStyleContext *mctx = gtk_widget_get_style_context(map_card);
-    gtk_style_context_add_class(mctx, "theme-card");
-    gtk_container_set_border_width(GTK_CONTAINER(map_card), 16);
-    gtk_box_pack_start(GTK_BOX(vbox), map_card, FALSE, FALSE, 0);
-
-    GtkWidget *mvbox = gtk_box_new(GTK_ORIENTATION_VERTICAL, 6);
-    gtk_container_add(GTK_CONTAINER(map_card), mvbox);
-
-    GtkWidget *mlbl = gtk_label_new(NULL);
-    gtk_label_set_markup(GTK_LABEL(mlbl), "<b>Output File Map</b>");
-    gtk_label_set_xalign(GTK_LABEL(mlbl), 0.0);
-    gtk_box_pack_start(GTK_BOX(mvbox), mlbl, FALSE, FALSE, 0);
-
-    for (int i = 0; i < OUTPUT_FILE_COUNT; i++) {
-        char row_text[256];
-        snprintf(row_text, sizeof(row_text),
-            "<span font_family='monospace' size='small'>%-28s → ~/.config/%s</span>",
-            output_files[i][0], output_files[i][1]);
-        GtkWidget *rl = gtk_label_new(NULL);
-        gtk_label_set_markup(GTK_LABEL(rl), row_text);
-        gtk_label_set_xalign(GTK_LABEL(rl), 0.0);
-        gtk_box_pack_start(GTK_BOX(mvbox), rl, FALSE, FALSE, 0);
-    }
+    gtk_box_pack_start(GTK_BOX(evbox), ebtn, FALSE, FALSE, 0);
+    gtk_grid_attach(GTK_GRID(grid), export_card, 1, 0, 1, 1);
 
     return vbox;
 }
 
-/* ============================================================
- * Apply Action
- * ============================================================ */
-
 static void on_apply_clicked(GtkButton *button, gpointer data) {
     (void)button; (void)data;
-
     if (app.selected < 0 || app.selected >= app.count) {
-        if (app.lbl_status)
-            gtk_label_set_text(GTK_LABEL(app.lbl_status), "No theme selected.");
+        show_toast("Please select a theme first.");
         return;
     }
-
-    /* Build surface filter (for future per-surface apply) */
-    char surfaces_str[512] = {0};
-    int has_disabled = 0;
-    for (int i = 0; i < app.surface_count; i++) {
-        if (!gtk_switch_get_active(GTK_SWITCH(app.surface_toggles[i]))) {
-            has_disabled = 1;
-        }
-    }
-
-    /* Apply via theme-engine */
+    show_toast("Applying theme...");
     char cmd[2048];
-    snprintf(cmd, sizeof(cmd), "theme-engine.sh apply '%s'",
-             app.themes[app.selected].filepath);
-
-    if (app.lbl_status)
-        gtk_label_set_text(GTK_LABEL(app.lbl_status), "Applying theme...");
-
+    snprintf(cmd, sizeof(cmd), "theme-engine.sh apply '%s'", app.themes[app.selected].filepath);
     char *output = run_cmd_output(cmd);
-
-    if (app.lbl_status) {
-        if (strstr(output, "error") || strstr(output, "fail"))
-            gtk_label_set_text(GTK_LABEL(app.lbl_status), output);
-        else {
-            char msg[256];
-            snprintf(msg, sizeof(msg), "Theme applied: %s",
-                     app.themes[app.selected].name);
-            gtk_label_set_text(GTK_LABEL(app.lbl_status), msg);
-        }
+    if (strstr(output, "error") || strstr(output, "fail")) {
+        show_toast(output);
+    } else {
+        char msg[256];
+        snprintf(msg, sizeof(msg), "Theme successfully applied: %s", app.themes[app.selected].name);
+        show_toast(msg);
     }
-
     g_free(output);
-
-    /* Update active indicator */
     if (app.lbl_active) {
         char active_text[256];
-        snprintf(active_text, sizeof(active_text), "Active: %s",
-                 app.themes[app.selected].name);
-        gtk_label_set_text(GTK_LABEL(app.lbl_active), active_text);
+        snprintf(active_text, sizeof(active_text), "<b>Active:</b> %s", app.themes[app.selected].name);
+        gtk_label_set_markup(GTK_LABEL(app.lbl_active), active_text);
     }
 }
-
-/* ============================================================
- * Main Window
- * ============================================================ */
 
 static void activate(GtkApplication *gtk_app, gpointer user_data) {
     (void)user_data;
     ocws_gtk_enforce_premium_theme();
     ocws_gtk_apply_dynamic_css(gtk_app, NULL);
+    apply_custom_css();
 
     GtkWidget *window = gtk_application_window_new(gtk_app);
     gtk_window_set_title(GTK_WINDOW(window), "OCWS Theme Center");
-    gtk_window_set_default_size(GTK_WINDOW(window), 1024, 680);
+    gtk_window_set_default_size(GTK_WINDOW(window), 1080, 720);
     gtk_window_set_position(GTK_WINDOW(window), GTK_WIN_POS_CENTER);
 
-    /* Header bar */
     GtkWidget *header = gtk_header_bar_new();
-    gtk_header_bar_set_title(GTK_HEADER_BAR(header), "OCWS Theme Center");
-    gtk_header_bar_set_subtitle(GTK_HEADER_BAR(header),
-        "Browse, preview, and apply themes across all surfaces");
     gtk_header_bar_set_show_close_button(GTK_HEADER_BAR(header), TRUE);
     gtk_window_set_titlebar(GTK_WINDOW(window), header);
 
-    /* Apply button in header */
+    GtkWidget *stack = gtk_stack_new();
+    gtk_stack_set_transition_type(GTK_STACK(stack), GTK_STACK_TRANSITION_TYPE_SLIDE_LEFT_RIGHT);
+    gtk_stack_set_transition_duration(GTK_STACK(stack), 250);
+
+    GtkWidget *switcher = gtk_stack_switcher_new();
+    gtk_stack_switcher_set_stack(GTK_STACK_SWITCHER(switcher), GTK_STACK(stack));
+    gtk_header_bar_set_custom_title(GTK_HEADER_BAR(header), switcher);
+
     GtkWidget *btn_apply = gtk_button_new_with_label("  Apply Theme  ");
-    GtkStyleContext *actx = gtk_widget_get_style_context(btn_apply);
-    gtk_style_context_add_class(actx, "suggested-action");
+    gtk_style_context_add_class(gtk_widget_get_style_context(btn_apply), "suggested-action");
     gtk_header_bar_pack_end(GTK_HEADER_BAR(header), btn_apply);
     g_signal_connect(btn_apply, "clicked", G_CALLBACK(on_apply_clicked), NULL);
 
-    /* Root: sidebar + stack */
-    GtkWidget *hbox = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 0);
-    gtk_container_add(GTK_CONTAINER(window), hbox);
+    gtk_stack_add_titled(GTK_STACK(stack), build_browser_page(), "browser", "Library");
+    gtk_stack_add_titled(GTK_STACK(stack), build_preview_page(), "preview", "Preview");
+    gtk_stack_add_titled(GTK_STACK(stack), build_surfaces_page(), "surfaces", "Surfaces");
+    gtk_stack_add_titled(GTK_STACK(stack), build_import_page(), "import", "Import / Export");
 
-    GtkWidget *stack = gtk_stack_new();
-    gtk_stack_set_transition_type(GTK_STACK(stack), GTK_STACK_TRANSITION_TYPE_SLIDE_LEFT_RIGHT);
-    gtk_stack_set_transition_duration(GTK_STACK(stack), 150);
+    GtkWidget *overlay = gtk_overlay_new();
+    gtk_container_add(GTK_CONTAINER(overlay), stack);
 
-    GtkWidget *sidebar = gtk_stack_sidebar_new();
-    gtk_stack_sidebar_set_stack(GTK_STACK_SIDEBAR(sidebar), GTK_STACK(stack));
-    gtk_widget_set_size_request(sidebar, 170, -1);
-    gtk_box_pack_start(GTK_BOX(hbox), sidebar, FALSE, FALSE, 0);
-    gtk_box_pack_start(GTK_BOX(hbox),
-        gtk_separator_new(GTK_ORIENTATION_VERTICAL), FALSE, FALSE, 0);
+    GtkWidget *toast_box = gtk_box_new(GTK_ORIENTATION_HORIZONTAL, 0);
+    gtk_widget_set_valign(toast_box, GTK_ALIGN_END);
+    gtk_widget_set_halign(toast_box, GTK_ALIGN_CENTER);
+    gtk_widget_set_margin_bottom(toast_box, 24);
 
-    /* Pages */
-    gtk_stack_add_titled(GTK_STACK(stack), build_browser_page(),
-                         "browser", "Themes");
-    gtk_stack_add_titled(GTK_STACK(stack), build_preview_page(),
-                         "preview", "Preview");
-    gtk_stack_add_titled(GTK_STACK(stack), build_surfaces_page(),
-                         "surfaces", "Surfaces");
-    gtk_stack_add_titled(GTK_STACK(stack), build_import_page(),
-                         "import", "Import/Export");
+    app.lbl_status = gtk_label_new("Welcome to Theme Center!");
+    gtk_style_context_add_class(gtk_widget_get_style_context(app.lbl_status), "status-pill");
+    gtk_box_pack_start(GTK_BOX(toast_box), app.lbl_status, FALSE, FALSE, 0);
+    gtk_overlay_add_overlay(GTK_OVERLAY(overlay), toast_box);
 
-    gtk_box_pack_start(GTK_BOX(hbox), stack, TRUE, TRUE, 0);
-
-    /* Status bar at bottom */
-    GtkWidget *vroot = gtk_box_new(GTK_ORIENTATION_VERTICAL, 0);
-    /* Rebuild: status at bottom, content above */
-    gtk_container_remove(GTK_CONTAINER(window), hbox);
-    gtk_box_pack_start(GTK_BOX(vroot), hbox, TRUE, TRUE, 0);
-
-    GtkWidget *status_frame = gtk_frame_new(NULL);
-    GtkStyleContext *sctx = gtk_widget_get_style_context(status_frame);
-    gtk_style_context_add_class(sctx, "status-bar");
-    gtk_widget_set_margin_start(status_frame, 12);
-    gtk_widget_set_margin_end(status_frame, 12);
-    gtk_widget_set_margin_bottom(status_frame, 8);
-
-    app.lbl_status = gtk_label_new("Select a theme and click Apply to activate it.");
-    gtk_label_set_xalign(GTK_LABEL(app.lbl_status), 0.0);
-    gtk_container_add(GTK_CONTAINER(status_frame), app.lbl_status);
-    gtk_box_pack_start(GTK_BOX(vroot), status_frame, FALSE, FALSE, 0);
-
-    gtk_container_add(GTK_CONTAINER(window), vroot);
-
+    gtk_container_add(GTK_CONTAINER(window), overlay);
     gtk_widget_show_all(window);
 }
-
-/* ============================================================
- * Entry Point
- * ============================================================ */
-
 int gui_theme_center_main(int argc, char **argv) {
     init_paths();
     discover_themes();

@@ -1,4 +1,9 @@
 #!/bin/bash
+
+# Centralized error handling + desktop notifications (ocws-notify / mako / dunst)
+source "$(dirname "${BASH_SOURCE[0]}")/../lib/ocws-err.sh"
+ocws_enable_strict
+
 #
 # audio.sh — Audio control (volume, mute, sink switch)
 #

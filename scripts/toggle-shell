@@ -10,6 +10,11 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
+
+# Centralized error handling + desktop notifications (ocws-notify / mako / dunst)
+source "$SCRIPT_DIR/lib/ocws-err.sh"
+ocws_enable_strict
+
 OCWS_DIR="$HOME/.config/ocws"
 CFG="$OCWS_DIR/mode"
 mkdir -p "$OCWS_DIR"
@@ -76,9 +81,7 @@ case "$NEW" in
             mkdir -p "$OCWS_DIR/modes"
             cp -r "$PROJECT_DIR/dotfiles/ocws/modes/"* "$OCWS_DIR/modes/" 2>/dev/null || true
         elif [ ! -f "$OCWS_DIR/ocws.config" ] && [ ! -f "$OCWS_DIR/sfwbar-full.config" ]; then
-            echo "error: No OCWS config found in $OCWS_DIR"
-            echo "Run install.sh first or copy configs from dotfiles/"
-            exit 1
+            ocws_die "toggle-shell: No OCWS config found in $OCWS_DIR (run install.sh first)"
         fi
         ;;
 esac
@@ -101,8 +104,7 @@ case "$NEW" in
             nohup dms run >/dev/null 2>&1 &
             echo "Started dms"
         else
-            echo "error: dms not installed"
-            exit 1
+            ocws_die "toggle-shell: dms is not installed"
         fi
         ;;
     noctalia)
@@ -111,8 +113,7 @@ case "$NEW" in
             nohup noctalia >/dev/null 2>&1 &
             echo "Started noctalia"
         else
-            echo "error: noctalia not installed"
-            exit 1
+            ocws_die "toggle-shell: noctalia is not installed"
         fi
         ;;
     doublepanel)
@@ -159,9 +160,7 @@ case "$NEW" in
             nohup sfwbar -c "$OCWS_DIR/modes/minimal.mode" >/dev/null 2>&1 &
             echo "Started sfwbar (modular: minimal.mode)"
         else
-            echo "error: minimal mode config not found"
-            echo "Run install.sh to set up modular configs"
-            exit 1
+            ocws_die "toggle-shell: minimal mode config not found (run install.sh)"
         fi
         ;;
 esac

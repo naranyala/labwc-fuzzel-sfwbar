@@ -44,6 +44,7 @@ static GtkWidget *g_stack      = NULL;
 static GtkWidget *g_btn_prev   = NULL;
 static GtkWidget *g_btn_next   = NULL;
 static GtkWidget *g_checkbox   = NULL;
+static GtkWidget *g_shell_status = NULL;
 static int        g_page       = 0;
 static const int  TOTAL_PAGES  = 7;
 
@@ -119,8 +120,25 @@ static void on_shell_select(GtkWidget *btn, gpointer data) {
     const char *mode = (const char *)data;
     char cmd[256];
     snprintf(cmd, sizeof(cmd), "toggle-shell %s", mode);
-    run_cmd_async(cmd);
-    highlight_selected(btn);
+
+    /* Run toggle-shell to completion (it kills the old shell and starts
+     * the new one) BEFORE updating the UI, so the selection state always
+     * reflects what is actually running. */
+    int rc = system(cmd);
+
+    if (rc == 0) {
+        highlight_selected(btn);
+        if (g_shell_status) {
+            char *msg = g_strdup_printf("Active shell: %s", mode);
+            gtk_label_set_text(GTK_LABEL(g_shell_status), msg);
+            g_free(msg);
+        }
+    } else if (g_shell_status) {
+        char *msg = g_strdup_printf("Could not switch to %s — engine not installed?",
+                                    mode);
+        gtk_label_set_text(GTK_LABEL(g_shell_status), msg);
+        g_free(msg);
+    }
 }
 
 static void on_theme_select(GtkWidget *btn, gpointer data) {
@@ -246,6 +264,19 @@ static GtkWidget *build_shell_page(void) {
     gtk_widget_set_halign(grid, GTK_ALIGN_CENTER);
     gtk_box_pack_start(GTK_BOX(vbox), grid, FALSE, FALSE, 8);
 
+    /* Determine the active shell so we can pre-highlight the user's
+     * current choice (written by install.sh / toggle-shell). */
+    char cfg_dir[512], mode_path[512], active_mode[64] = {0};
+    get_config_dir(cfg_dir, sizeof(cfg_dir));
+    snprintf(mode_path, sizeof(mode_path), "%s/mode", cfg_dir);
+    FILE *mf = fopen(mode_path, "r");
+    if (mf) {
+        if (fgets(active_mode, sizeof(active_mode), mf)) {
+            active_mode[strcspn(active_mode, "\n")] = '\0';
+        }
+        fclose(mf);
+    }
+
     for (int i = 0; i < OCWS_SHELL_COUNT; i++) {
         GtkWidget *btn = gtk_button_new();
         gtk_widget_set_size_request(btn, 200, 120);
@@ -276,7 +307,17 @@ static GtkWidget *build_shell_page(void) {
         g_signal_connect(btn, "clicked", G_CALLBACK(on_shell_select),
                          (gpointer)OCWS_SHELLS[i].mode);
         gtk_grid_attach(GTK_GRID(grid), btn, i % 2, i / 2, 1, 1);
+
+        if (active_mode[0] && strcmp(active_mode, OCWS_SHELLS[i].mode) == 0) {
+            gtk_style_context_add_class(ctx, "suggested-action");
+        }
     }
+
+    g_shell_status = gtk_label_new(NULL);
+    gtk_label_set_xalign(GTK_LABEL(g_shell_status), 0.0);
+    gtk_style_context_add_class(gtk_widget_get_style_context(g_shell_status),
+                                "dim-label");
+    gtk_box_pack_start(GTK_BOX(vbox), g_shell_status, FALSE, FALSE, 8);
 
     return page;
 }

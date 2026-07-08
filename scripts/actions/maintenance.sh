@@ -1,4 +1,9 @@
 #!/bin/bash
+
+# Centralized error handling + desktop notifications (ocws-notify / mako / dunst)
+source "$(dirname "${BASH_SOURCE[0]}")/../lib/ocws-err.sh"
+ocws_enable_strict
+
 # maintenance.sh — Common fixes, cache clearing, and restarts for Labwc
 
 set -euo pipefail

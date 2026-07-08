@@ -7,6 +7,7 @@
 #include <sys/wait.h>
 #include <time.h>
 #include <dirent.h>
+#include "../libocws/notify.h"
 
 #define PID_FILE "/tmp/ocws-recorder.pid"
 #define RECORD_DIR_DEFAULT "$HOME/Videos/recordings"
@@ -52,10 +53,7 @@ static int is_recording(void) {
 }
 
 static void notify(const char *title, const char *body) {
-    char cmd[1024];
-    snprintf(cmd, sizeof(cmd),
-        "notify-send -a ocws-recorder '%s' '%s' 2>/dev/null", title, body);
-    system(cmd);
+    ocws_notify(title, body, NULL);
 }
 
 static const char *get_record_dir(void) {
@@ -149,7 +147,7 @@ static void stop_recording(void) {
         notify("Recording Saved", "Recording completed successfully");
         fprintf(stderr, "Recording saved\n");
     } else {
-        notify("Recording Failed", "Recording stopped with error");
+        ocws_notify_error("Recording Failed", "Recording stopped with error");
         fprintf(stderr, "Recording failed\n");
     }
 }

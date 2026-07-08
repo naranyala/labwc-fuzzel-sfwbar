@@ -16,9 +16,13 @@ NC='\033[0m'
 info() { echo -e "\n${CYAN}==>${NC} $*"; }
 pass() { echo -e "  ${GREEN}✓${NC} $*"; }
 warn() { echo -e "  ${YELLOW}⚠${NC} $*"; }
-fail() { echo -e "  ${RED}✗${NC} $*"; exit 1; }
+fail() { ocws_notify_error "OCWS Install" "$*"; echo -e "  ${RED}✗${NC} $*"; exit 1; }
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+# Centralized error handling + desktop notifications (ocws-notify / mako / dunst)
+source "$SCRIPT_DIR/scripts/lib/ocws-err.sh"
+ocws_enable_strict
 
 check_requirements() {
     # Run the detailed requirements checker if available

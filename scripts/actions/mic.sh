@@ -1,4 +1,9 @@
 #!/bin/bash
+
+# Centralized error handling + desktop notifications (ocws-notify / mako / dunst)
+source "$(dirname "${BASH_SOURCE[0]}")/../lib/ocws-err.sh"
+ocws_enable_strict
+
 # mic.sh — Microphone control (mute toggle, volume, list sources)
 # Rewritten to use ocws-volume C binary for core operations.
 

@@ -1,6 +1,11 @@
 #!/bin/bash
 set -euo pipefail
 
+# Desktop notifications for failures (ocws-notify / mako / dunst).
+# Sourced without ocws_enable_strict: health checks must keep running and
+# tally failures rather than aborting on the first one.
+source "$(dirname "${BASH_SOURCE[0]}")/lib/ocws-err.sh"
+
 # ocws-health.sh — Comprehensive health diagnostics for OCWS
 # Checks system resources, services, dependencies, config integrity, and C binaries.
 
@@ -24,7 +29,7 @@ INFO=0
 
 pass() { echo -e "  ${GREEN}PASS${NC} $1"; PASS=$((PASS+1)); }
 warn() { echo -e "  ${YELLOW}WARN${NC} $1"; WARN=$((WARN+1)); }
-fail() { echo -e "  ${RED}FAIL${NC} $1"; FAIL=$((FAIL+1)); }
+fail() { ocws_notify_error "OCWS Health" "$1"; echo -e "  ${RED}FAIL${NC} $1"; FAIL=$((FAIL+1)); }
 info() { echo -e "  ${CYAN}INFO${NC} $1"; INFO=$((INFO+1)); }
 header() { echo -e "\n${BOLD}${CYAN}[$1]${NC} ${BOLD}$2${NC}"; }
 

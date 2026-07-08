@@ -1,0 +1,11 @@
+{
+  "id": "network",
+  "name": "Network Monitor",
+  "api": 1,
+  "library": "libnetwork.so",
+  "caps": ["network", "ip", "interface"],
+  "config": {
+    "monitor_interval": 30,
+    "notify_on_change": true
+  }
+}

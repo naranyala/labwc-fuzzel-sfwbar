@@ -1,0 +1,11 @@
+{
+  "id": "pomodoro",
+  "name": "Pomodoro Timer",
+  "api": 1,
+  "library": "libpomodoro.so",
+  "caps": ["timer", "notify"],
+  "config": {
+    "work_minutes": 25,
+    "break_minutes": 5
+  }
+}

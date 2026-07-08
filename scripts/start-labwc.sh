@@ -4,6 +4,10 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
 
+# Centralized error handling + desktop notifications (ocws-notify / mako / dunst)
+source "$SCRIPT_DIR/lib/ocws-err.sh"
+ocws_enable_strict
+
 RED='\033[0;31m'
 YELLOW='\033[1;33m'
 GREEN='\033[0;32m'
@@ -11,7 +15,7 @@ CYAN='\033[0;36m'
 NC='\033[0m'
 
 pass()  { echo -e "  ${GREEN}✓${NC} $1"; }
-fail()  { echo -e "  ${RED}✗${NC} $1"; }
+fail()  { ocws_notify_error "OCWS Launch" "$1"; echo -e "  ${RED}✗${NC} $1"; }
 warn()  { echo -e "  ${YELLOW}⚠${NC} $1"; }
 info()  { echo -e "  ${CYAN}→${NC} $1"; }
 

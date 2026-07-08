@@ -13,6 +13,11 @@
 set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+# Centralized error handling + desktop notifications (ocws-notify / mako / dunst)
+source "$SCRIPT_DIR/lib/ocws-err.sh"
+ocws_enable_strict
+
 PROJECT_DIR=""
 # Walk up from script dir looking for themes/
 _candidate="$SCRIPT_DIR"
@@ -24,7 +29,7 @@ while [[ "$_candidate" != "/" ]]; do
   _candidate="$(dirname "$_candidate")"
 done
 
-[[ -d "$PROJECT_DIR/themes" ]] || { echo "Cannot find themes/ directory"; exit 1; }
+[[ -d "$PROJECT_DIR/themes" ]] || ocws_die "Cannot find themes/ directory"
 THEMES_DIR="$PROJECT_DIR/themes"
 CURRENT_FILE="$HOME/.config/labwc/.current-theme"
 
@@ -65,7 +70,7 @@ apply_theme() {
     echo -e "${RED}✗ Theme not found: $name${NC}"
     echo "Available themes:"
     get_themes | sed 's/^/  /'
-    exit 1
+    ocws_die "Theme not found: $name"
   fi
 
   echo -e "${BOLD}Applying: $name${NC}"
@@ -100,8 +105,7 @@ next_theme() {
   done < <(get_themes)
 
   if [[ ${#themes[@]} -eq 0 ]]; then
-    echo "No themes found"
-    exit 1
+    ocws_die "No themes found"
   fi
 
   local idx=0
@@ -139,7 +143,7 @@ case "${1:-}" in
     next_theme
     ;;
   preview)
-    [[ -n "${2:-}" ]] || { echo "Usage: theme preview <name>"; exit 1; }
+    [[ -n "${2:-}" ]] || ocws_die "Usage: theme preview <name>"
     bash "$SCRIPT_DIR/theme-engine.sh" preview "$THEMES_DIR/${2}.ini"
     ;;
   *)

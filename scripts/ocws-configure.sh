@@ -8,6 +8,10 @@ set -euo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 PROJECT_DIR="$(dirname "$SCRIPT_DIR")"
+
+# Centralized error handling + desktop notifications (ocws-notify / mako / dunst)
+source "$SCRIPT_DIR/lib/ocws-err.sh"
+ocws_enable_strict
 OCWS_DIR="${OCWS_DIR:-$HOME/.config/ocws}"
 STATE_DIR="$OCWS_DIR/state"
 mkdir -p "$STATE_DIR"

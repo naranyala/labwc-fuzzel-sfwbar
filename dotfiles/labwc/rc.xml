@@ -5,10 +5,11 @@
   </core>
 
   <!-- Default margin for maximized windows -->
-  <margin top="10" bottom="10" left="10" right="10" />
+  <margin top="40" bottom="10" left="10" right="10" />
 
   <theme>
     <name>Clearlooks</name>
+    <cornerRadius>12</cornerRadius>
     <font place="ActiveWindow">
       <name>sans</name>
       <size>10</size>

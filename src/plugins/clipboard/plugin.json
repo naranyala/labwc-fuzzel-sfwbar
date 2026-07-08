@@ -1,0 +1,12 @@
+{
+  "id": "clipboard",
+  "name": "Clipboard Monitor",
+  "api": 1,
+  "library": "libclipboard.so",
+  "caps": ["clipboard", "history", "notification"],
+  "config": {
+    "clipboard_history_size": 5,
+    "auto_cleanup": true,
+    "show_notifications": true
+  }
+}

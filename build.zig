@@ -354,8 +354,39 @@ pub fn build(b: *std.Build) void {
             .file = b.path("src/daemons/ocws-brokerd.c"),
             .flags = c_flags,
         });
+        brokerd.root_module.addCSourceFile(.{
+            .file = b.path("src/libocws/bus.c"),
+            .flags = c_flags,
+        });
+
+        brokerd.root_module.linkSystemLibrary("glib-2.0", .{});
+        brokerd.root_module.linkSystemLibrary("gio-2.0", .{});
+        brokerd.root_module.linkSystemLibrary("dl", .{});
 
         b.installArtifact(brokerd);
+    }
+
+    // pomodoro plugin: reference .so loaded by ocws-brokerd at runtime.
+    {
+        const pomodoro = b.addLibrary(.{
+            .name = "pomodoro",
+            .linkage = .dynamic,
+            .root_module = b.createModule(.{
+                .target = target,
+                .optimize = optimize,
+                .link_libc = true,
+            }),
+        });
+
+        pomodoro.root_module.addCSourceFile(.{
+            .file = b.path("src/plugins/pomodoro/pomodoro.c"),
+            .flags = c_flags,
+        });
+
+        const inst = b.addInstallArtifact(pomodoro, .{
+            .dest_dir = .{ .override = .{ .custom = "plugins" } },
+        });
+        _ = inst;
     }
 
     // ocws-welcome: GTK3 Welcome GUI
@@ -581,7 +612,67 @@ pub fn build(b: *std.Build) void {
             .file = b.path("src/daemon/ocws-appletd.c"),
             .flags = c_flags,
         });
+        appletd.root_module.linkSystemLibrary("glib-2.0", .{});
+        appletd.root_module.linkSystemLibrary("gmodule-2.0", .{});
         b.installArtifact(appletd);
+
+        // Dummy plugin shared library
+        const dummy_plugin = b.addLibrary(.{
+            .linkage = .dynamic,
+            .name = "ocws-dummy",
+            .root_module = b.createModule(.{
+                .target = target,
+                .optimize = optimize,
+                .link_libc = true,
+            }),
+        });
+        dummy_plugin.root_module.addCSourceFile(.{
+            .file = b.path("src/plugins/dummy.c"),
+            .flags = c_flags,
+        });
+        const install_dummy = b.addInstallArtifact(dummy_plugin, .{
+            .dest_dir = .{ .custom = "lib/ocws/plugins" },
+        });
+        b.getInstallStep().dependOn(&install_dummy.step);
+
+        // Sysmon plugin
+        const sysmon_plugin = b.addLibrary(.{
+            .linkage = .dynamic,
+            .name = "ocws-sysmon-plugin",
+            .root_module = b.createModule(.{
+                .target = target,
+                .optimize = optimize,
+                .link_libc = true,
+            }),
+        });
+        sysmon_plugin.root_module.addCSourceFile(.{
+            .file = b.path("src/plugins/sysmon.c"),
+            .flags = c_flags,
+        });
+        const install_sysmon = b.addInstallArtifact(sysmon_plugin, .{
+            .dest_dir = .{ .custom = "lib/ocws/plugins" },
+        });
+        b.getInstallStep().dependOn(&install_sysmon.step);
+
+        // Battery plugin
+        const battery_plugin = b.addLibrary(.{
+            .linkage = .dynamic,
+            .name = "ocws-battery-plugin",
+            .root_module = b.createModule(.{
+                .target = target,
+                .optimize = optimize,
+                .link_libc = true,
+            }),
+        });
+        battery_plugin.root_module.addCSourceFile(.{
+            .file = b.path("src/plugins/battery.c"),
+            .flags = c_flags,
+        });
+        const install_battery = b.addInstallArtifact(battery_plugin, .{
+            .dest_dir = .{ .custom = "lib/ocws/plugins" },
+        });
+        b.getInstallStep().dependOn(&install_battery.step);
+
 
         // --- libocws-store: reactive state library + tests ---
         const test_store = b.addExecutable(.{

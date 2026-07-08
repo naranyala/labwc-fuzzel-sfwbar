@@ -12,9 +12,13 @@ RED='\033[0;31m'
 NC='\033[0m'
 
 info() { echo -e "\n${CYAN}==>${NC} $1"; }
-fail() { echo -e "  ${RED}✗${NC} $1"; exit 1; }
+fail() { ocws_notify_error "OCWS Install" "$*"; echo -e "  ${RED}✗${NC} $*"; exit 1; }
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+# Centralized error handling + desktop notifications (ocws-notify / mako / dunst)
+source "$SCRIPT_DIR/scripts/lib/ocws-err.sh"
+ocws_enable_strict
 
 info "Detecting Linux Distribution..."
 

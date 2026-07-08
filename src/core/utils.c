@@ -63,10 +63,10 @@ const int OCWS_THEME_COUNT = sizeof(OCWS_THEMES) / sizeof(OCWS_THEMES[0]);
  * ============================================================ */
 
 const ocws_shell_entry_t OCWS_SHELLS[] = {
-    { "OCWS Double Panel", "sfwbar-plus",
+    { "OCWS Double Panel", "doublepanel",
       "Default OCWS — dual panel\nsfwbar-based desktop",
       "preferences-desktop-display" },
-    { "Crystal Dock",      "crystal",
+    { "Crystal Dock",      "crystaldock",
       "SFWBar + macOS-style dock\nSmooth animations",
       "preferences-desktop-wallpaper" },
     { "DankMaterialShell", "dms",
