@@ -5,7 +5,7 @@
   </core>
 
   <!-- Default margin for maximized windows -->
-  <margin top="0" bottom="4" left="4" right="4" />
+  <margin top="0" bottom="4" left="8" right="8" />
 
   <theme>
     <name>Clearlooks</name>

@@ -91,7 +91,7 @@ profiles:
         highlight_word_and_matches_on_double_click: true
 
         font:
-            size: 11
+            size: 12
             locator: Native
             text_shaping:
                 engine: harfbuzz
@@ -100,7 +100,7 @@ profiles:
             render_mode: Gray
             strict_spacing: true
             regular:
-                family: Noto Sans Mono 10
+                family: JetBrains Mono
                 weight: Regular
                 slant: Normal
                 features: []

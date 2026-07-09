@@ -1,0 +1,137 @@
+#!/usr/bin/env bash
+#
+# ocws-eq-apply — Backend that makes ocws-equalizer actually apply sound.
+#
+# The GTK GUI (src/gui/ocws-equalizer.c) shells out to this helper instead of
+# EasyEffects (which is often not installed). We drive the system-wide EQ with
+# a PipeWire libpipewire-module-filter-chain node using the LADSPA mbeq
+# 15-band graphic EQ, then route the default sink through it. Truly integrated:
+# every app's audio passes through the EQ.
+#
+# Usage:
+#   ocws-eq-apply apply <10 or 15 comma-separated dB values>
+#   ocws-eq-apply off
+#   ocws-eq-apply status
+
+source "$(dirname "${BASH_SOURCE[0]}")/lib/ocws-err.sh"
+ocws_enable_strict
+
+CONFIG_DIR="${XDG_CONFIG_HOME:-$HOME/.config}/pipewire/pipewire.conf.d"
+CONFIG_FILE="$CONFIG_DIR/ocws-equalizer.conf"
+NODE_NAME="ocws_eq_input"
+
+# 15 mbeq band port names (low -> high).
+BANDS=("50Hz" "100Hz" "156Hz" "220Hz" "311Hz" "440Hz" "622Hz" "880Hz"
+       "1250Hz" "1750Hz" "2500Hz" "3500Hz" "5000Hz" "10000Hz" "20000Hz")
+
+# Map the GUI's 10 bands (32..16K) onto the nearest mbeq band index.
+MAP10=(0 0 1 3 5 7 9 11 13 14)
+
+find_plugin() {
+  for p in /usr/lib/ladspa/mbeq_1197.so /usr/lib64/ladspa/mbeq_1197.so \
+           /usr/local/lib/ladspa/mbeq_1197.so; do
+    [[ -f "$p" ]] && { echo "$p"; return 0; }
+  done
+  local f; f=$(find /usr/lib*/ladspa /usr/local/lib*/ladspa -name mbeq_1197.so 2>/dev/null | head -1)
+  [[ -n "$f" ]] && { echo "$f"; return 0; }
+  return 1
+}
+
+# $1 = space/newline-free csv of 10 or 15 values
+values_to_15() {
+  local csv="$1" vals plugin
+  local -a out=()
+  for _ in "${BANDS[@]}"; do out+=(0); done
+  IFS=',' read -ra vals <<< "$csv"
+  if [[ ${#vals[@]} -eq 15 ]]; then
+    for i in "${!vals[@]}"; do out[$i]="${vals[$i]}"; done
+  elif [[ ${#vals[@]} -eq 10 ]]; then
+    for i in "${!vals[@]}"; do out[${MAP10[$i]}]=${vals[$i]}; done
+  else
+    ocws_die "Need 10 or 15 band values, got ${#vals[@]}"
+  fi
+  printf '%s\n' "${out[@]}" | paste -sd, -
+}
+
+write_config() {
+  local plugin="$1" bands_csv="$2"
+  local vals csv; csv="$(values_to_15 "$bands_csv")"
+  IFS=',' read -ra vals <<< "$csv"
+  local control=""
+  for i in "${!BANDS[@]}"; do
+    local v="${vals[$i]// /}"; control+="          \"${BANDS[$i]}\" = $v"$'\n'
+  done
+  mkdir -p "$CONFIG_DIR"
+  cat > "$CONFIG_FILE" <<EOF
+context.modules = [
+  {
+    name = libpipewire-module-filter-chain
+    args = {
+      node.description = "OCWS Equalizer"
+      media.name = "OCWS Equalizer"
+      filter.graph = {
+        nodes = [
+          {
+            type = ladspa
+            name = eq
+            plugin = $plugin
+            label = mbeq
+            control = {
+$(printf '%s' "$control")            }
+          }
+        ]
+        links = [
+          { output = "in:left"  link = "eq:IN0"  }
+          { output = "in:right" link = "eq:IN1"  }
+          { output = "eq:OUT0"  link = "out:left"  }
+          { output = "eq:OUT1"  link = "out:right" }
+        ]
+      }
+      capture.props = {
+        node.name = "$NODE_NAME"
+        media.class = "Audio/Sink"
+        node.description = "OCWS Equalizer"
+      }
+      playback.props = {
+        node.name = "ocws_eq_output"
+        node.passive = true
+      }
+    }
+  }
+]
+EOF
+}
+
+restart_pipewire() {
+  if command -v systemctl >/dev/null 2>&1 && systemctl --user -q is-active pipewire.service 2>/dev/null; then
+    systemctl --user restart pipewire.service
+  else
+    pkill -HUP -x pipewire 2>/dev/null || true
+  fi
+  sleep 1
+  if command -v wpctl >/dev/null 2>&1; then
+    local id
+    id=$(wpctl status 2>/dev/null | awk -v n="$NODE_NAME" '
+      /Sink:/ {f=1} f && $0 ~ n {gsub(/[^0-9]/,"",$1); print $1; exit}')
+    [[ -n "$id" ]] && wpctl set-default "$id" 2>/dev/null || true
+  fi
+}
+
+cmd="${1:-status}"
+case "$cmd" in
+  apply)
+    [[ -z "${2:-}" ]] && ocws_die "apply needs 10 or 15 comma-separated dB values"
+    plugin=$(find_plugin) || ocws_die "mbeq LADSPA plugin not found. Run: build-ocws-audio.sh swh-plugins"
+    write_config "$plugin" "$2"
+    restart_pipewire
+    ocws_notify "OCWS Equalizer" "EQ applied ($(echo "$2" | tr ',' ' '))" "audio-volume-high"
+    ;;
+  off)
+    rm -f "$CONFIG_FILE"; restart_pipewire
+    ocws_notify "OCWS Equalizer" "EQ disabled" "audio-volume-muted"
+    ;;
+  status)
+    [[ -f "$CONFIG_FILE" ]] && echo "OCWS Equalizer: ON" || echo "OCWS Equalizer: OFF"
+    ;;
+  *) ocws_die "Unknown command '$cmd'. Use: apply <vals> | off | status" ;;
+esac

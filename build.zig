@@ -520,6 +520,58 @@ pub fn build(b: *std.Build) void {
 
         b.installArtifact(theme_center);
 
+    // ocws-equalizer: GTK3 Audio Equalizer GUI
+    {
+        const equalizer = b.addExecutable(.{
+            .name = "ocws-equalizer",
+            .root_module = b.createModule(.{
+                .target = target,
+                .optimize = optimize,
+                .link_libc = true,
+            }),
+        });
+
+        equalizer.root_module.addCSourceFile(.{
+            .file = b.path("src/gui/ocws-equalizer.c"),
+            .flags = c_flags,
+        });
+        equalizer.root_module.linkSystemLibrary("gtk+-3.0", .{});
+        equalizer.root_module.linkSystemLibrary("glib-2.0", .{});
+        equalizer.root_module.linkSystemLibrary("pulse", .{});
+        equalizer.root_module.linkSystemLibrary("pulse-simple", .{});
+        equalizer.root_module.linkSystemLibrary("fftw3", .{});
+        equalizer.root_module.linkSystemLibrary("m", .{});
+        equalizer.root_module.linkSystemLibrary("ayatana-appindicator3-0.1", .{});
+
+        b.installArtifact(equalizer);
+    }
+
+    // ocws-tray: system-tray controller for OCWS background processes
+    {
+        const tray = b.addExecutable(.{
+            .name = "ocws-tray",
+            .root_module = b.createModule(.{
+                .target = target,
+                .optimize = optimize,
+                .link_libc = true,
+            }),
+        });
+
+        tray.root_module.addCSourceFile(.{
+            .file = b.path("src/cli/ocws-tray.c"),
+            .flags = c_flags,
+        });
+        tray.root_module.addIncludePath(b.path("src"));
+        tray.root_module.addIncludePath(b.path("sources/zsergey-tray/tray-master"));
+        tray.root_module.linkSystemLibrary("gtk+-3.0", .{});
+        tray.root_module.linkSystemLibrary("glib-2.0", .{});
+        tray.root_module.linkSystemLibrary("ayatana-appindicator3-0.1", .{});
+        tray.root_module.linkSystemLibrary("m", .{});
+
+        b.installArtifact(tray);
+    }
+    }
+
         // ocws-plugin: Native plugin loader
         const plugin = b.addExecutable(.{
             .name = "ocws-plugin",
@@ -637,4 +689,3 @@ pub fn build(b: *std.Build) void {
         const store_test_step = b.step("test-store", "Run libocws-store test suite");
         store_test_step.dependOn(&run_store_test.step);
     }
-}
