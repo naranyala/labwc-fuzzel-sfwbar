@@ -259,7 +259,7 @@ case "${dep_choice:-1}" in
                 for engine in $need_build; do
                     case "$engine" in
                         dms)
-                            echo -e "  dms:    git clone https://github.com/DankShrine/dms.git && cd dms && make && sudo make install"
+                            echo -e "  dms:    git clone --depth=1 https://github.com/DankShrine/dms.git && cd dms && make && sudo make install"
                             ;;
                         crystal-dock)
                             echo -e "  crystal-dock: see https://github.com/crystal-dock/crystal-dock"

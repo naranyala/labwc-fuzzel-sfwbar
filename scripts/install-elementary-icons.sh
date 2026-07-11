@@ -14,7 +14,7 @@ trap cleanup EXIT
 echo "Downloading elementary icons..."
 
 if ! git clone --depth 1 "$REPO" "$TMP_DIR/elementary" 2>/dev/null; then
-    echo "Error: git clone failed. Install git and try again."
+    echo "Error: git clone --depth=1 failed. Install git and try again."
     exit 1
 fi
 

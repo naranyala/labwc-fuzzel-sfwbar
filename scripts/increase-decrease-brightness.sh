@@ -20,7 +20,7 @@ install_brightnessctl() {
 
     # Clone and build from source
     local TEMP_DIR=$(mktemp -d)
-    git clone https://github.com/Hummer12007/brightnessctl.git "$TEMP_DIR"
+    git clone --depth=1 https://github.com/Hummer12007/brightnessctl.git "$TEMP_DIR"
     
     cd "$TEMP_DIR" || exit 1
     make

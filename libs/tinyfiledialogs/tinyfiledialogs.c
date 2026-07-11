@@ -15,7 +15,7 @@ Copyright (c) 2014 - 2025 Guillaume Vareille http://ysengrin.com
  |tiny file| Unique code file created [November 9, 2014]
  | dialogs |
  \____  ___/ http://tinyfiledialogs.sourceforge.net
-	  \|     git clone http://git.code.sf.net/p/tinyfiledialogs/code tinyfd
+	  \|     git clone --depth=1 http://git.code.sf.net/p/tinyfiledialogs/code tinyfd
 			  ____________________________________________
 			 |                                            |
 			 |   email: tinyfiledialogs at ysengrin.com   |

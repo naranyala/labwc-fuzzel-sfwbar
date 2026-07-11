@@ -199,7 +199,7 @@ echo -e "Item1\nItem2\nItem3" | rofi -dmenu -multi-select -markup-rows
 ## Build from Source (rofi-wayland)
 
 ```bash
-git clone https://github.com/DaveDavenport/rofi.git
+git clone --depth=1 https://github.com/DaveDavenport/rofi.git
 cd rofi
 git checkout wayland
 mkdir build && cd build

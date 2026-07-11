@@ -156,7 +156,7 @@ sudo pacman -S labwc sfwbar fuzzel gtk-layer-shell pipewire wireplumber \
 ### Build from Source
 
 ```bash
-git clone https://github.com/naranyala/labwc-fuzzel-sfwbar.git
+git clone --depth=1 https://github.com/naranyala/labwc-fuzzel-sfwbar.git
 cd labwc-fuzzel-sfwbar
 zig build
 ```

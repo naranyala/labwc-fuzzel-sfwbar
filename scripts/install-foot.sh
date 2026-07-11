@@ -33,20 +33,20 @@ fi
 # Build tllist
 if ! pkg-config --exists tllist; then
     info "Building tllist..."
-    rm -rf tllist && git clone https://codeberg.org/dnkl/tllist.git
+    rm -rf tllist && git clone --depth=1 https://codeberg.org/dnkl/tllist.git
     cd tllist && meson setup build --buildtype=release && ninja -C build && sudo ninja -C build install && cd ..
 fi
 
 # Build fcft
 if ! pkg-config --exists fcft; then
     info "Building fcft..."
-    rm -rf fcft && git clone https://codeberg.org/dnkl/fcft.git
+    rm -rf fcft && git clone --depth=1 https://codeberg.org/dnkl/fcft.git
     cd fcft && meson setup build --buildtype=release && ninja -C build && sudo ninja -C build install && cd ..
 fi
 
 # Build foot
 info "Building foot..."
-rm -rf foot && git clone https://codeberg.org/dnkl/foot.git
+rm -rf foot && git clone --depth=1 https://codeberg.org/dnkl/foot.git
 cd foot && meson setup build --buildtype=release && ninja -C build && sudo ninja -C build install && cd ..
 
 pass "foot terminal built and installed!"

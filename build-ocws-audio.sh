@@ -7,7 +7,7 @@
 # (libpulse, fftw3, cairo). EasyEffects is offered as an optional full
 # backend.
 #
-# Mirrors the convention in build-ocws-core.sh (git clone -> build -> install).
+# Mirrors the convention in build-ocws-core.sh (git clone --depth=1 -> build -> install).
 # -------------------------------------------------------------------
 
 set -euo pipefail

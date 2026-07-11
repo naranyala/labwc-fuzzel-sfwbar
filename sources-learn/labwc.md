@@ -676,7 +676,7 @@ elif command -v apt-get >/dev/null; then
 fi
 
 # Clone OCWS repository
-git clone https://github.com/yourusername/OCWS.git
+git clone --depth=1 https://github.com/yourusername/OCWS.git
 cd OCWS
 
 # Initialize configuration
@@ -706,19 +706,19 @@ fi
 cd ~/projects
 
 # LabWC
-git clone https://github.com/labwc/labwc.git
+git clone --depth=1 https://github.com/labwc/labwc.git
 sources/labwc
 
 # SFWBar
-git clone https://github.com/LBCrion/sfwbar.git
+git clone --depth=1 https://github.com/LBCrion/sfwbar.git
 sources/sfwbar
 
 # Fuzzel
-git clone https://codeberg.org/dnkl/fuzzel.git
+git clone --depth=1 https://codeberg.org/dnkl/fuzzel.git
 sources/fuzzel
 
 # OCWS (this repo)
-git clone https://github.com/yourusername/OCWS.git
+git clone --depth=1 https://github.com/yourusername/OCWS.git
 ```
 
 ---

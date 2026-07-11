@@ -65,7 +65,7 @@ if ! command -v dms >/dev/null 2>&1; then
     echo ""
     echo "  For DMS mode — build from source:"
     echo "    sudo apt install gcc make pkg-config libgtk-3-dev libjson-c-dev"
-    echo "    git clone https://github.com/DankShrine/dms.git"
+    echo "    git clone --depth=1 https://github.com/DankShrine/dms.git"
     echo "    cd dms && make && sudo make install"
 fi
 

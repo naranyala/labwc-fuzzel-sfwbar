@@ -42,7 +42,7 @@ To compile the latest upstream versions from source:
 ### Step 2: Run the Installer
 
 ```bash
-git clone https://github.com/naranyala/labwc-fuzzel-sfwbar.git
+git clone --depth=1 https://github.com/naranyala/labwc-fuzzel-sfwbar.git
 cd labwc-fuzzel-sfwbar
 ./install.sh
 ```
