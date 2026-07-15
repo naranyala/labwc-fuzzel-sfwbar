@@ -52,10 +52,14 @@ pub fn build(b: *std.Build) void {
     // Add protocol C sources
     addProtocolSources(root_mod, b, c_flags);
 
-    // Add dock_c_impl.c (includes Blend2D implementation)
+    // Add C sources
     root_mod.addCSourceFile(.{
         .file = b.path("src/dock_c_impl.c"),
         .flags = &.{ "-std=gnu11", "-Wall", "-DBLEND2D_STATIC" },
+    });
+    root_mod.addCSourceFile(.{
+        .file = b.path("src/blend2d_render.c"),
+        .flags = &.{ "-std=gnu11", "-Wall" },
     });
 
     b.installArtifact(exe);
@@ -106,6 +110,10 @@ pub fn build(b: *std.Build) void {
         .file = b.path("src/dock_c_impl.c"),
         .flags = &.{ "-std=gnu11", "-Wall", "-DBLEND2D_STATIC" },
     });
+    panel_mod_test.addCSourceFile(.{
+        .file = b.path("src/blend2d_render.c"),
+        .flags = &.{ "-std=gnu11", "-Wall" },
+    });
     const panel_tests = b.addTest(.{ .root_module = panel_mod_test });
     const run_panel_tests = b.addRunArtifact(panel_tests);
     run_panel_tests.step.dependOn(&cmake_build.step);
@@ -127,6 +135,10 @@ pub fn build(b: *std.Build) void {
         .file = b.path("src/dock_c_impl.c"),
         .flags = &.{ "-std=gnu11", "-Wall", "-DBLEND2D_STATIC" },
     });
+    render_mod.addCSourceFile(.{
+        .file = b.path("src/blend2d_render.c"),
+        .flags = &.{ "-std=gnu11", "-Wall" },
+    });
     const render_tests = b.addTest(.{ .root_module = render_mod });
     const run_render_tests = b.addRunArtifact(render_tests);
     run_render_tests.step.dependOn(&cmake_build.step);
@@ -146,6 +158,10 @@ pub fn build(b: *std.Build) void {
     icon_mod.addCSourceFile(.{
         .file = b.path("src/dock_c_impl.c"),
         .flags = &.{ "-std=gnu11", "-Wall", "-DBLEND2D_STATIC" },
+    });
+    icon_mod.addCSourceFile(.{
+        .file = b.path("src/blend2d_render.c"),
+        .flags = &.{ "-std=gnu11", "-Wall" },
     });
     const icon_tests = b.addTest(.{ .root_module = icon_mod });
     const run_icon_tests = b.addRunArtifact(icon_tests);

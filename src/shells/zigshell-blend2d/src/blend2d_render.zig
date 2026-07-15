@@ -1,5 +1,5 @@
-// blend2d_render.zig — Blend2D rendering abstraction for Wayland SHM buffers
-// Renders to an internal Blend2D image, then copies pixels to the SHM buffer.
+// blend2d_render.zig — Zig wrapper for C Blend2D rendering functions
+// All rendering is done in C (blend2d_render.c), this file provides the Zig interface.
 
 const std = @import("std");
 const c = @import("c.zig").c;
@@ -10,170 +10,27 @@ pub const TextMetrics = struct {
 };
 
 pub const BlendRenderer = struct {
-    image: c.BLImageCore,
-    ctx: c.BLContextCore,
-    font_face: c.BLFontFaceCore,
-    font: c.BLFontCore,
-    shm_data: ?[*]u8 = null,
-    buf_width: i32 = 0,
-    buf_height: i32 = 0,
-    stride: i32 = 0,
-    initialized: bool = false,
-    font_loaded: bool = false,
+    handle: ?*c.BlendRenderer = null,
 
     pub fn init(pixel_data: [*]u8, width: i32, height: i32, stride_bytes: i32) !BlendRenderer {
-        var self = BlendRenderer{
-            .image = std.mem.zeroes(c.BLImageCore),
-            .ctx = std.mem.zeroes(c.BLContextCore),
-            .font_face = std.mem.zeroes(c.BLFontFaceCore),
-            .font = std.mem.zeroes(c.BLFontCore),
-        };
-        self.buf_width = width;
-        self.buf_height = height;
-        self.stride = stride_bytes;
-        self.shm_data = pixel_data;
-
-        // Create a regular Blend2D image (internal buffer, NOT external data)
-        // We render to this, then copy pixels to SHM
-        const result = c.bl_image_init_as(
-            &self.image,
-            @intCast(width),
-            @intCast(height),
-            @as(c_uint, c.BL_FORMAT_PRGB32),
-        );
-        if (result != @as(c_uint, c.BL_SUCCESS)) return error.Blend2DError;
-
-        // Create rendering context targeting the internal image
-        const ctx_result = c.bl_context_init_as(&self.ctx, &self.image, null);
-        if (ctx_result != @as(c_uint, c.BL_SUCCESS)) return error.Blend2DError;
-
-        // Load default font (best-effort)
-        self.loadDefaultFont() catch {};
-
-        self.initialized = true;
-        return self;
+        const handle = c.blend_renderer_create(pixel_data, width, height, stride_bytes);
+        if (handle == null) return error.Blend2DError;
+        return BlendRenderer{ .handle = handle };
     }
 
     pub fn deinit(self: *BlendRenderer) void {
-        if (!self.initialized) return;
-        _ = c.bl_context_end(&self.ctx);
-        _ = c.bl_context_destroy(&self.ctx);
-        if (self.font_loaded) {
-            _ = c.bl_font_destroy(&self.font);
-            _ = c.bl_font_face_destroy(&self.font_face);
+        if (self.handle) |h| {
+            c.blend_renderer_destroy(h);
+            self.handle = null;
         }
-        _ = c.bl_image_destroy(&self.image);
-        self.initialized = false;
     }
 
-    fn loadDefaultFont(self: *BlendRenderer) !void {
-        const font_paths = [_][]const u8{
-            // Debian/Ubuntu
-            "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf",
-            "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
-            "/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf",
-            "/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf",
-            // Fedora/RHEL
-            "/usr/share/fonts/TTF/DejaVuSans.ttf",
-            "/usr/share/fonts/TTF/DejaVuSans-Bold.ttf",
-            "/usr/share/fonts/dejavu-sans-fonts/DejaVuSans.ttf",
-            // Arch
-            "/usr/share/fonts/noto/NotoSans-Regular.ttf",
-            "/usr/share/fonts/google-noto/NotoSans-Regular.ttf",
-            "/usr/share/fonts/google-noto/NotoSans-Bold.ttf",
-            // OpenMandriva
-            "/usr/share/fonts/gnu-free/FreeSans.ttf",
-            // Generic fallbacks
-            "/usr/share/fonts/truetype/freefont/FreeSans.ttf",
-            "/usr/share/fonts/truetype/ubuntu/Ubuntu-R.ttf",
-            "/usr/share/fonts/truetype/ubuntu/Ubuntu-B.ttf",
-        };
-
-        for (font_paths) |path| {
-            var path_buf: [256:0]u8 = undefined;
-            const path_z = std.fmt.bufPrintZ(&path_buf, "{s}", .{path}) catch continue;
-
-            const face_result = c.bl_font_face_create_from_file(&self.font_face, path_z.ptr, @as(c_int, 0));
-            if (face_result == @as(c_uint, c.BL_SUCCESS)) {
-                const font_result = c.bl_font_create_from_face(&self.font, &self.font_face, 11.0);
-                if (font_result == @as(c_uint, c.BL_SUCCESS)) {
-                    self.font_loaded = true;
-                    return;
-                }
-            }
-        }
-
-        _ = c.bl_font_init(&self.font);
-    }
-
-    pub fn loadBoldFont(self: *BlendRenderer) void {
-        const bold_paths = [_][]const u8{
-            "/usr/share/fonts/truetype/dejavu/DejaVuSans-Bold.ttf",
-            "/usr/share/fonts/TTF/DejaVuSans-Bold.ttf",
-            "/usr/share/fonts/dejavu-sans-fonts/DejaVuSans-Bold.ttf",
-            "/usr/share/fonts/truetype/liberation/LiberationSans-Bold.ttf",
-            "/usr/share/fonts/google-noto/NotoSans-Bold.ttf",
-            "/usr/share/fonts/truetype/ubuntu/Ubuntu-B.ttf",
-        };
-
-        var bold_face = std.mem.zeroes(c.BLFontFaceCore);
-        for (bold_paths) |path| {
-            var path_buf: [256:0]u8 = undefined;
-            const path_z = std.fmt.bufPrintZ(&path_buf, "{s}", .{path}) catch continue;
-            if (c.bl_font_face_create_from_file(&bold_face, path_z.ptr, @as(c_int, 0)) == @as(c_uint, c.BL_SUCCESS)) {
-                _ = c.bl_font_destroy(&self.font);
-                _ = c.bl_font_create_from_face(&self.font, &bold_face, self.font_size());
-                _ = c.bl_font_face_destroy(&bold_face);
-                return;
-            }
-        }
-        _ = c.bl_font_face_destroy(&bold_face);
-    }
-
-    pub fn loadRegularFont(self: *BlendRenderer) void {
-        _ = self;
-    }
-
-    pub fn font_size(self: *BlendRenderer) f64 {
-        return c.bl_font_get_size(&self.font);
-    }
-
-    pub fn setFontSize(self: *BlendRenderer, size: f64) void {
-        _ = c.bl_font_set_size(&self.font, @floatCast(size));
-    }
-
-    /// Flush Blend2D operations and copy rendered pixels to the SHM buffer.
     pub fn flush(self: *BlendRenderer) void {
-        // Flush Blend2D's internal rendering pipeline
-        _ = c.bl_context_flush(&self.ctx, @as(c_uint, 0x01)); // BL_CONTEXT_FLUSH_SYNC
-
-        // Copy pixels from Blend2D's internal image to the SHM buffer
-        if (self.shm_data) |shm| {
-            var img_data = std.mem.zeroes(c.BLImageData);
-            const mutable_result = c.bl_image_make_mutable(&self.image, &img_data);
-            if (mutable_result == @as(c_uint, c.BL_SUCCESS)) {
-                const src: [*]const u8 = @ptrCast(img_data.pixel_data);
-                const src_stride: usize = @intCast(if (img_data.stride < 0) -img_data.stride else img_data.stride);
-                const dst: [*]u8 = shm;
-                const dst_stride: usize = @intCast(self.stride);
-                // Use actual pixel data width (not stride) for copy — strides may differ
-                const row_bytes: usize = @as(usize, @intCast(self.buf_width)) * 4;
-
-                const rows: usize = @intCast(self.buf_height);
-                var row: usize = 0;
-                while (row < rows) : (row += 1) {
-                    const s = src + row * src_stride;
-                    const d = dst + row * dst_stride;
-                    @memcpy(d[0..row_bytes], s[0..row_bytes]);
-                }
-            }
-        }
+        if (self.handle) |h| c.blend_renderer_flush(h);
     }
 
     pub fn fillRect(self: *BlendRenderer, x: f64, y: f64, w: f64, h: f64, color: u32) void {
-        const rect = c.BLRect{ .x = x, .y = y, .w = w, .h = h };
-        _ = c.bl_context_set_fill_style_rgba32(&self.ctx, color);
-        _ = c.bl_context_fill_rect_d(&self.ctx, &rect);
+        if (self.handle) |handle| c.blend_renderer_fill_rect(handle, x, y, w, h, color);
     }
 
     pub fn fillRectRaw(self: *BlendRenderer, x: f64, y: f64, w: f64, h: f64, r: u8, g: u8, b: u8, a: u8) void {
@@ -183,67 +40,45 @@ pub const BlendRenderer = struct {
 
     pub fn drawText(self: *BlendRenderer, text: []const u8, x: f64, y: f64, color: u32) void {
         if (text.len == 0) return;
-
-        var gb = std.mem.zeroes(c.BLGlyphBufferCore);
-        _ = c.bl_glyph_buffer_init(&gb);
-        defer _ = c.bl_glyph_buffer_destroy(&gb);
-
-        _ = c.bl_glyph_buffer_set_text(&gb, text.ptr, text.len, @as(c_uint, 0));
-        _ = c.bl_font_shape(&self.font, &gb);
-
-        const glyph_run = c.bl_glyph_buffer_get_glyph_run(&gb);
-
-        const origin = c.BLPoint{ .x = x, .y = y };
-        _ = c.bl_context_set_fill_style_rgba32(&self.ctx, color);
-        _ = c.bl_context_fill_glyph_run_d(&self.ctx, &origin, &self.font, glyph_run);
+        if (self.handle) |h| c.blend_renderer_draw_text(h, text.ptr, @intCast(text.len), x, y, color);
     }
 
     pub fn measureText(self: *BlendRenderer, text: []const u8) TextMetrics {
         if (text.len == 0) return .{};
-
-        var gb = std.mem.zeroes(c.BLGlyphBufferCore);
-        _ = c.bl_glyph_buffer_init(&gb);
-        defer _ = c.bl_glyph_buffer_destroy(&gb);
-
-        _ = c.bl_glyph_buffer_set_text(&gb, text.ptr, text.len, @as(c_uint, 0));
-        _ = c.bl_font_shape(&self.font, &gb);
-
-        var tm = std.mem.zeroes(c.BLTextMetrics);
-        _ = c.bl_font_get_text_metrics(&self.font, &gb, &tm);
-
-        return .{
-            .width = tm.bounding_box.x1 - tm.bounding_box.x0,
-            .height = tm.bounding_box.y1 - tm.bounding_box.y0,
-        };
+        if (self.handle) |h| {
+            const tm = c.blend_renderer_measure_text(h, text.ptr, @intCast(text.len));
+            return .{ .width = tm.width, .height = tm.height };
+        }
+        return .{};
     }
 
     pub fn drawImage(self: *BlendRenderer, img: *c.BLImageCore, x: f64, y: f64) void {
-        const origin = c.BLPoint{ .x = x, .y = y };
-        _ = c.bl_context_blit_image_d(&self.ctx, &origin, img, null);
+        if (self.handle) |h| c.blend_renderer_draw_image(h, @ptrCast(img), x, y);
     }
 
     pub fn drawCircle(self: *BlendRenderer, cx: f64, cy: f64, radius: f64, color: u32) void {
-        var path = std.mem.zeroes(c.BLPathCore);
-        _ = c.bl_path_init(&path);
-        defer _ = c.bl_path_destroy(&path);
-
-        const kappa = 0.5522847498;
-
-        _ = c.bl_path_move_to(&path, cx + radius, cy);
-        _ = c.bl_path_cubic_to(&path, cx + radius, cy + radius * kappa, cx + radius * kappa, cy + radius, cx, cy + radius);
-        _ = c.bl_path_cubic_to(&path, cx - radius * kappa, cy + radius, cx - radius, cy + radius * kappa, cx - radius, cy);
-        _ = c.bl_path_cubic_to(&path, cx - radius, cy - radius * kappa, cx - radius * kappa, cy - radius, cx, cy - radius);
-        _ = c.bl_path_cubic_to(&path, cx + radius * kappa, cy - radius, cx + radius, cy - radius * kappa, cx + radius, cy);
-        _ = c.bl_path_close(&path);
-
-        _ = c.bl_context_set_fill_style_rgba32(&self.ctx, color);
-        _ = c.bl_context_fill_path_d(&self.ctx, &c.BLPoint{ .x = 0, .y = 0 }, &path);
+        if (self.handle) |h| c.blend_renderer_draw_circle(h, cx, cy, radius, color);
     }
 
     pub fn drawBorder(self: *BlendRenderer, x: f64, y: f64, w: f64, h: f64, color: u32) void {
-        _ = c.bl_context_set_stroke_style_rgba32(&self.ctx, color);
-        _ = c.bl_context_set_stroke_width(&self.ctx, 1.0);
-        const rect = c.BLRect{ .x = x, .y = y, .w = w, .h = h };
-        _ = c.bl_context_stroke_rect_d(&self.ctx, &rect);
+        if (self.handle) |handle| c.blend_renderer_draw_border(handle, x, y, w, h, color);
+    }
+
+    pub fn setFontSize(self: *BlendRenderer, size: f64) void {
+        if (self.handle) |h| c.blend_renderer_set_font_size(h, size);
+    }
+
+    pub fn font_size(self: *BlendRenderer) f64 {
+        if (self.handle) |h| return c.blend_renderer_get_font_size(h);
+        return 0;
+    }
+
+    pub fn loadBoldFont(self: *BlendRenderer) void {
+        if (self.handle) |h| c.blend_renderer_load_bold_font(h);
+    }
+
+    pub fn font_loaded(self: *BlendRenderer) bool {
+        if (self.handle) |h| return c.blend_renderer_font_loaded(h);
+        return false;
     }
 };

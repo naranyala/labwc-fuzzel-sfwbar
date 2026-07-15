@@ -68,6 +68,55 @@ Builds successfully with `zig build`.
 - [ ] Decide: merge best features back to cairo-pango, or replace entirely.
 - [ ] Document migration path for users who prefer Cairo.
 
+### Phase 8 — Migrate rendering modules to C
+Move high-FFI modules from Zig to C, called via `@cImport`. Eliminates
+`@ptrCast`/`@intCast`/`@floatFromInt` boilerplate, reduces Zig↔C overhead,
+and makes rendering code shareable with the C++ cairo-pango version.
+
+**Candidates ranked by C-interop density (higher = better C migration candidate):**
+
+| Module | Lines | C calls | Move to C? | Reason |
+|---|---|---|---|---|
+| `blend2d_render.zig` | 249 | 80 | **Yes** | Pure Blend2D wrapper, all C calls |
+| `icon.zig` | 455 | 71 | **Yes** | File I/O + Blend2D, C-style string ops |
+| `dock.zig` | 93 | 21 | **Yes** | Small, mostly Blend2D drawing |
+| `panel.zig` | 714 | 81 | **Partial** | Keep widget logic in Zig, move draw callbacks to C |
+| `main_shell.zig` | 876 | 203 | **No** | Event loop + Wayland, Zig-specific state |
+| `toplevel.zig` | 40 | 5 | **No** | Pure Zig data, no C dependency |
+
+#### Phase 8a — blend2d_render.c (HIGHEST PRIORITY)
+- [ ] Create `blend2d_render.h` with function declarations.
+- [ ] Create `blend2d_render.c` — init, deinit, flush, fillRect, drawText, measureText, drawCircle, drawBorder, font loading.
+- [ ] Update `blend2d_render.zig` to import from C header instead of wrapping Blend2D directly.
+- [ ] Verify all 14 render tests still pass.
+- [ ] Benchmark: compare render time before/after C migration.
+
+#### Phase 8b — icon.c (HIGH PRIORITY)
+- [ ] Create `icon.h` with function declarations.
+- [ ] Create `icon.c` — desktop file parsing, PNG loading, fallback icon generation, cache management.
+- [ ] Update `icon.zig` to import from C header.
+- [ ] Verify all 13 icon tests still pass.
+
+#### Phase 8c — dock.c (MEDIUM PRIORITY)
+- [ ] Create `dock.h` with function declarations.
+- [ ] Create `dock.c` — dock_draw() and dock_icon_at().
+- [ ] Update `dock.zig` to import from C header.
+- [ ] Verify all 8 dock tests still pass.
+
+#### Phase 8d — panel_draw.c (MEDIUM PRIORITY)
+- [ ] Create `panel_draw.h` with draw callback declarations.
+- [ ] Create `panel_draw.c` — all 13 widget draw functions (wsDraw, cpuDraw, memDraw, etc.).
+- [ ] Update `panel.zig` draw callbacks to call C functions.
+- [ ] Keep widget creation, measurement, config, click handling in Zig.
+- [ ] Verify all 17 panel tests still pass.
+
+#### Phase 8e — Integration
+- [ ] Update `dock_c.h` with all new function declarations.
+- [ ] Update `dock_c_impl.c` with all new implementations.
+- [ ] Update `build.zig` to compile new C sources.
+- [ ] Run full test suite: `zig build test`.
+- [ ] Verify binary builds and runs on Wayland.
+
 ### Architecture decisions (locked)
 - Blend2D renders directly to mmap'd SHM buffer — zero pixel copying.
 - No JIT required (software fallback works, ~2MB binary overhead acceptable).
@@ -274,7 +323,7 @@ _14/27 fixed — see git log for details._
 - [x] `scripts/start-labwc.sh:92` — **FIXED**: Added `NEW_OPTIONAL_DEPS=()` declaration before use.
 - [x] `scripts/actions.sh:13` — **FIXED**: Added fallback search paths (`~/.local/bin/actions`, `~/.config/ocws/scripts/actions`, script-relative `actions/`).
 - [ ] `install.sh` — **No backup before overwrite** for labwc, ocws, fuzzel, foot, gtk, mako, qt6ct.
-- [x] `install.sh` — **Missing deploy targets**: `dotfiles/fontconfig/fonts.conf` and `dotfiles/sfwbar/theme.css` never deployed. — **FIXED**: `sfwbar/theme.css` now deployed to `~/.config/sfwbar/theme.css`.
+- [x] `install.sh` — **Missing deploy targets**: `dotfiles/fontconfig/fonts.conf` and `dotfiles/zigshell-cairo-pango/theme.css` never deployed. — **FIXED**: `zigshell-cairo-pango/theme.css` now deployed to `~/.config/zigshell-cairo-pango/theme.css`.
 - [x] `distro/ubuntu-lubuntu-lxqt.sh`, `distro/arch-artix-lxqt.sh` — **FIXED**: Added stub with error message and exit 1.
 
 ### MEDIUM — Config correctness & portability
@@ -288,7 +337,7 @@ _14/27 fixed — see git log for details._
 
 - [ ] ~80 scripts — **`pass()`/`info()` use `$1` instead of `$*`**: multi-word messages truncated.
 - [ ] ~20 scripts — **Missing `set -e`**: silent failures likely.
-- [x] `quick-start.sh:35` — **FIXED**: Replaced with actual repository URL `https://github.com/naranyala/labwc-fuzzel-sfwbar.git`.
+- [x] `quick-start.sh:35` — **FIXED**: Replaced with actual repository URL `https://github.com/naranyala/labwc-fuzzel-zigshell-cairo-pango.git`.
 - [x] `patch_bar.sh` — **FIXED**: Added shebang, `set -euo pipefail`, and target path.
 - [ ] Multiple scripts — **Predictable `/tmp/` paths**: should use `$XDG_RUNTIME_DIR`.
 - [ ] `.github/` — **Empty directory**: no CI/CD.

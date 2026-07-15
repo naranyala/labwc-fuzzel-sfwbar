@@ -27,5 +27,8 @@
 // Blend2D C API
 #include "blend2d/blend2d.h"
 
+// Blend2D rendering abstraction
+#include "blend2d_render.h"
+
 // Utility
 int dock_create_shm_fd(size_t size);

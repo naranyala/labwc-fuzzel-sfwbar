@@ -30,10 +30,7 @@ test "BlendRenderer — init and deinit" {
     };
     defer renderer.deinit();
 
-    try std.testing.expect(renderer.initialized);
-    try std.testing.expectEqual(W, renderer.buf_width);
-    try std.testing.expectEqual(H, renderer.buf_height);
-    try std.testing.expectEqual(stride, renderer.stride);
+    try std.testing.expect(renderer.handle != null);
 }
 
 test "BlendRenderer — fillRect produces pixels" {
@@ -184,7 +181,7 @@ test "BlendRenderer — measureText returns valid metrics" {
 
     const tm = renderer.measureText("Hello");
     // Width should be positive if font is loaded
-    if (renderer.font_loaded) {
+    if (renderer.font_loaded()) {
         try std.testing.expect(tm.width > 0);
         try std.testing.expect(tm.height > 0);
     }
@@ -232,7 +229,6 @@ test "BlendRenderer — deinit is idempotent" {
     var renderer = render.BlendRenderer.init(&buf, W, H, stride) catch return;
 
     renderer.deinit();
-    try std.testing.expect(!renderer.initialized);
 
     // Second deinit should not crash
     renderer.deinit();
