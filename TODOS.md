@@ -1,5 +1,127 @@
 # OCWS Bugs & Security Issues
 
+## Shell Rendering Backends
+
+Two parallel Zig shell implementations exist under `src/shells/`:
+
+| Shell | Renderer | Dependencies | Status |
+|---|---|---|---|
+| `zigshell-cairo-pango/` | Cairo + Pango + librsvg | cairo, pango, glib, gobject, librsvg | Baseline — working |
+| `zigshell-blend2d/` | Blend2D (software JIT) | blend2d (vendored) | Initial build — needs polish |
+
+Both share `toplevel.zig`, protocol files, and the same Wayland layer-shell architecture.
+The goal is to keep `zigshell-cairo-pango` as the stable baseline while developing
+`zigshell-blend2d` as the modern, glib-free replacement.
+
+---
+
+## zigshell-blend2d — Future Development
+
+Initial scaffolding is done: Blend2D renders directly to SHM buffers (zero-copy),
+font loading from system `.ttf` files, PNG icon loading via Blend2D's built-in codec.
+Builds successfully with `zig build`.
+
+### Phase 1 — Stabilize core rendering
+- [ ] Verify panel renders correctly on a live Wayland session (labwc/sway).
+- [ ] Fix font loading: test on multiple distros, add fallback paths for Noto/Liberation.
+- [ ] Test `measureText()` — ensure widget widths match Cairo version.
+- [ ] Verify `fillRect` colors render correctly (ARGB32 vs premultiplied — Blend2D uses premultiplied).
+- [ ] Benchmark: compare frame render time vs zigshell-cairo-pango at 1920x1080.
+
+### Phase 2 — Icon system completeness
+- [ ] Test PNG icon loading for common apps (firefox, foot, footclient, pcmanfm-qt).
+- [ ] Add SVG support via **plutosvg** (lightweight SVG renderer, ~50KB) or **lunasvg**.
+- [ ] Improve fallback icon: render a proper circle (currently draws a filled rect).
+- [ ] Add `.desktop` file `GenericName` fallback when `Name` is empty.
+- [ ] Cache icon textures across frames (currently re-reads files on every dock repaint).
+
+### Phase 3 — Text rendering polish
+- [ ] Add font size variants (bold for CPU/MEM labels, regular for values).
+- [ ] Support font fallback chain: try DejaVu → Liberation → Noto → system default.
+- [ ] Add Pango-compatible text measurement for widget width matching.
+- [ ] Handle Unicode edge cases (emoji in widget labels, CJK workspace names).
+
+### Phase 4 — Widget system enhancements
+- [ ] Add missing widgets from cairo-pango: media (playerctl), network (nm-applet).
+- [ ] Implement proper battery icon (currently just text).
+- [ ] Add volume slider widget (pulseaudio integration).
+- [ ] Add workspace switching via `wlrctl workgroup` (currently stubbed).
+- [ ] Config file loading (INI-style widget layout, currently hardcoded defaults).
+
+### Phase 5 — Interaction & polish
+- [ ] Right-click context menu on dock icons (close, maximize, minimize).
+- [ ] Tooltip on hover (show full window title).
+- [ ] Auto-hide dock with fade animation.
+- [ ] Settings menu: wire up icon size options (currently cosmetic).
+- [ ] Multi-monitor support: track `wl_output` per toplevel.
+
+### Phase 6 — Build system & packaging
+- [ ] Static linking option (build Blend2D as `.a` instead of `.so`).
+- [ ] Add `zig build test` target (unit tests for widget layout, icon loading).
+- [ ] CI/CD integration (GitHub Actions build + Wayland test).
+- [ ] `make install` target for system-wide installation.
+- [ ] Flatpak/Nix packaging manifest.
+
+### Phase 7 — Evaluation vs cairo-pango
+- [ ] Side-by-side comparison: render quality, memory usage, startup time.
+- [ ] Measure binary size difference (Blend2D-only vs Cairo+Pango+librsvg).
+- [ ] Decide: merge best features back to cairo-pango, or replace entirely.
+- [ ] Document migration path for users who prefer Cairo.
+
+### Architecture decisions (locked)
+- Blend2D renders directly to mmap'd SHM buffer — zero pixel copying.
+- No JIT required (software fallback works, ~2MB binary overhead acceptable).
+- Font loading via `bl_font_face_create_from_file` — hardcoded system paths, no fontconfig.
+- SVG support deferred to Phase 2 (plutosvg or lunasvg, not librsvg).
+
+---
+
+## zigshell-cairo-pango — Rendering Backend Modernization (superseded)
+
+> **Note**: This section is retained for reference. The active development path is
+> `zigshell-blend2d` above. Cairo-pango remains the stable baseline.
+
+Goal: replace the current **Cairo + Pango + librsvg** software stack in
+`src/shells/zigshell-cairo-pango/` with a modern, glib-free pipeline.
+Current renderer writes ARGB directly into the Wayland SHM buffer
+(`cairo_image_surface_create_for_data`), so software rasterizers integrate with
+minimal disruption; GPU paths (EGL/dmabuf) are out of scope for now.
+
+Target stack: **Blend2D** (2D vector) + **ThorVG** (SVG/Lottie icons) + **plutovg** (lean fallback).
+
+### Phase 0 — Prep / abstraction
+- [ ] Introduce a `Renderer` interface in Zig (draw_rect, draw_text, draw_icon, blit) so backends are swappable behind one seam.
+- [ ] Keep Cairo path working behind the interface as the baseline while migrating.
+- [ ] Add a build option (`-Drenderer=cairo|blend2d|thorvg|plutovg`) in `build.zig`.
+
+### Phase 1 — Text: drop Pango (+glib)
+- [ ] Replace Pango layout/shaping with **HarfBuzz + FreeType** (no glib).
+- [ ] Add minimal font discovery (fontconfig or hardcoded font paths).
+- [ ] Port `widgetText()` and all `*Draw` text calls in `panel.zig` to the new text path.
+
+### Phase 2 — Vector: Cairo → Blend2D
+- [x] Add Blend2D as a C dependency; wire into `dock_c.h` / `build.zig` (`linkSystemLibrary`/vendored). — **DONE** in `zigshell-blend2d`.
+- [x] Port shape drawing (rects, arcs, gradients, meters) in `panel.zig` and `dock.zig`. — **DONE** in `zigshell-blend2d`.
+- [ ] Benchmark Blend2D vs Cairo render time per frame (panel + dock repaint).
+
+### Phase 3 — Icons: librsvg → ThorVG (or plutosvg)
+- [ ] Replace librsvg SVG loading in `icon.zig` with **ThorVG** (SVG + Lottie) or **plutosvg**.
+- [ ] Remove glib/gobject/librsvg from `linkDeps()` in `build.zig` once unused.
+- [ ] Update forward-declares in `dock_c.h` (drop cairo/pango/rsvg opaque types).
+
+### Phase 4 — Evaluation
+- [ ] Compare **plutovg** as a lean all-in-one alternative (vector + plutosvg) vs Blend2D+ThorVG on binary size and deps.
+- [ ] Decide final combo; delete unused backend paths.
+- [ ] Document the chosen architecture in the shell's README.
+
+### Notes
+- Blend2D: JIT-accelerated, multithreaded software rasterizer (fastest Cairo replacement).
+- ThorVG: modern engine, built-in SVG/Lottie, SW/GL/WebGPU backends; weaker rich-text.
+- plutovg/plutosvg: minimal footprint, single-dependency, good for shrinking the binary.
+- HarfBuzz+FreeType removes the entire glib dependency chain that Pango/librsvg pull in.
+
+---
+
 ## Bugs (GTK3 GUI)
 _14/27 fixed — see git log for details._
 
