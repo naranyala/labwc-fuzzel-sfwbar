@@ -187,6 +187,102 @@ pub fn build(b: *std.Build) void {
     const run_dock_tests = b.addRunArtifact(dock_tests);
     run_dock_tests.step.dependOn(&cmake_build.step);
 
+    // The `dock` import target for the validation module: this shell's dock.zig.
+    // Include paths are needed so its @cImport("dock_c.h") resolves; C sources
+    // are linked once by the test module below to avoid duplicate symbols.
+    const dock_mod_no_test = b.createModule(.{
+        .root_source_file = b.path("src/dock.zig"),
+        .target = target,
+        .optimize = optimize,
+        .link_libc = true,
+    });
+    dock_mod_no_test.addIncludePath(b.path("src"));
+    dock_mod_no_test.addIncludePath(b.path("."));
+    dock_mod_no_test.addIncludePath(b.path("deps/blend2d"));
+    dock_mod_no_test.addIncludePath(b.path("../shared/protocol"));
+    dock_mod_no_test.addImport("shellcore", shellcore);
+
+    // Cross-shell dock contract tests — the SAME assertions run against this
+    // shell's dock.zig and against zigshell-cairo-pango's, guarding click/
+    // hit-test parity. The `dock` import alias points at this implementation.
+    const dock_val_mod = b.createModule(.{
+        .root_source_file = b.path("../shared/dock_validation.zig"),
+        .target = target,
+        .optimize = optimize,
+        .link_libc = true,
+    });
+    dock_val_mod.addImport("shellcore", shellcore);
+    dock_val_mod.addImport("dock", dock_mod_no_test);
+    dock_val_mod.addIncludePath(b.path("src"));
+    dock_val_mod.addIncludePath(b.path("."));
+    dock_val_mod.addIncludePath(b.path("deps/blend2d"));
+    dock_val_mod.addIncludePath(b.path("../shared/protocol"));
+    dock_val_mod.addLibraryPath(b.path("build/deps/blend2d"));
+    dock_val_mod.linkSystemLibrary("blend2d", .{});
+    dock_val_mod.linkSystemLibrary("stdc++", .{});
+    dock_val_mod.linkSystemLibrary("wayland-client", .{});
+    dock_val_mod.addCSourceFile(.{
+        .file = b.path("src/dock_c_impl.c"),
+        .flags = &.{ "-std=gnu11", "-Wall", "-DBLEND2D_STATIC" },
+    });
+    dock_val_mod.addCSourceFile(.{
+        .file = b.path("src/blend2d_render.c"),
+        .flags = &.{ "-std=gnu11", "-Wall" },
+    });
+    dock_val_mod.addCSourceFile(.{
+        .file = b.path("src/dock.c"),
+        .flags = &.{ "-std=gnu11", "-Wall" },
+    });
+    dock_val_mod.addCSourceFile(.{
+        .file = b.path("src/icon.c"),
+        .flags = &.{ "-std=gnu11", "-Wall" },
+    });
+    const dock_val_tests = b.addTest(.{ .root_module = dock_val_mod });
+    const run_dock_val_tests = b.addRunArtifact(dock_val_tests);
+    run_dock_val_tests.step.dependOn(&cmake_build.step);
+
+    // Cross-shell widget contract tests — the SAME assertions run against this
+    // shell's panel.zig and against zigshell-cairo-pango's, guarding widget
+    // creation/type/structure parity.
+    const panel_for_val = b.createModule(.{
+        .root_source_file = b.path("src/panel.zig"),
+        .target = target,
+        .optimize = optimize,
+        .link_libc = true,
+    });
+    panel_for_val.addIncludePath(b.path("src"));
+    panel_for_val.addIncludePath(b.path("."));
+    panel_for_val.addIncludePath(b.path("deps/blend2d"));
+    panel_for_val.addIncludePath(b.path("../shared/protocol"));
+    panel_for_val.addLibraryPath(b.path("build/deps/blend2d"));
+    panel_for_val.linkSystemLibrary("blend2d", .{});
+    panel_for_val.linkSystemLibrary("stdc++", .{});
+    panel_for_val.linkSystemLibrary("wayland-client", .{});
+    panel_for_val.addImport("shellcore", shellcore);
+    panel_for_val.addCSourceFile(.{
+        .file = b.path("src/dock_c_impl.c"),
+        .flags = &.{ "-std=gnu11", "-Wall", "-DBLEND2D_STATIC" },
+    });
+    panel_for_val.addCSourceFile(.{
+        .file = b.path("src/blend2d_render.c"),
+        .flags = &.{ "-std=gnu11", "-Wall" },
+    });
+    panel_for_val.addCSourceFile(.{
+        .file = b.path("src/icon.c"),
+        .flags = &.{ "-std=gnu11", "-Wall" },
+    });
+    const widget_val_mod = b.createModule(.{
+        .root_source_file = b.path("../shared/widget_validation.zig"),
+        .target = target,
+        .optimize = optimize,
+        .link_libc = true,
+    });
+    widget_val_mod.addImport("panel", panel_for_val);
+    widget_val_mod.addImport("shellcore", shellcore);
+    const widget_val_tests = b.addTest(.{ .root_module = widget_val_mod });
+    const run_widget_val_tests = b.addRunArtifact(widget_val_tests);
+    run_widget_val_tests.step.dependOn(&cmake_build.step);
+
     const panel_mod_test = b.createModule(.{
         .root_source_file = b.path("src/panel_test.zig"),
         .target = target,
@@ -310,6 +406,8 @@ pub fn build(b: *std.Build) void {
     const test_all = b.step("test", "Run all tests");
     test_all.dependOn(&run_toplevel_tests.step);
     test_all.dependOn(&run_dock_tests.step);
+    test_all.dependOn(&run_dock_val_tests.step);
+    test_all.dependOn(&run_widget_val_tests.step);
     test_all.dependOn(&run_panel_tests.step);
     test_all.dependOn(&run_render_tests.step);
     test_all.dependOn(&run_icon_tests.step);
@@ -343,6 +441,9 @@ pub fn build(b: *std.Build) void {
 
     const test_launcher = b.step("test-launcher", "Run launcher math tests");
     test_launcher.dependOn(&run_launcher_tests.step);
+
+    const test_widget_val = b.step("test-widget-val", "Run cross-shell widget contract tests");
+    test_widget_val.dependOn(&run_widget_val_tests.step);
 }
 
 fn addProtocolSources(root_mod: *std.Build.Module, b: *std.Build, c_flags: []const []const u8) void {

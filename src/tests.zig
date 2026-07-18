@@ -2,7 +2,7 @@ const std = @import("std");
 const testing = std.testing;
 
 const ocws = @cImport({
-    @cInclude("libocws/string.h");
+    @cInclude("libocws/ocws_string.h");
     @cInclude("libocws/fs.h");
     @cInclude("libocws/easing.h");
 });

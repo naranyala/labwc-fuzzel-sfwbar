@@ -20,6 +20,11 @@ void dock_draw(struct BlendRenderer* renderer, int w, int h,
                int top_count, int hover_idx) {
     if (!renderer) return;
 
+    // The app_ids/titles/focused arrays are caller-allocated with a fixed
+    // capacity (64). Clamp the loop bound so we never read past them even if
+    // the caller passes a larger top_count (e.g. >64 open windows).
+    if (top_count > 64) top_count = 64;
+
     // Background gradient (two-tone)
     blend_renderer_fill_rect(renderer, 0, 0, (double)w, (double)h / 2.0, 0xFF141419);
     blend_renderer_fill_rect(renderer, 0, (double)h / 2.0, (double)w, (double)h / 2.0, 0xFF0D0D12);
@@ -51,25 +56,20 @@ void dock_draw(struct BlendRenderer* renderer, int w, int h,
 
         struct BLImageCore loaded = {0};
         if (icon_load(name, dock_icon_size, &loaded)) {
-            // Verify image is usable before blitting
-            BLImageData img_data;
-            if (bl_image_make_mutable(&loaded, &img_data) == BL_SUCCESS) {
-                icon_img = &loaded;
-            } else {
-                icon_img = icon_fallback(name, dock_icon_size);
-            }
+            icon_img = &loaded;
         } else {
             icon_img = icon_fallback(name, dock_icon_size);
         }
 
-        // Draw icon
+        // Draw icon (scale to fit dock_icon_size)
         if (icon_img) {
-            blend_renderer_draw_image(renderer, icon_img, (double)x, (double)cy);
+            blend_renderer_draw_image_scaled(renderer, icon_img, (double)x, (double)cy,
+                (double)dock_icon_size, (double)dock_icon_size);
         }
 
-        // Focus bar
+        // Focus bar (below the icon)
         if (focused && focused[i]) {
-            blend_renderer_fill_rect(renderer, (double)(x + 2), (double)(cy - FOCUS_BAR_H),
+            blend_renderer_fill_rect(renderer, (double)(x + 2), (double)(cy + dock_icon_size),
                 (double)(dock_icon_size - 4), (double)FOCUS_BAR_H, 0xFF4C7FBF);
         }
     }
@@ -85,14 +85,16 @@ void dock_draw(struct BlendRenderer* renderer, int w, int h,
     // Settings toggle
     struct BLImageCore settings_img = {0};
     if (icon_load("preferences-system", dock_icon_size, &settings_img)) {
-        blend_renderer_draw_image(renderer, &settings_img, (double)toggle_start, (double)cy);
+        blend_renderer_draw_image_scaled(renderer, &settings_img, (double)toggle_start, (double)cy,
+            (double)dock_icon_size, (double)dock_icon_size);
     }
 
     // App launcher toggle
     int launcher_toggle_x = toggle_start + dock_icon_size + DOCK_PAD;
     struct BLImageCore launcher_img = {0};
     if (icon_load("system-search", dock_icon_size, &launcher_img)) {
-        blend_renderer_draw_image(renderer, &launcher_img, (double)launcher_toggle_x, (double)cy);
+        blend_renderer_draw_image_scaled(renderer, &launcher_img, (double)launcher_toggle_x, (double)cy,
+            (double)dock_icon_size, (double)dock_icon_size);
     }
 }
 

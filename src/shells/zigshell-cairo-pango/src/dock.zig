@@ -79,6 +79,7 @@ pub fn draw(
     var num_items: usize = 0;
 
     for (0..persistent_count) |i| {
+        if (num_items >= items.len) break;
         items[num_items] = .{
             .app_id = std.mem.sliceTo(&persistent_order[i], 0),
             .top_idx = null,
@@ -104,19 +105,19 @@ pub fn draw(
             }
         }
         if (!found) {
-            // Append to persistent order dynamically
-            if (persistent_count < 100) {
-                @memcpy(persistent_order[persistent_count][0..app_id.len], app_id);
-                persistent_order[persistent_count][app_id.len] = 0;
-                persistent_count += 1;
+            // Running app not in the pinned order: show it in the dock for this
+            // frame, but do NOT mutate persistent_order — otherwise simply
+            // launching an app would permanently pin it (#58). Pinning is an
+            // explicit user action (pinApp/unpinAt), not a side effect of draw.
+            if (num_items < items.len) {
+                items[num_items] = .{
+                    .app_id = app_id,
+                    .top_idx = i,
+                    .count = 1,
+                    .focused = tops[i].focused,
+                };
+                num_items += 1;
             }
-            items[num_items] = .{
-                .app_id = app_id,
-                .top_idx = i,
-                .count = 1,
-                .focused = tops[i].focused,
-            };
-            num_items += 1;
         }
     }
 
@@ -125,7 +126,9 @@ pub fn draw(
     var total_w: f64 = 0;
     const slot: f64 = DOCK_ICON_SIZE + PAD;
     const unscaled_total: f64 = if (num_items > 0) @as(f64, @floatFromInt(num_items)) * slot - PAD else 0;
-    const unscaled_start_x: f64 = @max(0, (@as(f64, @floatFromInt(w)) - unscaled_total) / 2.0);
+    const toggles_w: f64 = PAD * 3.0 + @as(f64, @floatFromInt(DOCK_ICON_SIZE * 2));
+    const unscaled_block_w = unscaled_total + toggles_w;
+    const unscaled_start_x: f64 = @max(0, (@as(f64, @floatFromInt(w)) - unscaled_block_w) / 2.0);
 
     for (0..num_items) |g| {
         const unscaled_x = unscaled_start_x + @as(f64, @floatFromInt(g)) * slot + (@as(f64, @floatFromInt(DOCK_ICON_SIZE)) / 2.0);
@@ -139,21 +142,30 @@ pub fn draw(
     }
     if (num_items > 0) total_w -= PAD;
 
-    const current_x = @max(0, (@as(f64, @floatFromInt(w)) - total_w) / 2.0);
+    const block_w = total_w + toggles_w;
+    const current_x = @max(0, (@as(f64, @floatFromInt(w)) - block_w) / 2.0);
 
     var app_x = current_x;
 
     for (0..num_items) |g| {
         const item = items[g];
-        const icon_w = widths[g];
+        // Clamp the drawn icon so the parabolic magnification never overflows
+        // the dock height (issue #22). The zoom feel is preserved up to the
+        // dock's available space, then capped.
+        const max_icon: f64 = @as(f64, @floatFromInt(h)) - 6.0;
+        const icon_w = @min(widths[g], max_icon);
         const x = app_x;
         const icon_y = @as(f64, @floatFromInt(h)) - icon_w - 6.0;
 
-        const name = if (item.top_idx) |idx|
+        const name_slice = if (item.top_idx) |idx|
             if (tops[idx].app_id[0] != 0) tops[idx].app_id[0..std.mem.indexOfScalar(u8, &tops[idx].app_id, 0) orelse tops[idx].app_id.len] else tops[idx].title[0..std.mem.indexOfScalar(u8, &tops[idx].title, 0) orelse tops[idx].title.len]
         else item.app_id;
 
-        const icon_surf = icon.load(@ptrCast(name.ptr), DOCK_ICON_SIZE);
+        // Copy into a null-terminated buffer before handing to icon.load so we
+        // never rely on the backing buffer being NUL-terminated (issue #21).
+        var name_buf: [256]u8 = std.mem.zeroes([256]u8);
+        const name_z = std.fmt.bufPrintZ(&name_buf, "{s}", .{name_slice}) catch "unknown";
+        const icon_surf = icon.load(name_z, DOCK_ICON_SIZE);
 
         c.cairo_save(cr);
         c.cairo_translate(cr, x, icon_y);
@@ -197,18 +209,12 @@ pub fn draw(
     c.cairo_line_to(cr, divider_x, @as(f64, @floatFromInt(h)) - 6.0);
     c.cairo_stroke(cr);
 
-    const tcy = @divTrunc(h - DOCK_ICON_SIZE, 2);
+    const tcy = h - DOCK_ICON_SIZE - 6;
 
     // Settings toggle
     const settings_x = toggle_start;
     const settings_surf = icon.load("preferences-system", DOCK_ICON_SIZE);
     c.cairo_set_source_surface(cr, settings_surf, settings_x, @floatFromInt(tcy));
-    c.cairo_paint(cr);
-
-    // App launcher toggle
-    const launcher_toggle_x = settings_x + @as(f64, @floatFromInt(DOCK_ICON_SIZE + PAD));
-    const launcher_surf = icon.load("system-search", DOCK_ICON_SIZE);
-    c.cairo_set_source_surface(cr, launcher_surf, launcher_toggle_x, @floatFromInt(tcy));
     c.cairo_paint(cr);
 }
 
@@ -241,13 +247,9 @@ pub fn iconAt(w: i32, _: i32, tops: []toplevel.ToplevelInfo, top_count: i32, mou
             }
         }
         if (!found) {
-            // Because iconAt might be called before draw for a new window,
-            // we should also append to persistent_order here just in case.
-            if (persistent_count < 100) {
-                @memcpy(persistent_order[persistent_count][0..app_id.len], app_id);
-                persistent_order[persistent_count][app_id.len] = 0;
-                persistent_count += 1;
-            }
+            // Running app not in the pinned order: register it for this hit-test
+            // only. Do NOT append to persistent_order (#58) — pinning is an
+            // explicit user action, not a side effect of iconAt.
             items[num_items] = .{ .app_id = app_id, .top_idx = i };
             num_items += 1;
         }
@@ -257,7 +259,9 @@ pub fn iconAt(w: i32, _: i32, tops: []toplevel.ToplevelInfo, top_count: i32, mou
     var total_w: f64 = 0;
     const slot: f64 = DOCK_ICON_SIZE + PAD;
     const unscaled_total: f64 = if (num_items > 0) @as(f64, @floatFromInt(num_items)) * slot - PAD else 0;
-    const unscaled_start_x: f64 = @max(0, (@as(f64, @floatFromInt(w)) - unscaled_total) / 2.0);
+    const toggles_w: f64 = PAD * 3.0 + @as(f64, @floatFromInt(DOCK_ICON_SIZE * 2));
+    const unscaled_block_w = unscaled_total + toggles_w;
+    const unscaled_start_x: f64 = @max(0, (@as(f64, @floatFromInt(w)) - unscaled_block_w) / 2.0);
 
     for (0..num_items) |g| {
         const unscaled_x = unscaled_start_x + @as(f64, @floatFromInt(g)) * slot + (@as(f64, @floatFromInt(DOCK_ICON_SIZE)) / 2.0);
@@ -271,22 +275,18 @@ pub fn iconAt(w: i32, _: i32, tops: []toplevel.ToplevelInfo, top_count: i32, mou
     }
     if (num_items > 0) total_w -= PAD;
 
-    const icon_right = @max(0, (@as(f64, @floatFromInt(w)) - total_w) / 2.0) + total_w;
+    const block_w = total_w + toggles_w;
+    const icon_right = @max(0, (@as(f64, @floatFromInt(w)) - block_w) / 2.0) + total_w;
     const toggle_start = icon_right + PAD;
-    const slot_w = DOCK_ICON_SIZE + PAD;
     const settings_x = toggle_start;
-    const launcher_x = settings_x + slot_w;
 
-    // Check the separated-bar toggles (launcher + settings), placed to the
-    // right of the running apps, matching the draw() geometry.
-    if (mx >= launcher_x and mx < launcher_x + @as(f64, @floatFromInt(DOCK_ICON_SIZE))) {
-        return -3; // launcher toggle
-    }
+    // Check the settings toggle, placed to the right of the running apps,
+    // matching the draw() geometry.
     if (mx >= settings_x and mx < settings_x + @as(f64, @floatFromInt(DOCK_ICON_SIZE))) {
         return -2; // settings toggle
     }
 
-    var app_x = @max(0, (@as(f64, @floatFromInt(w)) - total_w) / 2.0);
+    var app_x = @max(0, (@as(f64, @floatFromInt(w)) - block_w) / 2.0);
     for (0..num_items) |g| {
         const icon_w = widths[g];
         const half_w = icon_w / 2.0;
@@ -315,7 +315,9 @@ pub fn groupAt(w: i32, mouse_x: i32) i32 {
     var total_w: f64 = 0;
     const slot: f64 = DOCK_ICON_SIZE + PAD;
     const unscaled_total: f64 = @as(f64, @floatFromInt(persistent_count)) * slot - PAD;
-    const unscaled_start_x: f64 = @max(0, (@as(f64, @floatFromInt(w)) - unscaled_total) / 2.0);
+    const toggles_w: f64 = PAD * 3.0 + @as(f64, @floatFromInt(DOCK_ICON_SIZE * 2));
+    const unscaled_block_w = unscaled_total + toggles_w;
+    const unscaled_start_x: f64 = @max(0, (@as(f64, @floatFromInt(w)) - unscaled_block_w) / 2.0);
 
     for (0..persistent_count) |g| {
         const unscaled_x = unscaled_start_x + @as(f64, @floatFromInt(g)) * slot + (@as(f64, @floatFromInt(DOCK_ICON_SIZE)) / 2.0);
@@ -329,7 +331,8 @@ pub fn groupAt(w: i32, mouse_x: i32) i32 {
     }
     total_w -= PAD;
 
-    var current_x = @max(0, (@as(f64, @floatFromInt(w)) - total_w) / 2.0);
+    const block_w = total_w + toggles_w;
+    var current_x = @max(0, (@as(f64, @floatFromInt(w)) - block_w) / 2.0);
 
     for (0..persistent_count) |g| {
         const icon_w = widths[g];
@@ -352,6 +355,85 @@ pub fn swapGroups(idxA: usize, idxB: usize) void {
     @memcpy(&persistent_order[idxB], &tmp);
 }
 
+// ---- Runtime pinned-app management (settings panel) ----
+
+/// Pin an app by name. Returns true if added (false if already present or full).
+pub fn pinApp(app: []const u8) bool {
+    if (app.len == 0 or app.len >= 128) return false;
+    initOrder();
+    for (0..persistent_count) |i| {
+        if (std.mem.eql(u8, std.mem.sliceTo(&persistent_order[i], 0), app)) return false;
+    }
+    if (persistent_count >= persistent_order.len) return false;
+    @memcpy(persistent_order[persistent_count][0..app.len], app);
+    persistent_order[persistent_count][app.len] = 0;
+    persistent_count += 1;
+    return true;
+}
+
+/// Unpin the group at index `idx`. Returns true on success.
+pub fn unpinAt(idx: usize) bool {
+    if (idx >= persistent_count) return false;
+    var i = idx;
+    while (i + 1 < persistent_count) : (i += 1) {
+        @memcpy(&persistent_order[i], &persistent_order[i + 1]);
+    }
+    persistent_count -= 1;
+    return true;
+}
+
+/// True if `app` is currently pinned.
+pub fn isPinned(app: []const u8) bool {
+    for (0..persistent_count) |i| {
+        if (std.mem.eql(u8, std.mem.sliceTo(&persistent_order[i], 0), app)) return true;
+    }
+    return false;
+}
+
+/// Serialize the pinned-app order into `buf` as newline-separated names.
+/// Returns the number of bytes written (excluding a trailing nul).
+// Null-terminated name of the pinned app at `idx` (for UI display).
+pub fn pinnedName(idx: usize) [*:0]const u8 {
+    if (idx >= persistent_count) return @ptrCast("");
+    return @ptrCast(&persistent_order[idx]);
+}
+
+pub fn writePinned(buf: []u8) usize {
+    var len: usize = 0;
+    for (0..persistent_count) |i| {
+        const name = std.mem.sliceTo(&persistent_order[i], 0);
+        if (len > 0) {
+            if (len >= buf.len) break;
+            buf[len] = '\n';
+            len += 1;
+        }
+        const n = @min(name.len, buf.len - len);
+        @memcpy(buf[len .. len + n], name[0..n]);
+        len += n;
+    }
+    return len;
+}
+
+/// Replace the pinned order from a newline-separated name list.
+pub fn loadPinned(list: []const u8) void {
+    persistent_count = 0;
+    order_initialized = true;
+    var start: usize = 0;
+    var i: usize = 0;
+    while (i <= list.len) : (i += 1) {
+        const eof = i == list.len;
+        if (eof or list[i] == '\n') {
+            const name = list[start..i];
+            if (name.len > 0 and name.len < 128 and persistent_count < persistent_order.len) {
+                @memcpy(persistent_order[persistent_count][0..name.len], name);
+                persistent_order[persistent_count][name.len] = 0;
+                persistent_count += 1;
+            }
+            start = i + 1;
+        }
+    }
+}
+
 // Replicate iconAt's layout math to derive the on-screen positions of a given
 // number of dock icons plus the separated-bar settings/launcher toggles, for a
 // specified probe position `mx`. Mirrors the geometry in iconAt() exactly.
@@ -359,13 +441,14 @@ fn testDockLayout(w: i32, num_items: usize, mx: f64) struct {
     widths: [100]f64,
     app_start: f64,
     settings_x: f64,
-    launcher_x: f64,
 } {
     var widths = std.mem.zeroes([100]f64);
     var total_w: f64 = 0;
     const slot: f64 = DOCK_ICON_SIZE + PAD;
     const unscaled_total: f64 = if (num_items > 0) @as(f64, @floatFromInt(num_items)) * slot - PAD else 0;
-    const unscaled_start_x: f64 = @max(0, (@as(f64, @floatFromInt(w)) - unscaled_total) / 2.0);
+    const toggles_w: f64 = PAD * 3.0 + @as(f64, @floatFromInt(DOCK_ICON_SIZE * 2));
+    const unscaled_block_w = unscaled_total + toggles_w;
+    const unscaled_start_x: f64 = @max(0, (@as(f64, @floatFromInt(w)) - unscaled_block_w) / 2.0);
     for (0..num_items) |g| {
         const unscaled_x = unscaled_start_x + @as(f64, @floatFromInt(g)) * slot + (@as(f64, @floatFromInt(DOCK_ICON_SIZE)) / 2.0);
         var scale: f64 = 1.0;
@@ -377,15 +460,14 @@ fn testDockLayout(w: i32, num_items: usize, mx: f64) struct {
         total_w += widths[g] + PAD;
     }
     if (num_items > 0) total_w -= PAD;
-    const app_start = @max(0, (@as(f64, @floatFromInt(w)) - total_w) / 2.0);
+    const block_w = total_w + toggles_w;
+    const app_start = @max(0, (@as(f64, @floatFromInt(w)) - block_w) / 2.0);
     const icon_right = app_start + total_w;
     const toggle_start = icon_right + PAD;
-    const slot_w = DOCK_ICON_SIZE + PAD;
     return .{
         .widths = widths,
         .app_start = app_start,
         .settings_x = toggle_start,
-        .launcher_x = toggle_start + slot_w,
     };
 }
 
@@ -460,9 +542,6 @@ test "dock iconAt settings and launcher toggles" {
     const l = testDockLayout(w, 2, 100000.0); // mx far away => all scales ~1.0
     const settings_probe: i32 = @intFromFloat(l.settings_x + @as(f64, @floatFromInt(DOCK_ICON_SIZE)) / 2.0);
     try std.testing.expectEqual(@as(i32, -2), iconAt(w, 48, &tops, 0, settings_probe));
-
-    const launcher_probe: i32 = @intFromFloat(l.launcher_x + @as(f64, @floatFromInt(DOCK_ICON_SIZE)) / 2.0);
-    try std.testing.expectEqual(@as(i32, -3), iconAt(w, 48, &tops, 0, launcher_probe));
 }
 
 test "dock groupAt logic" {
@@ -477,7 +556,8 @@ test "dock groupAt logic" {
     const w: i32 = 1920;
     const icon_sz: f64 = @floatFromInt(DOCK_ICON_SIZE);
     const slot: f64 = icon_sz + PAD;
-    const unscaled_total: f64 = 3.0 * slot - PAD;
+    const toggles_w: f64 = PAD * 3.0 + @as(f64, @floatFromInt(DOCK_ICON_SIZE * 2));
+    const unscaled_total: f64 = 3.0 * slot - PAD + toggles_w;
     const start_x: f64 = @max(0, (@as(f64, @floatFromInt(w)) - unscaled_total) / 2.0);
 
     // Hit group 0 (its unscaled center).
@@ -518,4 +598,49 @@ test "dock initOrder logic" {
     try std.testing.expectEqualStrings("foot", std.mem.sliceTo(&persistent_order[0], 0));
     try std.testing.expectEqualStrings("firefox", std.mem.sliceTo(&persistent_order[1], 0));
     try std.testing.expectEqualStrings("nemo", std.mem.sliceTo(&persistent_order[2], 0));
+}
+
+test "dock draw/iconAt must not persist running apps (#58)" {
+    persistent_count = 0;
+    order_initialized = true;
+    @memcpy(&persistent_order[0], "foot" ++ ("\x00" ** 124));
+    persistent_count = 1;
+
+    var tops: [10]toplevel.ToplevelInfo = undefined;
+    for (0..10) |i| tops[i] = .{};
+    // A running window for an app that is NOT pinned.
+    @memcpy(tops[0].app_id[0..8], "unpinned");
+
+    // iconAt sees the running window (returns its toplevel index 0)...
+    const w: i32 = 1920;
+    const l = testDockLayout(w, 2, -1);
+    const probe: i32 = @intFromFloat(l.app_start + l.widths[0] + 8 + l.widths[1] / 2.0);
+    _ = iconAt(w, 48, &tops, 1, probe);
+
+    // ...but the persistent pinned set must be unchanged.
+    try std.testing.expectEqual(@as(usize, 1), persistent_count);
+    try std.testing.expectEqualStrings("foot", std.mem.sliceTo(&persistent_order[0], 0));
+}
+
+test "dock pin/unpin roundtrip" {
+    persistent_count = 0;
+    order_initialized = true;
+
+    try std.testing.expectEqual(false, isPinned("geary"));
+    try std.testing.expectEqual(true, pinApp("geary"));
+    try std.testing.expectEqual(true, isPinned("geary"));
+    // Duplicate pin ignored.
+    try std.testing.expectEqual(false, pinApp("geary"));
+
+    var buf: [512]u8 = std.mem.zeroes([512]u8);
+    const n = writePinned(&buf);
+    try std.testing.expectEqualStrings("geary", buf[0..n]);
+
+    // Reload from serialized form.
+    loadPinned("geary\nfoot");
+    try std.testing.expectEqual(@as(usize, 2), persistent_count);
+    try std.testing.expectEqualStrings("geary", std.mem.sliceTo(&persistent_order[0], 0));
+    try std.testing.expectEqual(true, unpinAt(0));
+    try std.testing.expectEqual(@as(usize, 1), persistent_count);
+    try std.testing.expectEqualStrings("foot", std.mem.sliceTo(&persistent_order[0], 0));
 }

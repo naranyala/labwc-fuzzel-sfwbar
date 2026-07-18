@@ -52,14 +52,21 @@ void cairo_set_source_rgb(cairo_t *cr, double red, double green, double blue);
 void cairo_set_source_rgba(cairo_t *cr, double red, double green, double blue, double alpha);
 void cairo_set_source_surface(cairo_t *cr, cairo_surface_t *surface, double x, double y);
 void cairo_set_line_width(cairo_t *cr, double width);
+void cairo_new_sub_path(cairo_t *cr);
 void cairo_move_to(cairo_t *cr, double x, double y);
 void cairo_line_to(cairo_t *cr, double x, double y);
+void cairo_close_path(cairo_t *cr);
 void cairo_rectangle(cairo_t *cr, double x, double y, double width, double height);
 void cairo_arc(cairo_t *cr, double xc, double yc, double radius, double angle1, double angle2);
 void cairo_fill(cairo_t *cr);
 void cairo_stroke(cairo_t *cr);
 void cairo_scale(cairo_t *cr, double sx, double sy);
 void cairo_translate(cairo_t *cr, double tx, double ty);
+void cairo_set_operator(cairo_t *cr, int op);
+#define CAIRO_OPERATOR_CLEAR 0
+#define CAIRO_OPERATOR_SOURCE 1
+#define CAIRO_OPERATOR_OVER 2
+int cairo_surface_write_to_png(cairo_surface_t *surface, const char *filename);
 void cairo_save(cairo_t *cr);
 void cairo_restore(cairo_t *cr);
 void cairo_select_font_face(cairo_t *cr, const char *family, int slant, int weight);
@@ -85,6 +92,17 @@ void pango_cairo_show_layout(cairo_t *cr, PangoLayout *layout);
 // GLib (minimal — only what we need)
 typedef int gboolean;
 void g_object_unref(void *object);
+
+// Process spawning (for async custom-command widget)
+pid_t fork(void);
+int execlp(const char *file, const char *arg, ...);
+void _exit(int status);
+int system(const char *command);
+int dup2(int oldfd, int newfd);
+int mkstemp(char *template);
+int fchmod(int fd, int mode);
+int close(int fd);
+int unlink(const char *pathname);
 
 // librsvg
 typedef struct _RsvgHandle { int _opaque; } RsvgHandle;
@@ -112,4 +130,9 @@ cairo_surface_t* load_svg_and_render_c(const char* path, int size);
 
 // Pango text rendering helpers written in C
 int widget_text_c(cairo_t* cr, const char* text, int x, int h, const char* font_desc, double r, double g, double b);
+int widget_text_width_c(cairo_t* cr, const char* text, const char* font_desc);
 void widget_icon_glyph_c(cairo_t* cr, const char* glyph, int x, int h, double r, double g, double b);
+
+// Global panel font-scale factor (1.0 = no scaling), applied to every glyph.
+extern double g_font_scale;
+void widget_set_font_scale(double scale);

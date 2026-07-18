@@ -8,7 +8,7 @@ const sysread = @import("shellcore").sysread;
 const icon = @import("icon.zig");
 const blend2d = @import("blend2d_render.zig");
 
-const MAX_WIDGETS = 64;
+pub const MAX_WIDGETS = 64;
 
 const spawn_log = std.log.scoped(.spawn);
 
@@ -51,6 +51,8 @@ pub const WidgetType = enum {
     showdesktop,
     worldclock,
     backlight,
+    versions,
+    session,
 };
 
 pub const Widget = struct {
@@ -66,8 +68,8 @@ pub const Widget = struct {
     priv: ?*anyopaque = null,
 
     ws_labels: [64]u8 = std.mem.zeroes([64]u8),
-    cpu_prev_total: i32 = 0,
-    cpu_prev_idle: i32 = 0,
+    cpu_prev_total: i64 = 0,
+    cpu_prev_idle: i64 = 0,
     cpu_txt: [32]u8 = std.mem.zeroes([32]u8),
     mem_txt: [32]u8 = std.mem.zeroes([32]u8),
     temp_txt: [32]u8 = std.mem.zeroes([32]u8),
@@ -147,9 +149,25 @@ fn wsDraw(w: *Widget, renderer: *blend2d.BlendRenderer, x: i32, y: i32, h: i32) 
     _ = widgetText(renderer, @ptrCast(&w.ws_labels), x, h, 10.0, 0.6, 0.6, 0.7);
 }
 
-fn wsClick(w: *Widget, btn: u32, _: i32, _: i32) bool {
-    _ = w;
+fn wsClick(w: *Widget, btn: u32, lx: i32, _: i32) bool {
     if (btn != 1) return false;
+    // Parse workspace labels (e.g. " 1 2 3 4 ") and switch to the clicked one.
+    // Each workspace label is ~3 chars wide at 7px/char = 21px per workspace.
+    const labels = std.mem.sliceTo(&w.ws_labels, 0);
+    var char_pos: i32 = 0;
+    for (labels) |ch| {
+        if (ch >= '0' and ch <= '9') {
+            const char_x = char_pos * 7;
+            if (lx >= char_x - 3 and lx < char_x + 10) {
+                var buf: [32]u8 = std.mem.zeroes([32]u8);
+                _ = std.fmt.bufPrintZ(&buf, "wlrctl workgroup {c} &", .{ch}) catch return true;
+                _ = spawn(@ptrCast(&buf));
+                return true;
+            }
+        }
+        char_pos += 1;
+    }
+    // Fallback: cycle to next
     _ = spawn("wlrctl workgroup next");
     return true;
 }
@@ -197,6 +215,9 @@ fn tlClick(w: *Widget, btn: u32, lx: i32, ly: i32) bool {
     if (w.priv == null) return false;
     const ctx: *PanelCtx = @ptrCast(@alignCast(w.priv.?));
     const icon_size = ctx.panel_height - 12;
+    // NOTE: tlDraw/tlMeasure use `h - 12` for icon_size. We use panel_height
+    // here as a proxy since click callbacks don't receive the cached h.
+    // This is correct as long as panel_height matches the h passed to draw.
     const idx = @divTrunc(lx, icon_size + 4);
     if (idx >= 0 and idx < ctx.count.*) {
         const handle: ?*c.zwlr_foreign_toplevel_handle_v1 = @ptrCast(@alignCast(ctx.toplevels[@intCast(idx)].handle));
@@ -204,7 +225,7 @@ fn tlClick(w: *Widget, btn: u32, lx: i32, ly: i32) bool {
             if (ctx.seat) |seat| {
                 _ = c.zwlr_foreign_toplevel_handle_v1_activate(handle, seat);
             }
-        } else if (btn == 3 or btn == 274) {
+        } else if (btn == 3) {
             _ = c.zwlr_foreign_toplevel_handle_v1_close(handle);
         }
         return true;
@@ -215,7 +236,7 @@ fn tlClick(w: *Widget, btn: u32, lx: i32, ly: i32) bool {
 fn launcherMeasure(w: *Widget, h: i32) i32 {
     _ = w;
     _ = h;
-    return 22;
+    return 18;
 }
 
 fn launcherDraw(w: *Widget, renderer: *blend2d.BlendRenderer, x: i32, y: i32, h: i32) void {
@@ -236,18 +257,18 @@ fn cpuUpdate(w: *Widget) void {
     var pt: i64 = w.cpu_prev_total;
     var pi: i64 = w.cpu_prev_idle;
     sysread.cpu(&w.cpu_txt, &pt, &pi);
-    w.cpu_prev_total = @intCast(pt);
-    w.cpu_prev_idle = @intCast(pi);
+    w.cpu_prev_total = pt;
+    w.cpu_prev_idle = pi;
 }
 
 fn cpuMeasure(w: *Widget, h: i32) i32 {
     _ = w;
     _ = h;
-    return 60;
+    return 44;
 }
 
 fn cpuDraw(w: *Widget, renderer: *blend2d.BlendRenderer, x: i32, y: i32, h: i32) void {
-    const bar_w: f64 = 60.0;
+    const bar_w: f64 = 44.0;
     const bar_h: f64 = @floatFromInt(h - 16);
     const bar_y: f64 = @floatFromInt(y + 8);
 
@@ -286,11 +307,11 @@ fn memUpdate(w: *Widget) void {
 fn memMeasure(w: *Widget, h: i32) i32 {
     _ = w;
     _ = h;
-    return 70;
+    return 50;
 }
 
 fn memDraw(w: *Widget, renderer: *blend2d.BlendRenderer, x: i32, y: i32, h: i32) void {
-    const bar_w: f64 = 70.0;
+    const bar_w: f64 = 50.0;
     const bar_h: f64 = @floatFromInt(h - 16);
     const bar_y: f64 = @floatFromInt(y + 8);
 
@@ -321,7 +342,7 @@ fn tempUpdate(w: *Widget) void {
 fn tempMeasure(w: *Widget, h: i32) i32 {
     _ = w;
     _ = h;
-    return 56;
+    return 42;
 }
 
 fn tempDraw(w: *Widget, renderer: *blend2d.BlendRenderer, x: i32, y: i32, h: i32) void {
@@ -342,7 +363,7 @@ fn tempClick(w: *Widget, btn: u32, x: i32, y: i32) bool {
 fn diskMeasure(w: *Widget, h: i32) i32 {
     _ = w;
     _ = h;
-    return 64;
+    return 48;
 }
 
 fn diskDraw(w: *Widget, renderer: *blend2d.BlendRenderer, x: i32, y: i32, h: i32) void {
@@ -363,12 +384,12 @@ fn diskClick(w: *Widget, btn: u32, x: i32, y: i32) bool {
 fn batMeasure(w: *Widget, h: i32) i32 {
     _ = w;
     _ = h;
-    return 64;
+    return 48;
 }
 
 fn batDraw(w: *Widget, renderer: *blend2d.BlendRenderer, x: i32, y: i32, h: i32) void {
-    const bat_w: f64 = 24.0;
-    const bat_h: f64 = 14.0;
+    const bat_w: f64 = 18.0;
+    const bat_h: f64 = 10.0;
     const bat_y: f64 = @floatFromInt(y + @divTrunc(h - 14, 2));
 
     // Outline
@@ -388,7 +409,7 @@ fn batDraw(w: *Widget, renderer: *blend2d.BlendRenderer, x: i32, y: i32, h: i32)
         renderer.fillRect(@as(f64, @floatFromInt(x)) + 2.0, bat_y + 2.0, fill_w, bat_h - 4.0, color);
     }
 
-    _ = widgetText(renderer, @ptrCast(&w.bat_txt), x + 30, h, 9.0, 0.8, 0.8, 0.82);
+    _ = widgetText(renderer, @ptrCast(&w.bat_txt), x + 24, h, 9.0, 0.8, 0.8, 0.82);
 }
 
 fn batUpdate(w: *Widget) void {
@@ -407,7 +428,7 @@ fn batClick(w: *Widget, btn: u32, x: i32, y: i32) bool {
 fn volMeasure(w: *Widget, h: i32) i32 {
     _ = w;
     _ = h;
-    return 64;
+    return 48;
 }
 
 fn volDraw(w: *Widget, renderer: *blend2d.BlendRenderer, x: i32, y: i32, h: i32) void {
@@ -416,14 +437,52 @@ fn volDraw(w: *Widget, renderer: *blend2d.BlendRenderer, x: i32, y: i32, h: i32)
     _ = widgetText(renderer, @ptrCast(&w.vol_txt), x + 18, h, 9.0, 0.8, 0.8, 0.82);
 }
 
+fn volUpdate(w: *Widget) void {
+    // Read mute state from PulseAudio
+    var buf: [64]u8 = std.mem.zeroes([64]u8);
+    const f = c.popen("pactl get-sink-mute @DEFAULT_SINK@ 2>/dev/null", "r") orelse return;
+    defer _ = c.pclose(f);
+    if (c.fgets(@ptrCast(&buf), buf.len, f)) |line| {
+        const s = std.mem.sliceTo(line, 0);
+        w.vol_mute = std.mem.startsWith(u8, s, "Mute: yes");
+    }
+    // Read volume percentage
+    var vbuf: [64]u8 = std.mem.zeroes([64]u8);
+    const fv = c.popen("pactl get-sink-volume @DEFAULT_SINK@ 2>/dev/null", "r") orelse return;
+    defer _ = c.pclose(fv);
+    if (c.fgets(@ptrCast(&vbuf), vbuf.len, fv)) |line| {
+        const s = std.mem.sliceTo(line, 0);
+        // Parse "Volume: front-left: 50000 /  50%  ..." — find the percentage
+        var pct_start: usize = 0;
+        var found_pct = false;
+        for (s, 0..) |ch, i| {
+            if (ch == '/' and i + 2 < s.len and s[i + 1] == ' ') {
+                pct_start = i + 2;
+                found_pct = true;
+                break;
+            }
+        }
+        if (found_pct and pct_start < s.len) {
+            var pct_end = pct_start;
+            while (pct_end < s.len and s[pct_end] != '%' and s[pct_end] != ' ') pct_end += 1;
+            if (pct_end > pct_start) {
+                const n = @min(pct_end - pct_start, w.vol_txt.len - 1);
+                @memcpy(w.vol_txt[0..n], s[pct_start..pct_start + n]);
+                w.vol_txt[n] = 0;
+            }
+        }
+    }
+}
+
 fn volClick(w: *Widget, btn: u32, x: i32, y: i32) bool {
     _ = x;
     _ = y;
     if (btn != 1) return false;
+    w.vol_mute = !w.vol_mute;
     if (w.vol_mute) {
-        _ = spawn("pactl set-sink-mute @DEFAULT_SINK@ 0 &");
-    } else {
         _ = spawn("pactl set-sink-mute @DEFAULT_SINK@ 1 &");
+    } else {
+        _ = spawn("pactl set-sink-mute @DEFAULT_SINK@ 0 &");
     }
     return true;
 }
@@ -431,7 +490,7 @@ fn volClick(w: *Widget, btn: u32, x: i32, y: i32) bool {
 fn netMeasure(w: *Widget, h: i32) i32 {
     _ = w;
     _ = h;
-    return 110;
+    return 80;
 }
 
 fn netUpdate(w: *Widget) void {
@@ -467,8 +526,8 @@ fn netDraw(w: *Widget, renderer: *blend2d.BlendRenderer, x: i32, y: i32, h: i32)
     _ = y;
     widgetIconGlyph(renderer, "\xf0\x9f\x93\xb6", x, h, 0.5, 0.9, 0.6); // 📶
 
-    const sp_x = x + 18;
-    const sp_w: f64 = 56.0;
+    const sp_x = x + 14;
+    const sp_w: f64 = 40.0;
     const sp_h: f64 = @floatFromInt(h - 18);
     const sp_y: f64 = @floatFromInt(@divTrunc(h - 18, 2) + 2);
 
@@ -485,7 +544,7 @@ fn netDraw(w: *Widget, renderer: *blend2d.BlendRenderer, x: i32, y: i32, h: i32)
         renderer.fillRect(@as(f64, @floatFromInt(sp_x)) + @as(f64, @floatFromInt(k)) * bw, sp_y + sp_h * 0.5, bw - 1, txh, 0xFF80B3E6);
     }
 
-    _ = widgetText(renderer, @ptrCast(&w.net_txt), x + 80, h, 8.0, 0.8, 0.8, 0.82);
+    _ = widgetText(renderer, @ptrCast(&w.net_txt), x + 58, h, 8.0, 0.8, 0.8, 0.82);
 }
 
 fn netClick(w: *Widget, btn: u32, x: i32, y: i32) bool {
@@ -508,6 +567,41 @@ fn mediaDraw(w: *Widget, renderer: *blend2d.BlendRenderer, x: i32, y: i32, h: i3
     if (w.media_txt[0] == 0) return;
     widgetIconGlyph(renderer, if (w.media_playing) "\xe2\x96\xb6" else "\xe2\x9d\x9c", x, h, 0.9, 0.8, 0.4); // ▶ or ❚❚
     _ = widgetText(renderer, @ptrCast(&w.media_txt), x + 18, h, 9.0, 0.85, 0.85, 0.88);
+}
+
+fn mediaUpdate(w: *Widget) void {
+    var buf: [96]u8 = std.mem.zeroes([96]u8);
+    const f = c.popen("playerctl metadata --format '{{title}}' 2>/dev/null", "r") orelse {
+        w.media_txt[0] = 0;
+        return;
+    };
+    defer _ = c.pclose(f);
+    if (c.fgets(@ptrCast(&buf), buf.len, f)) |line| {
+        const raw = std.mem.sliceTo(line, 0);
+        var end = raw.len;
+        while (end > 0 and (raw[end - 1] == '\n' or raw[end - 1] == '\r')) : (end -= 1) {}
+        if (end == 0) {
+            w.media_txt[0] = 0;
+            w.media_playing = false;
+            return;
+        }
+        const trimmed = raw[0..end];
+        const n = @min(trimmed.len, w.media_txt.len - 1);
+        @memcpy(w.media_txt[0..n], trimmed[0..n]);
+        w.media_txt[n] = 0;
+        // Check playback status
+        w.media_playing = false;
+        var sbuf: [32]u8 = std.mem.zeroes([32]u8);
+        const sf = c.popen("playerctl status 2>/dev/null", "r") orelse return;
+        defer _ = c.pclose(sf);
+        if (c.fgets(@ptrCast(&sbuf), sbuf.len, sf)) |sline| {
+            const ss = std.mem.sliceTo(sline, 0);
+            w.media_playing = std.mem.startsWith(u8, ss, "Playing");
+        }
+    } else {
+        w.media_txt[0] = 0;
+        w.media_playing = false;
+    }
 }
 
 fn mediaClick(w: *Widget, btn: u32, x: i32, y: i32) bool {
@@ -542,7 +636,7 @@ fn clkClick(w: *Widget, btn: u32, x: i32, y: i32) bool {
 fn pwrMeasure(w: *Widget, h: i32) i32 {
     _ = w;
     _ = h;
-    return 22;
+    return 18;
 }
 
 fn pwrDraw(w: *Widget, renderer: *blend2d.BlendRenderer, x: i32, y: i32, h: i32) void {
@@ -634,6 +728,7 @@ fn kbClick(w: *Widget, btn: u32, x: i32, y: i32) bool {
     var cmd: [128]u8 = std.mem.zeroes([128]u8);
     _ = std.fmt.bufPrintZ(&cmd, "setxkbmap -layout {s} &", .{std.mem.sliceTo(&layout, 0)}) catch |err| {
         std.log.err("layout cmd format error: {}", .{err});
+        return true;
     };
     _ = spawn(@ptrCast(&cmd));
     return true;
@@ -654,14 +749,39 @@ fn ccUpdate(w: *Widget) void {
     const fd = c.mkstemp(@ptrCast(&tmpl));
     if (fd < 0) return;
     _ = c.close(fd);
-    var cmd: [320]u8 = std.mem.zeroes([320]u8);
+    // Strip trailing '&' so the command runs synchronously — we need the
+    // output file populated before reading it back.
+    var cmd_raw: [320]u8 = std.mem.zeroes([320]u8);
     const cmd_slice = std.mem.sliceTo(&w.cmd, 0);
-    _ = std.fmt.bufPrintZ(&cmd, "sh -c '{s}' > '{s}' 2>/dev/null", .{ cmd_slice, std.mem.sliceTo(&tmpl, 0) }) catch |err| {
+    var cmd_len = cmd_slice.len;
+    while (cmd_len > 0 and cmd_slice[cmd_len - 1] == ' ') cmd_len -= 1;
+    if (cmd_len > 0 and cmd_slice[cmd_len - 1] == '&') cmd_len -= 1;
+    while (cmd_len > 0 and cmd_slice[cmd_len - 1] == ' ') cmd_len -= 1;
+    const sync_cmd = cmd_slice[0..cmd_len];
+    // Escape single quotes for safe shell interpolation: ' → '\''
+    var escaped: [320]u8 = std.mem.zeroes([320]u8);
+    var ei: usize = 0;
+    for (sync_cmd) |ch| {
+        if (ch == '\'') {
+            if (ei + 4 > escaped.len) break;
+            escaped[ei] = '\'';
+            escaped[ei + 1] = '\\';
+            escaped[ei + 2] = '\'';
+            escaped[ei + 3] = '\'';
+            ei += 4;
+        } else {
+            if (ei >= escaped.len) break;
+            escaped[ei] = ch;
+            ei += 1;
+        }
+    }
+    escaped[ei] = 0;
+    _ = std.fmt.bufPrintZ(&cmd_raw, "sh -c '{s}' > '{s}' 2>/dev/null", .{ std.mem.sliceTo(&escaped, 0), std.mem.sliceTo(&tmpl, 0) }) catch |err| {
         std.log.err("sh cmd format error: {}", .{err});
         _ = c.unlink(&tmpl);
         return;
     };
-    _ = spawn(@ptrCast(&cmd));
+    _ = spawn(@ptrCast(&cmd_raw));
     const f = c.fopen(@ptrCast(&tmpl), "r") orelse {
         _ = c.unlink(@ptrCast(&tmpl));
         return;
@@ -700,7 +820,7 @@ fn ccClick(w: *Widget, btn: u32, x: i32, y: i32) bool {
 fn sdMeasure(w: *Widget, h: i32) i32 {
     _ = w;
     _ = h;
-    return 22;
+    return 18;
 }
 
 fn sdDraw(w: *Widget, renderer: *blend2d.BlendRenderer, x: i32, y: i32, h: i32) void {
@@ -759,7 +879,7 @@ fn wcDraw(w: *Widget, renderer: *blend2d.BlendRenderer, x: i32, y: i32, h: i32) 
 fn blMeasure(w: *Widget, h: i32) i32 {
     _ = w;
     _ = h;
-    return 64;
+    return 48;
 }
 
 fn blUpdate(w: *Widget) void {
@@ -821,8 +941,8 @@ fn blUpdate(w: *Widget) void {
 
 fn blDraw(w: *Widget, renderer: *blend2d.BlendRenderer, x: i32, y: i32, h: i32) void {
     widgetIconGlyph(renderer, "\xe2\x98\x80", x, h, 0.9, 0.7, 0.2); // ☀
-    const bar_w: f64 = 26.0;
-    const bar_h: f64 = 10.0;
+    const bar_w: f64 = 18.0;
+    const bar_h: f64 = 8.0;
     const bar_y: f64 = @floatFromInt(y + @divTrunc(h - 10, 2));
     renderer.fillRect(@floatFromInt(x + 18), bar_y, bar_w, bar_h, 0xFF262633);
     if (w.bl_lvl >= 0) {
@@ -837,7 +957,7 @@ fn blDraw(w: *Widget, renderer: *blend2d.BlendRenderer, x: i32, y: i32, h: i32) 
     } else {
         std.mem.copyForwards(u8, &txt, "n/a");
     }
-    _ = widgetText(renderer, @ptrCast(&txt), x + 48, h, 9.0, 0.8, 0.8, 0.82);
+    _ = widgetText(renderer, @ptrCast(&txt), x + 36, h, 9.0, 0.8, 0.8, 0.82);
 }
 
 fn blClick(w: *Widget, btn: u32, x: i32, y: i32) bool {
@@ -851,6 +971,115 @@ fn blClick(w: *Widget, btn: u32, x: i32, y: i32) bool {
     } else {
         return false;
     }
+    return true;
+}
+
+// ---- Versions widget (wayland + labwc) ----
+
+fn versionsMeasure(w: *Widget, h: i32) i32 {
+    _ = w;
+    _ = h;
+    return 80;
+}
+
+fn versionsDraw(w: *Widget, renderer: *blend2d.BlendRenderer, x: i32, y: i32, h: i32) void {
+    _ = y;
+    const text = w.net_txt[0..std.mem.indexOfScalar(u8, &w.net_txt, 0) orelse w.net_txt.len];
+    _ = widgetText(renderer, @ptrCast(text.ptr), x, h, 9.0, 0.6, 0.7, 0.8);
+}
+
+fn versionsUpdate(w: *Widget) void {
+    // Get wayland version from pkg-config
+    var wl_buf: [32]u8 = std.mem.zeroes([32]u8);
+    const f = c.popen("pkg-config --modversion wayland-client 2>/dev/null", "r");
+    if (f != null) {
+        defer _ = c.pclose(f.?);
+        if (c.fgets(@ptrCast(&wl_buf), @intCast(wl_buf.len - 1), f.?)) |line| {
+            const s = std.mem.sliceTo(@as([*:0]const u8, @ptrCast(line)), 0);
+            const trimmed = std.mem.trim(u8, s, " \t\n\r");
+            const n = @min(trimmed.len, 15);
+            wl_buf[0] = 'W';
+            wl_buf[1] = 'L';
+            wl_buf[2] = ':';
+            @memcpy(wl_buf[3..3 + n], trimmed[0..n]);
+            wl_buf[3 + n] = 0;
+        }
+    }
+
+    // Get labwc version
+    var lc_buf: [32]u8 = std.mem.zeroes([32]u8);
+    const fl = c.popen("labwc --version 2>/dev/null | head -1", "r");
+    if (fl != null) {
+        defer _ = c.pclose(fl.?);
+        if (c.fgets(@ptrCast(&lc_buf), @intCast(lc_buf.len - 1), fl.?)) |line| {
+            const s = std.mem.sliceTo(@as([*:0]const u8, @ptrCast(line)), 0);
+            const trimmed = std.mem.trim(u8, s, " \t\n\r");
+            var ver_start: usize = 0;
+            for (trimmed, 0..) |ch, i| {
+                if (ch >= '0' and ch <= '9') {
+                    ver_start = i;
+                    break;
+                }
+            }
+            if (ver_start < trimmed.len) {
+                const ver = trimmed[ver_start..];
+                const n = @min(ver.len, 15);
+                var lc_txt: [32]u8 = std.mem.zeroes([32]u8);
+                lc_txt[0] = 'L';
+                lc_txt[1] = 'C';
+                lc_txt[2] = ':';
+                @memcpy(lc_txt[3..3 + n], ver[0..n]);
+                lc_txt[3 + n] = 0;
+                const wl_part = std.mem.sliceTo(@as([*:0]const u8, @ptrCast(&wl_buf)), 0);
+                const lc_part = std.mem.sliceTo(@as([*:0]const u8, @ptrCast(&lc_txt)), 0);
+                var combined: [64]u8 = std.mem.zeroes([64]u8);
+                const wl_len = wl_part.len;
+                const lc_len = lc_part.len;
+                @memcpy(combined[0..wl_len], wl_part[0..wl_len]);
+                combined[wl_len] = ' ';
+                @memcpy(combined[wl_len + 1 .. wl_len + 1 + lc_len], lc_part[0..lc_len]);
+                combined[wl_len + 1 + lc_len] = 0;
+                const final_len = wl_len + 1 + lc_len;
+                @memcpy(w.net_txt[0..final_len], combined[0..final_len]);
+                w.net_txt[final_len] = 0;
+            }
+        }
+    } else {
+        const wl_part = std.mem.sliceTo(@as([*:0]const u8, @ptrCast(&wl_buf)), 0);
+        const n = wl_part.len;
+        @memcpy(w.net_txt[0..n], wl_part[0..n]);
+        w.net_txt[n] = 0;
+    }
+}
+
+fn versionsClick(w: *Widget, btn: u32, x: i32, y: i32) bool {
+    _ = w;
+    _ = x;
+    _ = y;
+    _ = btn;
+    return false;
+}
+
+// ---- Session widget ----
+
+fn sessionMeasure(w: *Widget, h: i32) i32 {
+    _ = w;
+    _ = h;
+    return 22;
+}
+
+fn sessionDraw(w: *Widget, renderer: *blend2d.BlendRenderer, x: i32, y: i32, h: i32) void {
+    _ = w;
+    _ = y;
+    // Draw power icon
+    _ = widgetIconGlyph(renderer, "\xe2\x8f\xbb", x + 4, h, 0.9, 0.5, 0.5);
+}
+
+fn sessionClick(w: *Widget, btn: u32, x: i32, y: i32) bool {
+    _ = w;
+    _ = x;
+    _ = y;
+    if (btn != 1) return false;
     return true;
 }
 
@@ -871,6 +1100,7 @@ pub fn widgetCreateDefault() WidgetList {
         .{ .wtype = .workspaces, .side = 0 },
         .{ .wtype = .toplevel_task, .side = 0 },
         .{ .wtype = .launcher, .side = 0 },
+        .{ .wtype = .versions, .side = 0 },
         .{ .wtype = .cpu, .side = 1 },
         .{ .wtype = .mem, .side = 1 },
         .{ .wtype = .temp, .side = 1 },
@@ -929,44 +1159,11 @@ pub fn widgetCreateCompact() WidgetList {
 }
 
 fn createWidget(wtype: WidgetType) Widget {
-    var w: Widget = undefined;
+    var w: Widget = std.mem.zeroes(Widget);
     w.wtype = wtype;
-    w.side = 0;
-    w.cached_w = 0;
-    w.priv = null;
-    w.ws_labels = std.mem.zeroes([64]u8);
-    w.cpu_prev_total = 0;
-    w.cpu_prev_idle = 0;
-    w.cpu_txt = std.mem.zeroes([32]u8);
-    w.mem_txt = std.mem.zeroes([32]u8);
-    w.temp_txt = std.mem.zeroes([32]u8);
-    w.disk_txt = std.mem.zeroes([32]u8);
     w.bat_lvl = -1;
-    w.bat_charging = false;
-    w.bat_txt = std.mem.zeroes([32]u8);
-    w.vol_mute = false;
-    w.vol_txt = std.mem.zeroes([32]u8);
-    w.net_txt = std.mem.zeroes([64]u8);
-    w.media_txt = std.mem.zeroes([96]u8);
-    w.media_playing = false;
-    w.clock_fmt = std.mem.zeroes([32]u8);
-    w.clock_txt = std.mem.zeroes([64]u8);
-    w.cmd = std.mem.zeroes([128]u8);
-    w.spacer_w = 20;
-    w.kb_layouts = std.mem.zeroes([256]u8);
-    w.kb_idx = 0;
-    w.kb_txt = std.mem.zeroes([32]u8);
-    w.cc_out = std.mem.zeroes([128]u8);
-    w.wc_tz = std.mem.zeroes([64]u8);
-    w.wc_label = std.mem.zeroes([16]u8);
     w.bl_lvl = -1;
-    w.net_rx_prev = 0;
-    w.net_tx_prev = 0;
-    w.net_iface = std.mem.zeroes([32]u8);
-    w.net_hist_rx = std.mem.zeroes([16]f64);
-    w.net_hist_tx = std.mem.zeroes([16]f64);
-    w.update_fn = null;
-    w.click_fn = null;
+    w.spacer_w = 20;
 
     switch (wtype) {
         .workspaces => {
@@ -1023,6 +1220,7 @@ fn createWidget(wtype: WidgetType) Widget {
         .volume => {
             w.measure_fn = volMeasure;
             w.draw_fn = volDraw;
+            w.update_fn = volUpdate;
             w.click_fn = volClick;
         },
         .network => {
@@ -1035,6 +1233,7 @@ fn createWidget(wtype: WidgetType) Widget {
         .media => {
             w.measure_fn = mediaMeasure;
             w.draw_fn = mediaDraw;
+            w.update_fn = mediaUpdate;
             w.click_fn = mediaClick;
         },
         .clock => {
@@ -1051,7 +1250,7 @@ fn createWidget(wtype: WidgetType) Widget {
             w.click_fn = pwrClick;
         },
         .spacer => {
-            w.spacer_w = 20;
+            w.spacer_w = 12;
             w.measure_fn = spacerMeasure;
             w.draw_fn = spacerDraw;
             w.click_fn = spacerClick;
@@ -1090,6 +1289,18 @@ fn createWidget(wtype: WidgetType) Widget {
             w.draw_fn = blDraw;
             w.update_fn = blUpdate;
             w.click_fn = blClick;
+        },
+        .versions => {
+            std.mem.copyForwards(u8, &w.net_txt, "WL:? LC:?");
+            w.measure_fn = versionsMeasure;
+            w.draw_fn = versionsDraw;
+            w.update_fn = versionsUpdate;
+            w.click_fn = versionsClick;
+        },
+        .session => {
+            w.measure_fn = sessionMeasure;
+            w.draw_fn = sessionDraw;
+            w.click_fn = sessionClick;
         },
     }
 

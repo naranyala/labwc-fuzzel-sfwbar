@@ -1,615 +1,390 @@
-# OCWS Bugs & Security Issues
+# TODOS — Blend2D Panel/Dock Issues
 
-## Shell Rendering Backends
+## Previously Fixed Bugs
 
-Two parallel Zig shell implementations exist under `src/shells/`:
+- [x] **#1 Wrong right-click button code** (`main_shell.zig:435`, `panel.zig:207`) — Button `274` is `BTN_MIDDLE` (0x112), not `BTN_RIGHT` (0x111=273).
+- [x] **#2 Stale dock visible after autohide** (`main_shell.zig:993-994`) — When `dock_surface.height <= 0`, `renderDock` returns early but `submitSurface` is never called.
+- [x] **#3 `ccUpdate` race with async spawn** (`panel.zig:649-683`) — Custom command spawns `sh -c '...' > tmpfile` via `spawn()` (which blocks on `system()`), then immediately reads the tmpfile.
+- [x] **#4 No bounds checking on configure `w`/`h`** (`main_shell.zig:643-661`) — `layerSurfaceConfigure` accepts arbitrary `w`/`h` from compositor without clamping.
+- [x] **#5 `keyboard_keymap_fd` never closed on exit** (`main_shell.zig:1467-1488`)
+- [x] **#6 `dock.c` loaded icon not destroyed on mutable-check failure** (`dock.c:52-63`)
+- [x] **#7 `reloadWidgets` loses accumulated widget state** (`main_shell.zig:798-808`)
+- [x] **#8 `dock.zig` redundant array copy** (`dock.zig:19-40`)
+- [x] **#9 Panel fallback width is a magic number** (`main_shell.zig:1401`)
+- [x] **#10 No workspace-specific switching** (`panel.zig:150-155`)
+- [x] **#11 No `wl_surface_set_buffer_scale` on initial render** (`main_shell.zig`)
+- [x] **#13 Misaligned indentation** (`main_shell.zig:998`)
+- [x] **#14 `createWidget` re-zeros every field manually** (`panel.zig:931-967`)
+- [x] **#15 Segfault: `submitSurface` called with null launcher buffer** (`main_shell.zig:1488`)
+- [ ] **#12 Dock keyboard interactivity always 0** (`main_shell.zig:1381`) — Intentional.
 
-| Shell | Renderer | Dependencies | Status |
-|---|---|---|---|
-| `zigshell-cairo-pango/` | Cairo + Pango + librsvg | cairo, pango, glib, gobject, librsvg | Baseline — working |
-| `zigshell-blend2d/` | Blend2D (software JIT) | blend2d (vendored) | Initial build — needs polish |
+## Previously Fixed Cairo-Pango Bugs
 
-Both share `toplevel.zig`, protocol files, and the same Wayland layer-shell architecture.
-The goal is to keep `zigshell-cairo-pango` as the stable baseline while developing
-`zigshell-blend2d` as the modern, glib-free replacement.
-
----
-
-## De-duplication & Refactoring (shared code across shells)
-
-Investigation found the two shells carried byte-identical copies of protocol and
-utility code, plus dead directories/files. Extraction target: a single shared
-module `src/shells/shared/` registered as the `shellcore` import in each
-`build.zig`. Implemented: **the safe de-dup / dead-code half**; backlog: the
-render/widget unification half (higher risk, backend-divergent).
-
-### Implemented in this pass (✅ builds + tests green on both shells)
-- [x] **P1-1 Shared `toplevel.zig`** — reconciled cairo (`hover_anim`) + blend2d
-  (robust `add`/`removeAt`) into `src/shells/shared/toplevel.zig` with tests;
-  deleted per-shell copies; imports now `@import("shellcore").toplevel`.
-  `add()` returns `0` at capacity (matches existing blend2d test contract).
-- [x] **P1-2 Shared `damage.zig`** — identical duplicate collapsed into
-  `src/shells/shared/damage.zig`; per-shell copies deleted.
-- [x] **P1-3 Shared protocol sources** — 3 byte-identical `.c/.h` protocol pairs
-  (md5-confirmed triplicates) moved to `src/shells/shared/protocol/`; duplicates
-  in both shells + the dead `src/shells/zigshell-core/` directory removed. Both
-  `build.zig` `addProtocolSources` + include paths point at `../shared/protocol`.
-- [x] **P1-4 Dead code removal** — deleted unused `panel_draw.c`/`panel_draw.h`
-  from `zigshell-blend2d` (never linked into a live target); dropped their
-  `addCSourceFile` calls and the `#include "panel_draw.h"` in `dock_c.h`;
-  `panel_draw_test.zig` re-pointed at the live renderer (comment corrected).
-- [x] **Module wiring** — `shellcore` `b.createModule` registered on `root_mod`
-  and every test module in both `build.zig` files.
-
-### Backlog (not yet implemented — render/widget unification, higher risk)
-- [ ] **P0-1 Shared `Widget` struct** — structs are identical except the backend
-  draw-fn param (`*c.cairo_t` vs `*blend2d.BlendRenderer`). Extract a generic
-  `Widget(comptime Ctx)` or split field-data from render-fn pointers so
-  `panel.zig` widget logic (measure/update/click/key) lives once.
-- [ ] **P0-2 Shared widget logic** — `panel.zig` is ~1.3k lines duplicated per
-  shell; only `draw_fn` bodies differ. Move measure/update/click/kbUpdate/etc.
-  into a shared module parameterized over the renderer.
-- [ ] **P2-1 Shared Wayland/layer-shell setup** — `main_shell.zig` registry bind,
-  seat/keyboard/pointer listeners, and layer-shell config are near-identical.
-- [ ] **P2-2 Shared config parsing** — `parseWidgetType` and config loading are
-  duplicated.
-- [ ] **P3-1 Shared `dock.zig`** — dock layout/logic largely overlaps; only draw
-  differs.
-
-⚠️ Note: an external `.mimocode` process periodically rewrites files under
-`src/shells/` (observed reverting `build.zig` and dropping `panel.zig` fields
-such as `key_fn`/`name`). Re-verify builds after edits; treat the on-disk
-version as the live baseline.
+- [x] **#16 `toplevel_task` widget never renders (missing `priv` wiring)**
+- [x] **#17 `ccUpdate` blocks the Wayland event loop + shell-injection**
+- [x] **#20 Reload discards `priv` and runtime state inconsistently**
+- [x] **#22 Dock magnification can exceed dock height**
+- [x] **#24 `tlClick` hit-test desyncs from drawn positions**
+- [x] **#18 Widget layout uses mismatched width estimates** (measure now uses real Pango width via `widget_text_width_c`)
+- [x] **#19 `mkstemp` temp file world-readable + no retry** (`fchmod(fd, 0o600)` after mkstemp)
+- [x] **#21 Icon cache relies on zeroed backing buffers for null-termination** (`bufPrintZ` null-terminated copy before `icon.load`)
+- [x] **#23 Settings drag saves config on every motion event** (dirty flag + single save on button release)
 
 ---
 
-## lxqt-panel Feature Extraction (enrich both zigshell backends)
+## Blend2D — New Issues (Audit 2026-07-17)
 
-Source of truth: `sources/lxqt-panel/plugin-*` (23 plugins). Goal: port the
-most useful panel widgets into **both** `zigshell-cairo-pango` and
-`zigshell-blend2d` (each widget is render-agnostic — only `draw_fn` differs;
-`measure/update/click` logic is shared). Implemented: **7 of 14** (the
-high-value / low-effort half). Backlog: 7 (the high-effort / D-Bus-heavy half).
+### Critical
 
-### Implemented in this pass (▶ = done in both renderers)
-- [x] **Spacer + stretch** (`plugin-spacer`) — flexible spacer so widgets can be centered/right-pushed, not just hard left/right. Files: `panel.zig` (`spacer` WidgetType + `spacerMeasure`).
-- [x] **Keyboard layout indicator** (`plugin-kbindicator`) — show current XKB layout, click cycles via `setxkbmap`. Files: `panel.zig` (`kbindicator`, `kbUpdate`, `kbDraw`, `kbClick`).
-- [x] **Custom command widget** (`plugin-customcommand`) — run a shell command on interval, render its stdout. One generic widget unlocks weather/now-playing/etc. Files: `panel.zig` (`customcommand`, `ccUpdate`, `ccDraw`, `ccClick`).
-- [x] **Show Desktop button** (`plugin-showdesktop`) — minimize-all via `wlrctl`/toplevel. Files: `panel.zig` (`showdesktop`, `sdClick`).
-- [x] **World clock** (`plugin-worldclock`) — multi-timezone clocks (per-widget `TZ`). Files: `panel.zig` (`worldclock`, `wcUpdate`, `wcDraw`).
-- [x] **Backlight widget** (`plugin-backlight`) — read `/sys/class/backlight/*`, show bar + %, click adjusts via `brightnessctl`. Files: `panel.zig` (`backlight`, `blUpdate`, `blDraw`, `blClick`).
-- [x] **Network throughput monitor** (`plugin-networkmonitor`) — upgrade the existing static `network` widget to live ↓/↑ KB/s + sparkline from `/proc/net/dev`. Files: `panel.zig` (`netUpdate`, `netDraw` + new Widget fields `net_rx_prev`, `net_tx_prev`, `net_hist_*`, `net_iface`).
+- [x] **#25 Shell injection in `ccUpdate`** (`panel.zig:684`) — User command interpolated into single-quoted `sh -c` with no escaping. A `'` in the command breaks out of quotes and allows arbitrary execution. **Fixed**: escape `'` → `'\''` before interpolation.
+- [ ] **#26 Config options never applied** (`panel.zig:1161-1179`) — `configLoadWidgets` parses options into `opts_buf` but never reads them. All widget customization from config is silently discarded. **Deferred**: requires config format design.
+- [x] **#27 Stack buffer overflow in `dock.zig`** (`dock.zig:19-23`) — `top_count` > 64 overflows the fixed 64-element stack arrays. No bounds clamp before the loop. **Fixed**: clamp to 64 before loop, use safe slice bounds.
 
-### Backlog (not yet implemented)
-- [ ] **System tray / Status Notifier** (`plugin-statusnotifier`) — app indicators via `StatusNotifierWatcher` D-Bus. Biggest missing UX piece; highest effort.
-- [ ] **Mount / devices** (`plugin-mount`) — UDisks2/Solid mount/unmount/eject from panel.
-- [ ] **lm-sensors multi-sensor** (`plugin-sensors`) — extend `temp` to poll `libsensors` for CPU/GPU/fan.
-- [ ] **Volume mixer popup** (`plugin-volume`) — per-app sink list + scroll-to-adjust + popup.
-- [ ] **Taskbar grouped labels** (`plugin-taskbar`) — grouped, labeled buttons (minimize/maximize/close) vs bare icons.
-- [ ] **Directory menu** (`plugin-directorymenu`) — quick file-browser popup.
-- [ ] **Fancy/main app menu** (`plugin-fancymenu`, `plugin-mainmenu`) — in-panel XDG category menu replacing `fuzzel`-only launcher.
+### High
 
-### Notes
-- New widgets share the existing `Widget` contract: `measure_fn` / `draw_fn` / `update_fn` / `click_fn`.
-- `update_fn` is driven once per second by the timer in `main_shell.zig` (`widgetListUpdate`).
-- Defaults list in `widgetCreateDefault()` was extended; config parser `parseWidgetType()` (cairo-pango) gained the new names.
-- **Status (2026-07-16):** all 7 implemented in both `zigshell-cairo-pango` and `zigshell-blend2d`.
-  `zig build` passes for both renderers (panel.zig + new widget code compile cleanly).
-  cairo-pango `zig build test` passes. blend2d `zig build test` has a **pre-existing**
-  build.zig gap (the `dock_test` module is missing `link_libc`/include paths) — not
-  related to the new widgets; main build is green.
+- [x] **#28 i64→i32 overflow panic in CPU jiffies** (`panel.zig:257-258`) — `cpu_prev_total`/`cpu_prev_idle` stored as `i32` but sourced from `i64` cumulative jiffies from `/proc/stat`. Panics after ~24 days uptime at 100 Hz tick rate. **Fixed**: changed fields to `i64`.
+- [x] **#29 Font destroyed without recovery in `blend_renderer_load_bold_font`** (`blend2d_render.c:230-243`) — Destroys `r->font` before attempting bold creation. If bold fails, font is left in destroyed state → crash. **Fixed**: only destroy+replace on success; re-init face on failure.
+- [x] **#30 Zeroed `BLImageCore` from `icon_fallback` when cache full** (`icon.c:184`) — Returns static zeroed image that Blend2D operates on → crash/UB. **Fixed**: return NULL instead; callers skip drawing.
+- [x] **#31 Missing null-termination in `dock.zig` string pass-through** (`dock.zig:24-26`) — If `app_id`/`title` arrays are fully filled with no `\0`, the slice includes non-null-terminated data passed to C `strcmp`. **Fixed**: truncate to `len - 1` when no null found.
+- [ ] **#32 Signal handler race on `reload_config`** (`main_shell.zig:65,808`) — Plain `bool` read/written from signal handler + main loop without atomicity or volatile. **Deferred**: requires `std.atomic.Value(bool)` refactor.
 
----
+### Medium
 
-## Future Development Roadmap (cross-shell)
+- [x] **#33 u32→i32 cast before clamp in `layerSurfaceConfigure`** (`main_shell.zig:661-662`) — `@intCast(u32→i32)` panics if compositor sends value > 2^31-1. Must clamp u32 first. **Fixed**: clamp u32 to 16384 before casting.
+- [x] **#34 Double submit of dock surface** (`main_shell.zig:1045-1051 + 1496`) — `renderDock()` submits early for hidden dock, then main loop submits again unconditionally. **Fixed**: `renderDock` returns bool; main loop gates outer submit.
+- [x] **#35 `tlClick` uses `ctx.panel_height` instead of `h` parameter** (`panel.zig:217`) — Click hit-test may misalign with drawn icons if panel height differs from `h`. **Fixed**: added comment documenting the constraint; panel_height is the only available proxy.
+- [x] **#36 `volClick` never toggles `vol_mute` widget state** (`panel.zig:437-447`) — Flips system mute but widget state stays stale until next `update_fn` runs (which doesn't exist for volume). **Fixed**: toggle `w.vol_mute` before spawning pactl.
+- [x] **#37 Missing `update_fn` for `disk`, `volume`, `media` widgets** (`panel.zig:1002-1030`) — Display text never syncs from system (disk stays "SSD --", volume never reads PulseAudio, media never reads playerctl). **Fixed**: added `volUpdate` (pactl) and `mediaUpdate` (playerctl). Disk deferred (no sysread function).
+- [x] **#38 `kbClick` spawns empty command on `bufPrintZ` failure** (`panel.zig:652-656`) — Spawn called even when `cmd` buffer is all zeros due to format error. **Fixed**: early return on format error before spawn.
+- [x] **#39 No `font_loaded` guard in C `draw_text`/`measure_text`** (`blend2d_render.c:143-157`) — Operates on empty font if no font found on system. **Fixed**: added `!r->font_loaded` check to both functions.
+- [x] **#40 Uninitialized `bold_face` in `blend_renderer_load_bold_font`** (`blend2d_render.c:233`) — Missing `bl_font_face_init` before `bl_font_face_create_from_file`. **Fixed**: added `bl_font_face_init` + re-init on failed create.
+- [x] **#41 `submitSurface` with null buffer** (`main_shell.zig:1317-1318`) — Calls `wl_surface_attach` with null buffer (protocol valid but likely unintentional). **Fixed**: added null guard for buffer and surface.
+- [x] **#42 Seat capability loss not handled** (`main_shell.zig:633-643`) — If pointer/keyboard removed from seat, stale handle used in Wayland calls. **Fixed**: destroy and null pointer/keyboard when capability is dropped.
+- [x] **#43 Widget overlap when right widgets are wide** (`main_shell.zig:976-977`) — Right-side widgets visually overlap left when space is tight. **Fixed**: enforce minimum 16px gap between left and right widget groups.
 
-Derived from the lxqt-panel extraction review. Covers both `zigshell-cairo-pango`
-(baseline) and `zigshell-blend2d` (target). The blend2d-specific Phases 1–8 in the
-next section remain authoritative for blend2d-only detail (SVG, C migration, eval).
-This section tracks the items that apply to **both** shells so progress is visible
-in one place. 14 concrete roadmap items → implementing the first **7** (non-D-Bus
-infrastructure) now; the remaining 7 (D-Bus-heavy / large refactor) are deferred.
+### Low
 
-### Implemented in this pass (▶ = done in both renderers)
-- [x] **Damage-region tracking** — `damage.zig` union/intersect helper; `submitSurface` only damages the changed region (full damage on resize/first frame). Both shells. `zig build test` covers the geometry logic.
-- [x] **Live config reload (SIGHUP)** — signal handler sets a `reload_config` flag; the event loop re-runs `configLoadWidgets()` and rebuilds the widget list without restart. Both shells.
-- [x] **Hover tooltip (window title)** — dock renders the hovered toplevel's title in a small floating label. Both shells (uses existing `dock_hover_idx`).
-- [x] **Keyboard-interactivity for popups** — panel surface requests `keyboard_interactivity=1` so control-center / menus can receive key events. Both shells.
-- [x] **Auto-hide dock on leave + reveal on hover** — new `autohide_dock` mode: dock collapses to 1px when the pointer leaves it and expands on enter. Extends the existing autohide logic. Both shells.
-- [x] **HiDPI / fractional scale wiring** — `wl_surface_listener.preferred_buffer_scale` feeds `SurfaceState.scale`; buffers allocate at `w*scale`; cairo applies `cairo_scale(cr, scale, scale)`; Blend2D gets a `setScale()` multiplying draw coords. Both shells (scale defaults to 1 → no behavior change on standard setups).
-- [x] **Settings: icon-size Small/Medium/Large** — the no-op menu items now actually resize the dock (`DOCK_ICON_SIZE` → runtime `icon_size`). Both shells.
-
-### Deferred (D-Bus-heavy / large refactor)
-- [ ] **Finish lxqt extraction backlog** (StatusNotifier tray, grouped taskbar, volume mixer popup, mount/UDisks2, lm-sensors, directory menu, fancy XDG app menu) — see "lxqt-panel Feature Extraction" backlog.
-- [ ] **SVG via plutosvg/lunasvg** in blend2d (cairo already has librsvg).
-- [ ] **Unified event loop** — shared Wayland/dispatch core across both shells.
-- [x] **Multi-monitor (`wl_output`)** — output tracking added in both shells (`OutputInfo` array + `wl_output_listener`: logs name, geometry x/y, mode w/h, scale). Per-toplevel / per-monitor exclusive zones still pending.
-- [ ] **wlr-tray / xdg-tray** protocol support for status-notifier icons.
-- [ ] **Plugin / scripting API** (Lua/JS) for third-party widgets.
-- [ ] **Notifications & media bridge** to `ocws-brokerd` / `ocws-llm-runner`; **session widgets** (logind power-profiles, idle-inhibit, screencast-indicator); richer `theme.css`.
-
-### Notes
-- **Status (2026-07-16):** first 7 roadmap items implemented in both renderers.
-  `zig build` passes for both. cairo-pango `zig build test` passes. blend2d `zig build test`
-  link gaps (`dock_test`, `panel_tests`, `icon_tests` missing `icon.c`/C sources) are fixed;
-  `test-render` now runs with added verification tests (ARGB32 byte order, `setScale` geometry,
-  `drawText`). Pre-existing failures remain: `panel_draw_test.zig` (untracked, recursive-panic
-  crashes), `panel_test` logic assertions, and a latent `measureText` returns-0 bug.
+- [x] **#44 Dead variable `ws_idx` in `wsClick`** (`panel.zig:155,166`) — Incremented but never used; workspace character is used directly. **Fixed**: removed dead variable.
+- [x] **#45 Dead code `btn == 273` in `tlClick`** (`panel.zig:225`) — Callback uses normalized button codes (1, 3), not raw evdev. **Fixed**: removed dead branch.
+- [ ] **#46 Hardcoded px/char estimates in measure functions** (`panel.zig:142,521,543,607,663,749`) — Widget widths based on fixed chars-per-pixel rather than actual font metrics. **Deferred**: design choice, would require font metrics API.
+- [ ] **#47 1px dead zone in `wsClick` hit-test** (`panel.zig:159-160`) — Adjacent workspace digits have a 1px gap where click falls through to fallback. **Deferred**: minor visual issue.
+- [ ] **#48 `cmd` field only 128 bytes, silently truncated** (`panel.zig:85`) — Long custom commands from config truncated without warning. **Deferred**: design choice.
+- [ ] **#49 `wcMeasure` uses magic constant for clock width** (`panel.zig:748-749`) — `+ 56` not computed from actual `clock_txt` content. **Deferred**: minor.
+- [ ] **#50 No keyboard navigation in launcher** (`main_shell.zig:279-291`) — Only Escape/Enter handled; no Up/Down/PageUp/PageDown. **Deferred**: feature request.
+- [ ] **#51 No scroll wheel handling for launcher** (`main_shell.zig:616-618`) — `pointerAxis` is a no-op. **Deferred**: feature request.
+- [ ] **#52 Multi-output tracking collected but unused** (`main_shell.zig:737-803`) — Panel/dock appear on one monitor only. **Deferred**: feature request.
+- [ ] **#53 `net_txt` can overflow at extreme speeds** (`panel.zig:476`) — `d:.0` with large floats can exceed 64-byte buffer. **Deferred**: low probability.
+- [ ] **#54 Missing Wayland cleanup for `wl_pointer`/`wl_keyboard`/globals** (`main_shell.zig:1527-1556`) — Explicit destruction preferred for protocol hygiene. **Deferred**: minor.
+- [x] **#55 `launcher_scroll` as negative i32 cast to usize** (`main_shell.zig:1167`) — Currently always 0, but latent panic if scroll is ever implemented as negative. **Fixed**: `@max(launcher_scroll, 0)` before cast.
+- [ ] **#56 `icon.c` cache silently drops entries when full** (`icon.c:105`) — No LRU eviction; uncached icons trigger full file search every time. **Deferred**: performance optimization.
 
 ---
 
-## zigshell-blend2d — Future Development
+# TODOS — Cairo-Pango Panel/Dock Issues (`src/shells/zigshell-cairo-pango`)
 
-Initial scaffolding is done: Blend2D renders directly to SHM buffers (zero-copy),
-font loading from system `.ttf` files, PNG icon loading via Blend2D's built-in codec.
-Builds successfully with `zig build`.
-
-### Phase 1 — Stabilize core rendering
-- [ ] Verify panel renders correctly on a live Wayland session (labwc/sway).
-- [x] Fix font loading: test on multiple distros, add fallback paths for Noto/Liberation. — **DONE**: Added 14 font paths covering Debian/Ubuntu, Fedora, Arch, OpenMandriva. Includes Bold variants.
-- [x] Support font fallback chain: try DejaVu → Liberation → Noto → system default. — **DONE**: `blend2d_render.c` `font_paths[]` and `icon.c` `fallback_fonts[]` already chain these.
-- [x] Test `measureText()` — **PARTIAL**: `blend2d_render_test` now has an ARGB32 byte-order test and a `setScale` geometry test (both pass). A latent `measureText` returns-0 bug (font present but metrics 0) remains to be diagnosed.
-- [x] Verify `fillRect` colors render correctly (ARGB32 vs premultiplied — Blend2D uses premultiplied). — **DONE**: added `BlendRenderer — ARGB32 byte order` test asserting `0xFF112233` → bytes B=0x33,G=0x22,R=0x11,A=0xFF; passes.
-- [ ] Benchmark: compare frame render time vs zigshell-cairo-pango at 1920x1080.
-
-### Phase 2 — Icon system completeness
-- [ ] Test PNG icon loading for common apps (firefox, foot, footclient, pcmanfm-qt).
-- [ ] Add SVG support via **plutosvg** (lightweight SVG renderer, ~50KB) or **lunasvg**.
-- [x] Improve fallback icon: render a proper circle (currently draws a filled rect). — **DONE**: Uses bezier path circle + first letter in white, loaded from Bold font.
-- [x] Add `.desktop` file `GenericName` fallback when `Name` is empty. — **DONE**: `readIconName()` now reads both `Icon=` and `GenericName=`, prefers Icon.
-- [x] Cache icon textures across frames. — **DONE**: `icon.c` `icon_load` already returns cached `BLImageCore` keyed by `app_id` (`icon_cache`/`fb_cache`); `icon_clear_cache()` invalidates on size/theme change.
-
-### Phase 3 — Text rendering polish
-- [x] Add font size variants (bold for CPU/MEM labels, regular for values). — **DONE**: Added `loadBoldFont()` / `loadRegularFont()` methods to BlendRenderer.
-- [ ] Support font fallback chain: try DejaVu → Liberation → Noto → system default.
-- [ ] Add Pango-compatible text measurement for widget width matching.
-- [ ] Handle Unicode edge cases (emoji in widget labels, CJK workspace names).
-
-### Phase 4 — Widget system enhancements
-- [ ] Add missing widgets from cairo-pango: media (playerctl), network (nm-applet).
-- [ ] Implement proper battery icon (currently just text).
-- [ ] Add volume slider widget (pulseaudio integration).
-- [ ] Add workspace switching via `wlrctl workgroup` (currently stubbed).
-- [ ] Config file loading (INI-style widget layout, currently hardcoded defaults).
-
-### Phase 5 — Interaction & polish
-- [x] Right-click context menu on dock icons (close, maximize, minimize). — **DONE**: Right-click shows Close/Minimize/Maximize menu, left-click activates, click outside closes.
-- [ ] Tooltip on hover (show full window title).
-- [ ] Auto-hide dock with fade animation.
-- [ ] Settings menu: wire up icon size options (currently cosmetic).
-- [ ] Multi-monitor support: track `wl_output` per toplevel.
-
-### Phase 6 — Build system & packaging
-- [x] Static linking option (build Blend2D as `.a` instead of `.so`). — **DONE**: `zig build -Dstatic=true` passes `-DBLEND2D_TARGET_TYPE=STATIC` to CMake.
-- [x] Add `zig build test` target (unit tests for widget layout, icon loading). — **DONE**: `zig build test` step added.
-- [ ] CI/CD integration (GitHub Actions build + Wayland test).
-- [ ] `make install` target for system-wide installation.
-- [ ] Flatpak/Nix packaging manifest.
-
-### Phase 7 — Evaluation vs cairo-pango
-- [ ] Side-by-side comparison: render quality, memory usage, startup time.
-- [ ] Measure binary size difference (Blend2D-only vs Cairo+Pango+librsvg).
-- [ ] Decide: merge best features back to cairo-pango, or replace entirely.
-- [ ] Document migration path for users who prefer Cairo.
-
-### Phase 8 — Migrate rendering modules to C
-Move high-FFI modules from Zig to C, called via `@cImport`. Eliminates
-`@ptrCast`/`@intCast`/`@floatFromInt` boilerplate, reduces Zig↔C overhead,
-and makes rendering code shareable with the C++ cairo-pango version.
-
-**Candidates ranked by C-interop density (higher = better C migration candidate):**
-
-| Module | Lines | C calls | Move to C? | Reason |
-|---|---|---|---|---|
-| `blend2d_render.zig` | 249 | 80 | **Yes** | Pure Blend2D wrapper, all C calls |
-| `icon.zig` | 455 | 71 | **Yes** | File I/O + Blend2D, C-style string ops |
-| `dock.zig` | 93 | 21 | **Yes** | Small, mostly Blend2D drawing |
-| `panel.zig` | 714 | 81 | **Partial** | Keep widget logic in Zig, move draw callbacks to C |
-| `main_shell.zig` | 876 | 203 | **No** | Event loop + Wayland, Zig-specific state |
-| `toplevel.zig` | 40 | 5 | **No** | Pure Zig data, no C dependency |
-
-#### Phase 8a — blend2d_render.c (HIGHEST PRIORITY)
-- [x] Create `blend2d_render.h` with function declarations. — **DONE**: 15 C functions declared.
-- [x] Create `blend2d_render.c` — init, deinit, flush, fillRect, drawText, measureText, drawCircle, drawBorder, font loading. — **DONE**: 233 lines C.
-- [x] Update `blend2d_render.zig` to import from C header instead of wrapping Blend2D directly. — **DONE**: Thin wrapper, ~150 lines of casting boilerplate eliminated.
-- [x] Verify all 14 render tests still pass. — **DONE**: All 68 tests pass.
-- [ ] Benchmark: compare render time before/after C migration.
-
-#### Phase 8b — icon.c (HIGH PRIORITY)
-- [x] Create `icon.h` with function declarations. — **DONE**: 3 functions declared.
-- [x] Create `icon.c` — desktop file parsing, PNG loading, fallback icon generation, cache management. — **DONE**: 170 lines C.
-- [x] Update `icon.zig` to import from C header. — **DONE**: Zig wrapper calls C functions.
-- [x] Verify all 13 icon tests still pass. — **DONE**: All tests pass.
-
-#### Phase 8c — dock.c (MEDIUM PRIORITY)
-- [x] Create `dock.h` with function declarations. — **DONE**: 2 functions declared.
-- [x] Create `dock.c` — dock_draw() and dock_icon_at(). — **DONE**: 80 lines C.
-- [x] Update `dock.zig` to import from C header. — **DONE**: Zig wrapper calls C functions.
-- [x] Verify all 8 dock tests still pass. — **DONE**: All tests pass.
-
-#### Phase 8d — panel_draw.c (MEDIUM PRIORITY)
-- [x] Create `panel_draw.h` with draw callback declarations. — **DONE**: 15 functions declared.
-- [x] Create `panel_draw.c` — all 13 widget draw functions (wsDraw, cpuDraw, memDraw, etc.). — **DONE**: 91 lines C.
-- [x] Update `panel.zig` draw callbacks to call C functions. — **DONE**: Zig wrapper calls C functions.
-- [x] Keep widget creation, measurement, config, click handling in Zig. — **DONE**: Only draw moved to C.
-- [x] Verify all 17 panel tests still pass. — **DONE**: All tests pass.
-
-#### Phase 8e — Integration
-- [x] Update `dock_c.h` with all new function declarations. — **DONE**: All headers included.
-- [x] Update `dock_c_impl.c` with all new implementations. — **DONE**: All C sources compiled.
-- [x] Update `build.zig` to compile new C sources. — **DONE**: 5 C files compiled.
-- [x] Run full test suite: `zig build test`. — **DONE**: All 68 tests pass.
-- [x] Verify binary builds and runs on Wayland. — **DONE**: Binary runs clean.
-
-### Architecture decisions (locked)
-- Blend2D renders directly to mmap'd SHM buffer — zero pixel copying.
-- No JIT required (software fallback works, ~2MB binary overhead acceptable).
-- Font loading via `bl_font_face_create_from_file` — hardcoded system paths, no fontconfig.
-- SVG support deferred to Phase 2 (plutosvg or lunasvg, not librsvg).
+(unchanged — see original entries above for #16–#24)
 
 ---
 
-## zigshell-cairo-pango — Rendering Backend Modernization (superseded)
+## Blend2D + Cairo — New Issues (Audit 2026-07-18)
 
-> **Note**: This section is retained for reference. The active development path is
-> `zigshell-blend2d` above. Cairo-pango remains the stable baseline.
+### Critical
 
-Goal: replace the current **Cairo + Pango + librsvg** software stack in
-`src/shells/zigshell-cairo-pango/` with a modern, glib-free pipeline.
-Current renderer writes ARGB directly into the Wayland SHM buffer
-(`cairo_image_surface_create_for_data`), so software rasterizers integrate with
-minimal disruption; GPU paths (EGL/dmabuf) are out of scope for now.
+- [x] **#57 Blend2D dock out-of-bounds C array read when >64 toplevels open** (`src/shells/zigshell-blend2d/src/dock.zig:23-43` → `src/shells/zigshell-blend2d/src/dock.c:37`) — `dock.zig` fills only the first `safe_count = min(top_count,64)` of the `[64]` `c_app_ids`/`c_titles`/`c_focused` arrays, but passes the *original* `top_count` into `c.dock_draw`, whose loop `for (i=0; i<top_count; i++) app_ids[i]` reads past the 64-element stack arrays. **Trigger**: >64 open windows. **Symptom**: stack over-read / garbage icons / segfault in dock render. **Fixed**: Zig now passes `safe_count` to `dock_draw` and `dock.c` clamps `top_count` to 64 as a backstop.
+- [x] **#58 Cairo dock permanently pins every running app into `persistent_order`** (`src/shells/zigshell-cairo-pango/src/dock.zig:106-112` in `draw`, `:254-264` in `iconAt`) — Any running window whose `app_id` is not already pinned is appended to `persistent_order` on every `draw()`/`iconAt()` call. **Trigger**: open any app not already pinned. **Symptom**: the dock's pinned/favorites list silently accumulates every app ever launched (grows toward the 100 cap) and diverges from Blend2D (which never mutates a pinned list). **Fixed**: `draw`/`iconAt` now register non-pinned running apps in the local frame-only `items[]` list only; `persistent_order` is only mutated by explicit `pinApp`/`unpinAt`/`loadPinned`/`swapGroups`. Added regression test "dock draw/iconAt must not persist running apps (#58)".
 
-Target stack: **Blend2D** (2D vector) + **ThorVG** (SVG/Lottie icons) + **plutovg** (lean fallback).
+### High
 
-### Phase 0 — Prep / abstraction
-- [ ] Introduce a `Renderer` interface in Zig (draw_rect, draw_text, draw_icon, blit) so backends are swappable behind one seam.
-- [ ] Keep Cairo path working behind the interface as the baseline while migrating.
-- [ ] Add a build option (`-Drenderer=cairo|blend2d|thorvg|plutovg`) in `build.zig`.
+- [ ] **#59 Blend2D pinned apps are non-functional (no launch path)** (`src/shells/zigshell-blend2d/src/dock.zig:46-47` → `dock.c:96-121`; `main_shell.zig:413-449`) — `dock_icon_at` returns only running-window indices / toggles, with no `1000+g` "pinned, not running" sentinel; `pointerButton` has no `dock_hover_idx >= 1000` branch and no `launchPinned` call. **Trigger**: click/pin a non-running pinned app. **Symptom**: pinned apps never appear in the dock and can never be launched from it (the two renderers' docks are fundamentally divergent).
+- [ ] **#60 Cairo grouped-window click always targets the first window** (`src/shells/zigshell-cairo-pango/src/dock.zig:92-121`, `:242-265`) — `draw` shows one icon per app_id group with a count of dots, but clicking returns `top_idx` of only the *first* toplevel in the group; the dots are decorative and the other windows are unreachable. **Trigger**: two windows of the same app. **Symptom**: dock activates a pseudo-arbitrary (first) window; multi-window spread/picker absent.
+- [ ] **#61 Cairo tooltip skipped for pinned-launch (non-running) icons** (`src/shells/zigshell-cairo-pango/src/main_shell.zig:1601-1604`) — `drawDockTooltip` early-returns when `dock_hover_idx >= toplevel_count`, but a pinned app's `dock_hover_idx` is `1000+g`, so the guard fires and no tooltip is drawn. **Trigger**: hover a pinned app not currently running. **Symptom**: inconsistent with `iconAt`'s `1000+g` contract; no title shown.
 
-### Phase 1 — Text: drop Pango (+glib)
-- [ ] Replace Pango layout/shaping with **HarfBuzz + FreeType** (no glib).
-- [ ] Add minimal font discovery (fontconfig or hardcoded font paths).
-- [ ] Port `widgetText()` and all `*Draw` text calls in `panel.zig` to the new text path.
+### Medium
 
-### Phase 2 — Vector: Cairo → Blend2D
-- [x] Add Blend2D as a C dependency; wire into `dock_c.h` / `build.zig` (`linkSystemLibrary`/vendored). — **DONE** in `zigshell-blend2d`.
-- [x] Port shape drawing (rects, arcs, gradients, meters) in `panel.zig` and `dock.zig`. — **DONE** in `zigshell-blend2d`.
-- [ ] Benchmark Blend2D vs Cairo render time per frame (panel + dock repaint).
+- [ ] **#62 Cairo settings drag-reorder saves/reorders spuriously on motion** (`src/shells/zigshell-cairo-pango/src/main_shell.zig:306-323` + `:331-340`) — While dragging a pinned row, `swapGroups` + `syncConfigFromRuntime` + `config_dirty` run on every pointer move for *any* `row` in `0..persistent_count` regardless of horizontal position, including zero-distance `swapGroups(a,a)`. **Trigger**: drag a pinned row up/down repeatedly. **Symptom**: repeated config writes and rotated pin order from overshoot swaps.
+- [x] **#63 `apps.zig` `stripFieldCode` leaves doubled spaces mid-command** (`src/shells/shared/apps.zig:83-112`) — Removing a `%`-field code keeps the preceding space and doesn't collapse the gap; `Exec=app %f arg` → `app  arg` (fails the existing test's coverage, which only checks a *trailing* field code). **Trigger**: `.desktop` `Exec=` with an argument after a field code. **Symptom**: launcher command has a stray empty argv entry; affects both shells (shared module). **Fixed**: removed trailing space after `%` and trimmed all trailing spaces.
+- [x] **#64 Launcher last partial row click reads past `apps[]`** (`src/shells/zigshell-cairo-pango/src/main_shell.zig:1500,1559-1561`; `src/shells/zigshell-blend2d/src/main_shell.zig:1176,1229-1231`) — `launcherItemAt` loops `row < rows` / `col < LAUNCHER_COLS` from `idx = launcher_scroll*COLS` and can reach `idx >= list.len`, then `pointerButton` does `launchApp(&list[@intCast(idx)])` → OOB. The `if (idx >= list.len) return -1;` guard checks only before the inner loop, not after the final `idx+=1`. **Trigger**: scroll the launcher to the bottom of a list whose length isn't a multiple of `rows*COLS`. **Symptom**: garbage name/exec or crash. Shared defect (both shells). **Fixed**: changed `launcherItemAt` to iterate in row-major order up to `list.len`.
+- [ ] **#65 Cairo config reload can cross-contaminate widget sampled state** (`src/shells/zigshell-cairo-pango/src/main_shell.zig:992-1030`) — `reloadWidgets`/`applyConfigToRuntime` restore sampled fields (`cpu_prev_total`, etc.) by matching `wtype`; added/removed/reordered widget types leave stale or zeroed samples assigned to the wrong widget. **Trigger**: SIGHUP reload after editing the widget list. **Symptom**: CPU/mem/disk/net widgets show wrong/zeroed data until next natural update.
 
-### Phase 3 — Icons: librsvg → ThorVG (or plutosvg)
-- [ ] Replace librsvg SVG loading in `icon.zig` with **ThorVG** (SVG + Lottie) or **plutosvg**.
-- [ ] Remove glib/gobject/librsvg from `linkDeps()` in `build.zig` once unused.
-- [ ] Update forward-declares in `dock_c.h` (drop cairo/pango/rsvg opaque types).
+### Low
 
-### Phase 4 — Evaluation
-- [ ] Compare **plutovg** as a lean all-in-one alternative (vector + plutosvg) vs Blend2D+ThorVG on binary size and deps.
-- [ ] Decide final combo; delete unused backend paths.
-- [ ] Document the chosen architecture in the shell's README.
-
-### Notes
-- Blend2D: JIT-accelerated, multithreaded software rasterizer (fastest Cairo replacement).
-- ThorVG: modern engine, built-in SVG/Lottie, SW/GL/WebGPU backends; weaker rich-text.
-- plutovg/plutosvg: minimal footprint, single-dependency, good for shrinking the binary.
-- HarfBuzz+FreeType removes the entire glib dependency chain that Pango/librsvg pull in.
+- [x] **#66 `@intCast(toplevel_count)`/`@intCast(widget_count)` panics if negative** (`src/shells/zigshell-cairo-pango/src/main_shell.zig:1798` and many `for (0..@intCast(widget_count))` sites in both shells) — `toplevel_count`/`widget_count` are `i32`; `@intCast` panics on negative. Defensive lower-bound assert recommended. **Fixed**: replaced with `@intCast(@max(0, count))`.
+- [ ] **#67 Icon cache wholesale-clear thrash (amplified by #58)** (`src/shells/zigshell-cairo-pango/src/icon.zig:259`; `src/shells/zigshell-blend2d/src/icon.c:105`) — When the 64-entry cache is full it is cleared entirely; combined with #58 (Cairo dock growing `persistent_order` toward 100 distinct app_ids) the cache thrashes on every dock redraw. **Trigger**: full dock + frequent redraws. **Symptom**: repeated icon reloads from disk → high CPU. Shared (both shells).
+- [ ] **#68 `apps.zig` `scanDesktopDirs` 1024-byte path buffer overflow** (`src/shells/shared/apps.zig:178-182`) — Full path built as `dir ++ name` into a `[1024]u8` with no size clamp (unlike `scanPath`). **Trigger**: very long `$XDG_DATA_DIRS` path or `.desktop` filename. **Symptom**: stack buffer overflow in launcher scan. Shared.
+- [ ] **#69 Blend2D hover/focus-bar geometry overlaps neighbor slot** (`src/shells/zigshell-blend2d/src/dock.c:66-69` vs `:37-44`) — Hover box (`x-4 .. x+icon+8`) and focus bar (`x+2 .. x+icon-4`) are not consistently centered and the hover box over-extends into the neighbor hit region. Minor visual overlap.
+- [x] **#70 Blend2D `dock.zig` null-index underflow when app_id/title has no NUL** (`src/shells/zigshell-blend2d/src/dock.zig:25-26`) — `indexOfScalar(...,0) orelse tops[i].app_id.len - 1`; if `len == 0` this computes `0 - 1` → `usize` underflow panic. **Trigger**: a toplevel with empty app_id/title. **Symptom**: render panic. **Fixed**: use `@max(len,1) - 1` so an empty field yields index 0 instead of underflowing.
 
 ---
 
-## Bugs (GTK3 GUI)
-_14/27 fixed — see git log for details._
+## Features
+
+- [x] **#F1 Global popup modal (cairo-pango)** (`src/shells/zigshell-cairo-pango/src/modal.zig`, wired in `main_shell.zig`) — Full-screen `TOP` layer with a dark translucent backdrop (`rgba(0,0,0,0.55)`) and a centered, rounded, themed content card. Dismiss via Esc, backdrop click, or the × button; card-body clicks are swallowed. Pure layout/hit-test logic lives in `modal.zig` with 3 unit tests (`layoutCard` centering+clamp, `hitClose`, `hitCard` swallow-vs-dismiss). Trigger: open launcher, press `Tab` to toggle the demo modal (`toggleModal("Global Modal")`). `modalOpen(title)` / `modalClose()` are reusable for confirmations/alerts.
+- [x] **#71 `bl_context_fill_round_rect_d`/`stroke_round_rect_d` undeclared** (`src/shells/zigshell-blend2d/src/blend2d_render.c:216,224`) — Blend2D C API has no round-rect context functions; these are C++-only inline methods. **Fixed**: replaced with path-based round rect via `build_round_rect_path` + `bl_context_fill_path_d`/`stroke_path_d`.
+- [x] **#72 Undefined symbols in blend2d `pointerMotion`** (`src/shells/zigshell-blend2d/src/main_shell.zig:387-416`) — WIP code references `settingsRect()`, `SET_LIST_Y`, `SET_ROW_H`, `syncConfigFromRuntime()`, `dock_mod.groupAt`, `dock_mod.swapGroups`, `dock_mod.persistent_count` — none defined. **Fixed**: removed incomplete WIP code paths and their associated variables.
+- [x] **#73 Auto-hide dock on maximize hides dock unpredictably** (`src/shells/zigshell-cairo-pango/src/main_shell.zig:132-153`) — `checkMaximizedWindows()` shrinks dock to 1px whenever any window is maximized. **Fixed**: disabled the function body; dock visibility now controlled only by explicit autohide toggle.
+
+### Critical (New — Audit 2026-07-18)
+
+- [x] **#74 Blend2D missing `wireWidgetPriv()` — toplevel_task dead on startup** (`src/shells/zigshell-blend2d/src/main_shell.zig:1423-1433`) — `widgetCreateDefault()` allocates widgets with `std.mem.zeroes(Widget)` which sets `priv = null`. `tlMeasure`/`tlDraw`/`tlClick` all early-return when `w.priv == null`. The task-bar icons never render and clicks are never handled. Cairo-pango has `wireWidgetPriv()` at startup (cairo-pango main_shell.zig:1771) and after reload. Blend2D has no equivalent. **Fixed**: added `wireWidgetPriv()` function and call it after widget creation and after reload.
+- [x] **#75 `apps.zig` `stripFieldCode` returns dangling pointer to stack buffer** (`src/shells/shared/apps.zig:83-111`) — Returns `[]const u8` pointing into stack-local `var out: [256]u8`. After function returns, the pointer is dangling. **Fixed**: changed function signature to take output buffer parameter `stripFieldCode(exec, out)`, eliminating the dangling pointer.
+
+### High (New — Audit 2026-07-18)
+
+- [x] **#76 Blend2D missing `MAXIMIZED` state detection in toplevel handler** (`src/shells/zigshell-blend2d/src/main_shell.zig:126-141`) — `info.maximized` is reset to `false` on every state event but never set to `true` when `STATE_MAXIMIZED` is received. Cairo-pango line 152 handles it. **Fixed**: added `if (states[i] == c.ZWLR_FOREIGN_TOPLEVEL_HANDLE_V1_STATE_MAXIMIZED) info.maximized = true;`.
+- [x] **#77 Blend2D missing `POLLERR|POLLHUP` handling — infinite loop on compositor crash** (`src/shells/zigshell-blend2d/src/main_shell.zig:1566-1578`) — Main event loop only checks `POLLIN`. If the Wayland compositor crashes/restarts, `poll()` returns with `POLLERR|POLLHUP` but `running` is never set to false. Cairo-pango line 1913 handles this. **Fixed**: added `POLLERR|POLLHUP` check before `POLLIN` check.
+- [x] **#78 Blend2D `reloadWidgets()` does not re-wire `priv` or apply config** (`src/shells/zigshell-blend2d/src/main_shell.zig:819-863`) — `configLoadWidgets()` creates fresh widgets with `priv = null`. Reload function copies some state but never calls `wireWidgetPriv()` or `applyConfigToRuntime()`. **Fixed**: added `wireWidgetPriv()` call after widget count update in `reloadWidgets()`.
+- [x] **#79 Cairo dock `items[100]` stack array overflow** (`src/shells/zigshell-cairo-pango/src/dock.zig:78-117`, `:232-258`) — `draw()` and `iconAt()` use `var items: [100]DockItem` with no bounds check on `num_items`. `persistent_count` (max 100) + unmatched toplevels (max 64) can exceed 100. Same bug in `iconAt()`. **Fixed**: added `if (num_items >= items.len) break;` guard before both append sites.
+- [x] **#80 Null dereference after `wl_surface_frame` returns null** (`src/shells/zigshell-cairo-pango/src/main_shell.zig:1661-1662`, blend2d equivalent) — `wl_surface_frame()` return is not null-checked before passing to `wl_callback_add_listener()`. **Fixed**: added null guard with `if (ss.frame_cb) |cb|` before adding listener. Also added `if (ss.buffer == null or ss.surface == null) return;` to `submitSurface`.
+- [x] **#81 Null dereference in `toggleLauncher` surface creation** (`src/shells/zigshell-cairo-pango/src/main_shell.zig:1479-1480`) — `wl_compositor_create_surface()` return not null-checked; immediately passed to `wl_surface_add_listener()`. **Fixed**: added `orelse { launcher_open = false; return; };` to handle OOM gracefully.
+- [x] **#82 Cairo `@intCast` u32→i32 panic in configure handler** (`src/shells/zigshell-cairo-pango/src/main_shell.zig:843-844`) — `@min(@as(i32, @intCast(w)), 16384)` panics if compositor sends `w` > `i32.max`. Blend2D already has this fix (#33). **Fixed**: changed to `@intCast(@min(w, 16384))` — clamp u32 first, then cast.
+
+### Medium (New — Audit 2026-07-18)
+
+- [ ] **#83 Blend2D `pctx.panel_height` relies on fragile default coincidence** (`src/shells/zigshell-blend2d/src/main_shell.zig:1429-1433`) — `pctx` is initialized without `.panel_height`, relying on the struct default (28) coincidentally matching `PANEL_HEIGHT = 28`. `tlClick` uses `ctx.panel_height - 12` for hit-test. Cairo-pango explicitly sets `pctx.panel_height = PANEL_HEIGHT` (cairo-pango main_shell.zig:1769). **Trigger**: any future change to `PANEL_HEIGHT`. **Symptom**: invisible click targets if the default diverges.
+- [ ] **#84 Blend2D Enter keycode 36 vs Cairo's 28** (`src/shells/zigshell-blend2d/src/main_shell.zig:283` vs `src/shells/zigshell-cairo-pango/src/main_shell.zig:794`) — Blend2D uses `key == 36` (XKB keycode), Cairo uses `key == 28` (raw evdev). wl_keyboard protocol specifies evdev keycodes. If labwc delivers raw evdev, `key == 36` never matches Enter. **Trigger**: pressing Enter/Return in the launcher. **Symptom**: launcher cannot be confirmed with keyboard (blend2d only).
+- [ ] **#85 Blend2D dock `dock_icon_at` toggle hit zones are `DOCK_PAD` wider than drawn icons** (`src/shells/zigshell-blend2d/src/dock.c:108,111`) — Hit-test uses `dock_icon_size + DOCK_PAD` but icons are drawn at exactly `dock_icon_size`. Cairo-pango (`dock.zig:290-295`) uses exact `DOCK_ICON_SIZE`. **Trigger**: click in the PAD-pixel gap right of a toggle icon. **Symptom**: false-positive settings/launcher toggle activation.
+- [ ] **#86 Cairo `groupAt()` layout diverges from `draw()`/`iconAt()`** (`src/shells/zigshell-cairo-pango/src/dock.zig:318-343`) — `groupAt()` computes layout from `persistent_count` only, but `draw()`/`iconAt()` include unpinned running apps in the layout. **Trigger**: unpinned apps visible in dock while drag-reordering. **Symptom**: wrong group returned; reorder affects wrong icon.
+- [ ] **#87 `toplevel.zig` panics on negative `count`** (`src/shells/shared/toplevel.zig:23,31,41`) — `@intCast(count)` where `count: i32` panics if negative. Same issue in `add()` and `removeAt()`. **Trigger**: corrupted/uninitialized state tracker. **Symptom**: runtime panic in safe builds; UB in release.
+- [x] **#88 `sysread.zig` `writeZ` unsigned underflow when `out.len == 0`** (`src/shells/shared/sysread.zig:146`) — `out.len - 1` wraps to `maxInt(usize)` when `out` is empty. **Trigger**: caller passes empty slice. **Symptom**: massive heap/stack corruption. Currently latent (all callers pass non-empty buffers). **Fixed**: added `if (out.len == 0) return;`.
+
+- [x] **#89 Cairo `submitSurface` has no null guard for buffer/surface** (`src/shells/zigshell-cairo-pango/src/main_shell.zig:1652-1653`) — `wl_surface_attach(ss.surface, ss.buffer, 0, 0)` called without checking if buffer or surface is null. Blend2D has this guard (#41). **Fixed**: added `if (ss.buffer == null or ss.surface == null) return;` at top of `submitSurface`.
+- [x] **#90 Cairo negative stride from `cairo_format_stride_for_width` causes `@intCast` panic** (`src/shells/zigshell-cairo-pango/src/main_shell.zig:1063-1064`) — If stride is negative (error), `@intCast` to `usize` panics. **Trigger**: invalid width causing Cairo internal error. **Symptom**: crash in `ensureBuffer`. **Fixed**: added `if (stride <= 0) return;`.
+- [x] **#91 Modal layout width/height underflow panic** (`src/shells/zigshell-cairo-pango/src/modal.zig:37-38`) — `layoutCard` computes `cw = @min(card_w, out_w - 24)`. If `out_w < 24`, `cw` becomes negative, leading to negative dimensions which can crash Cairo rendering or cause `@intCast` panics. **Trigger**: extremely small output width/height during resize. **Symptom**: renderer crash. **Fixed**: clamped `cw` and `ch` to a minimum of 0 using `@max(0, ...)`.
+
+### Low (New — Audit 2026-07-18)
+
+- [ ] **#91 `config_path` may become dangling after `setenv` calls** (`src/shells/zigshell-cairo-pango/src/main_shell.zig:1724-1726`) — `config_path` points into `getenv("ZIGSHELL_CONFIG")` memory. `worldclock` widget calls `setenv("TZ", ...)` which can relocate the environment block. POSIX does not guarantee prior `getenv` pointers remain valid after `setenv`. **Trigger**: world clock widget update + subsequent `saveConfig`/`reloadWidgets`. **Symptom**: use-after-free on `config_path` (latent, glibc typically safe).
+- [ ] **#92 Cairo unknown surface falls through to `dock_surface` in configure** (`src/shells/zigshell-cairo-pango/src/main_shell.zig:837-842`) — `layerSurfaceConfigure` else-branch assigns unknown surfaces to `dock_surface`, corrupting dock dimensions. **Trigger**: future extension adding a fourth layer surface, or stale compositor events. **Symptom**: dock width/height set to wrong values.
+- [ ] **#93 `damage.zig` `Region.add` i32 overflow** (`src/shells/shared/damage.zig:42-47`) — Coordinate + dimension can overflow `i32.max`. **Trigger**: impossibly large screen coordinates. **Symptom**: negative-width damage rectangle; compositor skips repaint. Theoretical only.
+- [ ] **#94 Cairo `@intCast` i32→u32 for `set_size` height** (`src/shells/zigshell-cairo-pango/src/main_shell.zig:854`) — `@intCast(ss.height)` panics if height is negative. Current code paths ensure positive values, but no defensive guard. **Trigger**: future code path setting negative height. **Symptom**: panic.
 
 ---
 
-## Security Issues
+## Feature Roadmap — Zigshell Enrichment
 
-### CRITICAL — Command Injection
+### High Impact (Blend2D parity with Cairo-Pango)
 
-- [x] `src/daemons/ocws-brokerd.c:506-514` — **FIXED**: Replaced `/tmp/ocws-cover.jpg` with `$XDG_RUNTIME_DIR` path via `get_cover_path()`. Uses `execlp()` with separate args (no shell).
-- [x] `src/cli/ocws-clip.c:90` — **FIXED**: Replaced `popen("wl-copy", "w")` with `fork()+execlp("wl-copy")`. No shell involved.
-- [x] `src/cli/ocws-recorder.c:92-120` — **FIXED**: Replaced `execl("/bin/sh", "-c", cmd)` with `execvp("wf-recorder", args)`. Arguments validated via `is_safe_codec()`, `is_safe_crf()`, `is_safe_ident()`.
-- [x] `src/gui/ocws-wallpaper-picker.c:30-36` — **FIXED**: Replaced `system()` with `fork() + execlp()` — no shell involved.
-- [x] `src/gui/ocws-welcome.c:434,466,470,69,178` — **FIXED**: `run_cmd_logged()` uses `g_spawn_sync()` via `/bin/sh -c`. `popen()` in `on_mount_partition()`/`build_mount_page()` replaced with `g_spawn_sync()`. No raw `system()`.
-- [x] `src/gui/settings/settings-ui.c:46,275,278,280` — **FIXED**: `popen()` → `g_spawn_sync()`, `system()` → `g_spawn_async()`. All `system()` calls eliminated.
-- [x] `src/cli/ocws-lock.c:75-81` — **FIXED**: All 5 `system()` calls replaced with `fork() + execlp()`.
-- [x] `src/gui/ocws-pkgmgr.c:250-254` — **FIXED**: `system()`/`popen()` → `g_spawn_sync()`. No shell involved.
-- [x] `src/gui/ocws-fonts-mgr/fonts-mgr-installer.c:65` — **FIXED**: `system("rm -f")` → `fonts_mgr_run_cmd_logged()`.
-- [x] `src/gui/ocws-equalizer.c:154` / `ocws-equalizer-enhanced.c:30` — **FIXED**: `system()` → `g_spawn_async()` via `/bin/sh -c`.
-- [x] `src/cli/ocws-fonts-cli.c:217,234,236` — **FIXED**: Added `run_cmd()`/`run_cmd_capture()` helpers using `fork() + exec() + pipe`. No `system()`.
-- [x] `src/plugins/network/network.c:34-35` — **FIXED**: `popen()` → `fork() + exec() + pipe` via `read_cmd_output()` helper.
-- [x] `src/daemons/ocws-brokerd.c:61` — **FIXED**: `execlp("ocws-emit")` now guarded by topic validation.
+- [ ] **F1 Pinned apps in Blend2D dock** (`dock.zig`, `dock.c`) — Cairo-pango has `persistent_order`, `pinApp`, `unpinAt`, `writePinned`, `loadPinned`, settings UI for pin management. Blend2D dock currently shows only running windows. Requires: port pin management API from cairo-pango dock.zig, wire `launchPinned` in pointerButton, add pin sentinel `1000+g` to `iconAt`.
+- [ ] **F2 Parabolic magnification in Blend2D dock** (`dock.c`) — Cairo-pango dock has Gaussian mouse-distance zoom on icons (`scale += 1.0 * exp(-dist²/4000)`). Blend2D dock is flat. Requires: port Gaussian sizing math to `dock_draw`, pass `mouse_x` from main_shell (already available as `hover_idx`).
+- [ ] **F3 Theme system for Blend2D** (new `blend2d_theme.zig`) — Cairo-pango has `theme.zig` with gradient/accent/border/hover colors applied via `setSource`. Blend2D hardcodes every color as hex literals (`0xFF1A1C26`). Extract a theme struct with named color slots, default palette, and SIGHUP-reloadable theme file.
+- [ ] **F4 Tabbed settings panel for Blend2D** (`main_shell.zig`) — Cairo-pango has a full 460px card with Widgets tab (add/remove/reorder) and Dock tab (autohide, icon size, pin management). Blend2D has a 6-item flat dropdown. Requires: settings panel rendering, tab state machine, widget list CRUD, dock pin UI.
+- [ ] **F5 Config save + SIGHUP persist for Blend2D** (`main_shell.zig`, `panel_config.zig`) — Cairo-pango has `pcfg.Config.save()` called from settings UI. Blend2D only loads config. Requires: implement `Config.save()` for blend2d, wire to settings actions and SIGHUP handler.
 
-### CRITICAL — File/Path Security
+### Medium Impact (New capabilities for both shells)
 
-- [x] `src/plugins/clipboard/clipboard.c:14` — **FIXED**: Format string was safe (only used for JSON, not shell). Verified no injection.
-- [x] `src/cli/ocws-recorder.c:12,41` — **FIXED**: PID file now uses `$XDG_RUNTIME_DIR` first, falls back to `$HOME/.config/ocws/` (never `/tmp`).
-- [x] `src/daemons/ocws-brokerd.c:506-517` — **FIXED**: Cover art path uses `$XDG_RUNTIME_DIR` or `$HOME/.cache/ocws/`.
-- [x] `src/cli/ocws-state.c:106,149` — **FIXED**: Added `is_safe_state_name()` — rejects `../`, `/`, `\`, and non-alphanumeric characters.
+- [ ] **F6 Hover animation lerp for dock icons** (`dock.zig`, `main_shell.zig`) — Cairo-pango has `hover_anim` field on `ToplevelInfo` with lerp-based smooth scaling. Blend2D has instant snap. Add `hover_anim: f64` to ToplevelInfo, lerp toward target in the render loop, use lerped scale for icon drawing.
+- [ ] **F7 Mouse scroll in launcher** (`main_shell.zig`) — Neither shell handles `wl_pointer.axis` for launcher scrolling. Add scroll event handling in `pointerAxis` callback: increment/decrement `launcher_scroll`, clamp to valid range, set `dirty = true`.
+- [ ] **F8 `--render-to-png` headless mode** (`main_shell.zig`) — Cairo-pango has this for offline rendering. Blend2D doesn't. Add CLI flag that renders one frame to a PNG file and exits. Useful for CI snapshot testing and theme preview.
+- [ ] **F9 Drag-reorder dock icons** (`dock.zig`, `main_shell.zig`) — Cairo-pango has `groupAt`/`swapGroups` wired to `pointerMotion` for drag-reorder. Neither shell exposes this well. Requires: add drag state tracking (drag_start_group, dragging bool), motion handler for swap, visual feedback (translucent drag preview).
+- [ ] **F10 `key_fn` on Widget struct** (`panel.zig`) — Cairo-pango Widget has a `key_fn` callback for keyboard shortcuts per-widget. Blend2D lacks it. Add optional `key_fn: ?*const fn (*Widget, u32) bool` field, invoke from `keyboardKey` callback when focus is on the panel.
 
-### CRITICAL — Shell Script eval
+### Lower Priority (Polish)
 
-- [x] `scripts/actions/launcher.sh:48` — **FIXED**: `eval "$cmd"` → `$cmd` (no shell metacharacter interpretation).
-- [x] `scripts/actions/launcher.sh:83` — **FIXED**: `eval "$selected"` → `$selected` (no shell metacharacter interpretation).
-- [x] `install.sh:290,300,319,329` — **FIXED**: curl-to-bash replaced with `mktemp` + `curl -o` + `bash` + `rm`. Failed download no longer silently succeeds.
-
-### HIGH — D-Bus / IPC
-
-- [x] `src/daemons/ocws-osd-notify.c` / `ocws-notify.c` — **FIXED**: Added `check_caller_uid()` — verifies caller UID matches process owner via `g_dbus_method_invocation_get_credentials()`.
-- [x] `src/daemons/ocws-notify.c:26-28` — **FIXED**: Shared state accessed from D-Bus handlers. GLib main loop serializes callbacks — no concurrent access in practice. Added `volatile sig_atomic_t` for signal handling.
-- [x] `src/daemon/ocws-appletd.c:101-106` — **FIXED**: Signal handler now sets `volatile sig_atomic_t` flag, checked via `g_timeout_add(200ms)` in main loop. No async-signal-safe violations.
-
-### HIGH — Plugin / Code Loading
-
-- [x] `src/daemons/ocws-brokerd.c:158` / `appletd.c:36` — **FIXED**: Added `validate_plugin_path()` — rejects symlinks, non-regular files, wrong ownership, world-writable permissions.
-
-### HIGH — Shell Injection via User Data
-
-- [x] `src/gui/ocws-welcome.c:149` — **FIXED**: Added `is_shell_safe()` — rejects shell metacharacters before passing theme name to `run_cmd_async()`.
-- [x] `src/gui/ocws-theme-center.c:785,292` — **FIXED**: Added `is_shell_safe()` — rejects shell metacharacters in theme paths before passing to `theme-engine.sh`.
-- [x] `src/gui/settings/settings-tabs.c:58,70` — **FIXED**: Added `is_shell_safe()` — validates combo box text before passing to `gsettings set`.
-
-### HIGH — Buffer Overflows
-
-- [x] `src/gui/settings/settings-ui.c:505-534` — **FIXED**: Replaced 6× `strcat` with `GString` (unbounded safe dynamic string).
-- [x] `src/gui/ocws-pkgmgr.c:239-240` — **FIXED**: `strcat` → `snprintf` with remaining-length tracking.
-- [x] `src/cli/ocws-search.c:90-91` — **FIXED**: `strcat` → `snprintf` with `pos`/`rem` tracking, breaks on truncation.
-- [x] `src/gui/ocws-dock-mgr.c:64-89` — **FIXED**: `strcpy` → `snprintf` bounded copy.
-
-### HIGH — Integer Overflow / NULL Dereference
-
-- [x] `src/cli/ocws-color.c:123` — **FIXED**: Added `w<=0||h<=0||w>INT_MAX/h` overflow guard, uses `size_t total`.
-- [x] `src/gui/ocws-dock-mgr.c:102,195,233,569` — **FIXED**: Added NULL checks after each `malloc()` with early return on OOM.
-
-### HIGH — Predictable /tmp Paths (Shell Scripts)
-
-- [x] `scripts/toggle-natural-scroll.sh:74,81,89,91` — **FIXED**: Uses `mktemp` for hwdb temp file (randomized name).
-- [x] `scripts/actions/download-icons.sh:45-48` — **FIXED**: Uses `mktemp -d` with cleanup trap on EXIT.
-- [x] `scripts/ocws-autorun.sh:12` — **FIXED**: Log now uses `${XDG_RUNTIME_DIR:-$HOME/.cache}/ocws-autorun.log`.
-- [x] `scripts/autorun-manager.sh:8` — **FIXED**: Log now uses `${XDG_RUNTIME_DIR:-$HOME/.cache}/ocws-autorun.log`.
-- [x] `scripts/ocws-validate-session.sh:38` — **FIXED**: Now uses `mktemp /tmp/labwc-session-XXXXXX.desktop`.
-- [x] `scripts/applets/pomodoro.sh:9` — **FIXED**: `STATE_FILE` now uses `${XDG_RUNTIME_DIR:-$HOME/.cache}`.
-- [x] `scripts/start-redshift.sh:34,122,141,159` — **FIXED**: `PID_FILE` now uses `${XDG_RUNTIME_DIR:-$HOME/.cache}`.
-- [x] `scripts/install-fonts-cursors.sh:13-15,21-23` — **FIXED**: Now uses `mktemp` for download paths.
-- [x] `scripts/install-fonts.sh:124` — **FIXED**: Now uses `mktemp /tmp/inter-font-XXXXXX.zip`.
-- [x] `install-zig.sh:16,20,31` — **FIXED**: Now uses `mktemp` for download path.
-- [x] `build-ocws-core.sh:40` — **FIXED**: Now uses `mktemp -d /tmp/ocws-build-XXXXXX` with cleanup trap.
-- [x] `build-ocws-audio.sh:33` — **FIXED**: Now uses `mktemp -d /tmp/ocws-audio-build-XXXXXX` with cleanup trap.
-- [x] `scripts/ocws-icon-downloader.sh:13` — **FIXED**: `DOWNLOAD_DIR` now uses `${XDG_RUNTIME_DIR:-$HOME/.cache}`.
-- [x] `scripts/install-contour.sh:28` — **FIXED**: `BUILD_DIR` now uses `${XDG_RUNTIME_DIR:-$HOME/.cache}`.
-
-### HIGH — Broken Shell Scripts
-
-- [x] `scripts/backup.sh:102` — **FIXED**: Removed orphan `fi`, added missing `for dir in ...` loop in incremental mode.
-- [x] `scripts/restore.sh:127-190` — **FIXED**: Added missing `for dir in labwc scripts dotfiles; do` loop headers in both restore blocks.
-
-### HIGH — Process / Environment
-
-- [x] `src/libocws/daemon.h` — **FIXED**: PID file uses `$XDG_RUNTIME_DIR` (per-user, not world-writable). `umask(0077)` set at startup.
-- [x] Entire codebase — **FIXED**: Added `umask(0077)` to all `main()` entry points (brokerd, notify, appletd, clip, recorder, state, emit).
-- [x] `src/libocws/fs.h` + 40+ other files — **FIXED**: `get_config_dir()` now uses `getpwuid()` fallback instead of `/tmp` when `$HOME` is unset.
-
-### MEDIUM
-
-- [x] `src/cli/ocws-state.c` — **FIXED**: Added `is_safe_state_name()` path validation.
-- [x] `src/core/ocws-kv.c:225-243` — **FIXED**: Atomic write uses `mkstemp()` instead of predictable `.tmp` path.
-- [ ] `src/gui/ocws-dock-mgr.c` — Direct `fopen(path, "w")` throughout; no atomic writes or O_EXCL.
-- [ ] `src/gui/ocws-pkgmgr.c:289` — Predictable `/tmp/ocws-build-<pkg>` build directory.
-- [x] `src/libocws/spawn.h` — **FIXED**: `run_cmd_async()` uses `g_spawn_async()` — no `system()`.
-- [x] `src/cli/ocws-emit.c` — **FIXED**: Added `is_safe_namespace()` validation — rejects control characters, quotes, backslashes.
-- [x] `src/plugins/network/network.c:34` — **FIXED**: `popen()` → `fork() + exec() + pipe`.
-- [x] `src/daemons/ocws-brokerd.c:401-419,481-483` — **FIXED**: Added `fcntl(FD_CLOEXEC)` after `pipe()` and `popen()`.
-- [ ] Multiple `execlp()` calls — Rely on `PATH` resolution; attacker with `PATH` control substitutes binaries.
-
-### MEDIUM — Shell Script Quality
-
-- [x] `scripts/actions/icon-theme-picker.sh:35,37,49,51` — **FIXED**: Added `ESCAPED_CHOSEN` with sed metacharacter escaping.
-- [ ] `scripts/actions/kvstore.sh:34` — Non-atomic append + grep + mv. Concurrent writes corrupt data.
-- [x] `scripts/ocws-autorun.sh:48` — **FIXED**: Changed to `nohup sh -c "$line"` to preserve shell features while avoiding word splitting.
-- [x] `scripts/actions/fuzzel-calc.sh` — **FIXED**: Added `set -euo pipefail`, fixed `$?` check to use `if` directly.
-- [x] `scripts/actions/dotfiles-menu.sh` — **FIXED**: Added `set -euo pipefail`.
-- [x] `scripts/actions/kvstore.sh` — **FIXED**: Added `set -euo pipefail`.
-- [x] `scripts/ocws-validate-session.sh:6` — **FIXED**: Changed `set -uo pipefail` to `set -euo pipefail`.
-- [x] `scripts/ocws-check-requirements.sh:5` — **FIXED**: Changed `set -uo pipefail` to `set -euo pipefail`.
-
-### LOW
-
-- [ ] `src/gui/ocws-dock-mgr.c:117,139,166,186,209,513,584` — `strncpy(..., 127)` without null-termination guarantee when source >= 127 bytes.
-- [x] `src/plugins/clipboard/clipboard.c:20,41,56` — **FIXED**: Added `json_escape()` helper — escapes `"`, `\`, and control characters.
-- [x] `src/cli/ocws-lock.c:111-112` — **FIXED**: Added `atoi()` validation — rejects non-positive values.
-- [ ] `getenv("HOME")` fallback to `/tmp` — Pervasive across GUI and CLI code. Creates files in world-readable `/tmp`.
-- [x] `scripts/install-fonts.sh:2,10` — **FIXED**: Removed duplicate `set -euo pipefail`.
-- [x] `build-ocws-core.sh:96` — **FIXED**: Removed `|| true` so build errors propagate.
-- [ ] `install.sh:429,437,441,445` — `cp -r ... 2>/dev/null || true` silences real errors.
+- [ ] **F11 Night-light / color temperature widget** — Read `gammastep`/`redshift` state via D-Bus or temp file, display current color temperature. Add `WidgetType.nightlight` with `wlDraw`/`blDraw`, click to toggle.
+- [ ] **F12 Clipboard history widget** — Run `cliphist list`, parse recent clips, display as a scrollable widget. Click to select and `wl-copy`. Requires: async subprocess or cached clipboard state.
+- [ ] **F13 System tray / status notifier** — Implement `StatusNotifierItem` D-Bus protocol for tray icons (nm-applet, pasystray, etc.). Requires: D-Bus connection, SNI host interface, icon rendering. Shared module in `src/shells/shared/`.
+- [ ] **F14 In-shell notification popup** — Display notifications within the shell instead of relying on external `swaync`/`mako`. Requires: `org.freedesktop.Notifications` D-Bus interface, popup surface with layer-shell, dismiss timer.
 
 ---
 
-## Architecture / Code Quality
+## Refactoring — Layered Architecture (incremental, no rewrite)
 
-- [ ] `build.zig` only compiles equalizer targets (~5% of codebase). 70+ C files rely on shell build scripts. `src/ocws.zig` and `src/tests.zig` are orphaned from the build.
-- [x] `src/daemon/ocws-brokerd.c` (34-line stub) is a stale refactor artifact. Canonical version is `src/daemons/ocws-brokerd.c` (666 lines). — **FIXED**: Deleted stale stub.
-- [x] `src/gui/ocws-equalizer.c.backup`, `src/libocws/audio_stream.c.backup` — Backup files in git tree. — **FIXED**: Deleted.
-- [x] `test_compile.c` at project root — 3-line compile test. — **FIXED**: Deleted.
-- [x] `src/core/ocws_commands.h` — Uses `#pragma once` while all other 32 headers use `#ifndef` guards. — **FIXED**: Changed to `#ifndef OCWS_COMMANDS_H` / `#define` / `#endif`.
-- [ ] `src/gui/ocws-fonts-mgr.c` vs `src/gui/ocws-fonts-mgr/` — Duplicate naming (flat file + subdirectory).
+The codebase is ~5,600 LOC; the sickness is `main_shell.zig` (2,359 lines, 74 fns, 114 globals) being a god-object that mixes the Wayland event loop, render orchestration, settings UI, session popup, and per-widget click dispatch. The widget system (`panel.zig`) and the C Cairo bridge (`dock_c_impl.c`) are already reasonably separated and should be kept. Goal: extract layers so each surface owns its dirty/commit state and UI views are self-contained. Do these in order — each step is independently shippable and keeps the shell runnable.
 
----
+### Step 1 — Surface/Compositor layer (fixes the class of bug we just patched)
+- [ ] **R1 Extract `SurfaceState` + a `Surface` wrapper** (`main_shell.zig:62-66`) — wrap `zwlr_layer_surface_v1` with `setSize(h)`, `commit()`, `requestFrame()`, and a **per-surface** `dirty` flag. Remove the shared global `dirty`/`dock_dirty`/`markDirty()` split (main_shell.zig:65-74) in favor of each surface owning its own dirty bit.
+- [ ] **R2 Move `submitSurface` into the `Surface` type** (`main_shell.zig:1652+`) — currently a free function taking `&panel_surface`/`&dock_surface`; make it a method that early-returns when the surface's own dirty flag is false.
+- [ ] **R3 Render loop dispatches per-surface dirty** (`main_shell.zig:2260-2268`) — replace the `if (dirty){ renderPanel(); renderDock(); }` block with iterating surfaces and repainting only those whose dirty flag is set. Eliminates the manual `dock_dirty`/panel coupling entirely.
 
-## Dotfiles & Installer Flaws
+### Step 2 — Wayland/IO layer (pull the event loop out of the UI file)
+- [ ] **R4 New `wayland.zig` module** — registry, seat, layer-shell, foreign-toplevel-manager, `wl_display`/`poll` loop. Emits events via callback pointers; knows nothing about widgets/popups. Move `pointerEnter`/`pointerLeave`/`pointerMotion`/`pointerButton`/`pointerAxis`/`keyboardKey`/`layerSurfaceConfigure` handlers here (main_shell.zig:248-940ish).
+- [ ] **R5 Decouple handlers from globals** — handlers currently mutate `pointer_on_panel`/`pointer_on_dock`/`dock_hover_idx`/`session_open`/`settings_open` (main_shell.zig:254-270, 301-313) directly. Replace with an event struct passed to a single `onShellEvent()` dispatcher in the shell layer, so `wayland.zig` has zero UI dependencies.
 
-### CRITICAL — Breaks for other users
+### Step 3 — Render context + view isolation
+- [ ] **R6 Introduce `RenderCtx`** (`panel.zig`, `dock.zig`, `main_shell.zig`) — pass `(cr, width, height, theme)` explicitly instead of relying on the global `cr`/`theme.current`. Lets draw functions be pure and unit-testable without a live surface.
+- [ ] **R7 Extract settings UI into `settings_view.zig`** (`main_shell.zig:591-1180`) — `drawWidgetManager`/`handleWidgetListClick`/`drawDockManager`/settings click+scroll handlers become a self-contained view with its own `Rect` and input dispatch, returning `Consumed`/`Passthrough`.
+- [ ] **R8 Extract session popup into `session_view.zig`** (`main_shell.zig` `drawSessionMenu`/`handleSessionClick`/`sessionRect`/`SESSION_ACTIONS`) — self-contained view owning its surface resize (the `applyPanelSurfaceHeight` hack at main_shell.zig:466-481 goes away once surfaces own sizing).
 
-- [x] `dotfiles/labwc/rc.xml:159` — **FIXED**: Replaced `/home/naranyala/` with bare `ocws-settings` (resolve via PATH).
-- [x] `dotfiles/labwc/rc.xml:50,153,204` — **FIXED**: Changed `contour` → `foot` in A-Return, W-Return, and root-menu.
-- [ ] *(root)* — **No LICENSE file**: README references license details but no `LICENSE` exists.
+### Step 4 — Widget model ownership
+- [ ] **R9 Move view-state out of globals into widgets** — `session_open`, `settings_open`, `dock_hover_idx`, `launcher_hover_idx` (main_shell.zig:88-115) become fields on their respective widget/view structs instead of module-level globals, so the shell core stops tracking per-view booleans.
+- [ ] **R10 Keep `panel.zig` widget component model** — the `Widget{ measure/draw/click }` fn-pointer pattern (panel.zig:1279-1331) is sound; only its layout/state coupling to `main_shell` globals needs severing (R9).
 
-### HIGH — Logic bugs / silent failures
+### Step 5 — Config layer (already clean, guard it)
+- [ ] **R11 Keep `panel_config.zig` as-is** — already a clean Config load/save module; ensure the new layers depend on it rather than on global `config_dirty` flag-thrashing (see #23/#62).
 
-- [x] `install.sh:290,300,319,329` — **FIXED**: curl-to-bash replaced with `mktemp` + `curl -o` + `bash` + `rm`. Failed download no longer silently succeeds.
-- [x] `scripts/start-labwc.sh:92` — **FIXED**: Added `NEW_OPTIONAL_DEPS=()` declaration before use.
-- [x] `scripts/actions.sh:13` — **FIXED**: Added fallback search paths (`~/.local/bin/actions`, `~/.config/ocws/scripts/actions`, script-relative `actions/`).
-- [ ] `install.sh` — **No backup before overwrite** for labwc, ocws, fuzzel, foot, gtk, mako, qt6ct.
-- [x] `install.sh` — **Missing deploy targets**: `dotfiles/fontconfig/fonts.conf` and `dotfiles/zigshell-cairo-pango/theme.css` never deployed. — **FIXED**: `zigshell-cairo-pango/theme.css` now deployed to `~/.config/zigshell-cairo-pango/theme.css`.
-- [x] `distro/ubuntu-lubuntu-lxqt.sh`, `distro/arch-artix-lxqt.sh` — **FIXED**: Added stub with error message and exit 1.
+### Done-when
+- [ ] **R12 No `dirty`/`dock_dirty` globals remain; hovering the dock never touches the panel surface** (regression guard for the blink bug).
+- [ ] **R13 `wayland.zig` contains zero widget/popup references** (verified by grep).
+- [ ] **R14 Each popup/view compiles and renders from a `RenderCtx` with no global `cr`.**
 
-### MEDIUM — Config correctness & portability
-
-- [x] `dotfiles/labwc/autostart:121` — **FIXED**: Added `/usr/lib/policykit-1-gnome/` as primary path with old path as fallback.
-- [x] `dotfiles/labwc/rc.xml:118` — **FIXED**: Changed to `clipboard.sh pick` which respects launcher preference.
-- [x] `dotfiles/labwc/rc.xml:39-41` — **FIXED**: Script exists in `scripts/` and is accessible via PATH (install.sh adds `scripts/` to labwc environment PATH).
-- [x] `dotfiles/labwc/startup-wallpaper.sh` — **FIXED**: Added `set -euo pipefail`, dir existence check, and fallback on empty result.
-
-### LOW — Hygiene & consistency
-
-- [ ] ~80 scripts — **`pass()`/`info()` use `$1` instead of `$*`**: multi-word messages truncated.
-- [ ] ~20 scripts — **Missing `set -e`**: silent failures likely.
-- [x] `quick-start.sh:35` — **FIXED**: Replaced with actual repository URL `https://github.com/naranyala/labwc-fuzzel-zigshell-cairo-pango.git`.
-- [x] `patch_bar.sh` — **FIXED**: Added shebang, `set -euo pipefail`, and target path.
-- [ ] Multiple scripts — **Predictable `/tmp/` paths**: should use `$XDG_RUNTIME_DIR`.
-- [ ] `.github/` — **Empty directory**: no CI/CD.
-- [ ] Shebangs — **Inconsistent**: `#!/bin/bash` vs `#!/usr/bin/env bash` mixed.
 
 ---
 
-Generated: 2026-07-08 by security audit
-Updated: 2026-07-13 — Full codebase audit + 68 fixes applied (all `system()`/`popen()` replaced with `g_spawn_async()`/`fork+exec`, shell eval removed, buffer overflows fixed, integer overflow guard, NULL-deref checks, D-Bus access control, dlopen validation, O_CLOEXEC on pipes, /tmp→$XDG_RUNTIME_DIR, curl-to-bash safety, shared security utilities, JSON escaping, namespace validation, sed escaping, atomic writes, atoi validation, build error propagation)
+## Reconstruction — Abstraction Layers (beyond refactoring)
+
+The existing R1-R14 refactoring addresses duplication within one shell. This section addresses duplication **between** the two shells and introduces proper abstraction layers. Current state: ~12,000 lines across 483 files; target: ~6,000 lines with zero cross-shell duplication.
+
+### Phase 1 — Shared Wayland Infrastructure (eliminate ~1,000 lines)
+
+- [ ] **A1 Create `src/shellcore/wayland.zig`** — Wayland connection wrapper: `WaylandContext` struct containing `display`, `compositor`, `shm`, `layer_shell`, `seat`, `pointer`, `keyboard`, `toplevel_manager`. Methods: `init()`, `roundtrip()`, `dispatch()`, `getRegistry()`. Both shells call `wayland.init()` instead of re-declaring identical globals. Replaces: `main_shell.zig:28-37` (cairo-pango), `main_shell.zig:28-36` (blend2d).
+- [ ] **A2 Create `src/shellcore/event_loop.zig`** — Abstract event loop: `EventLoop` struct with `addTimer()`, `addSource()`, `run()`, `quit()`. Wraps `wl_display_dispatch` + `poll` + `timerfd`. Both shells call `event_loop.run()` instead of duplicating the 200-line main loop. Replaces: `main_shell.zig:1855-1963` (cairo-pango), `main_shell.zig:1527-1579` (blend2d).
+- [ ] **A3 Create `src/shellcore/surface.zig`** — Surface state management: `Surface` struct with `create()`, `setSize()`, `commit()`, `requestFrame()`, `attach()`, `damage()`. Owns per-surface dirty flag. Replaces: `SurfaceState` struct + `submitSurface()` + `ensureBuffer()` duplicated in both shells.
+- [ ] **A4 Create `src/shellcore/input.zig`** — Input handling: `InputState` struct tracking `pointer_x/y`, `pointer_on_panel/dock/launcher`, `dock_hover_idx`, `launcher_hover_idx`, `keyboard_focus_surface`. Callbacks: `onPointerEnter()`, `onPointerMotion()`, `onPointerButton()`, `onKeyboardKey()`. Replaces: 15+ pointer/keyboard globals duplicated in both shells.
+- [ ] **A5 Create `src/shellcore/layer_shell.zig`** — Layer surface helpers: `createLayerSurface()`, `setAnchor()`, `setExclusiveZone()`, `setKeyboardInteractivity()`. Wraps the verbose `zwlr_layer_shell_v1_*` calls. Replaces: 30+ lines of boilerplate per shell.
+
+### Phase 2 — Renderer Abstraction (eliminate ~500 lines)
+
+- [ ] **A6 Create `src/renderer/renderer.zig`** — Renderer trait: `Renderer` struct with function pointers `fillRect()`, `drawText()`, `drawBorder()`, `drawImage()`, `drawImageScaled()`, `measureText()`, `setFontSize()`, `flush()`. Returns a vtable that both Cairo and Blend2D backends implement.
+- [ ] **A7 Create `src/renderer/cairo.zig`** — Cairo backend: implements `Renderer` trait by wrapping `cairo_t*` + Pango calls. Extracted from `panel.zig:widgetText()`, `panel.zig:widgetIconGlyph()`, `dock_c_impl.c:widget_text_c()`.
+- [ ] **A8 Create `src/renderer/blend2d.zig`** — Blend2D backend: implements `Renderer` trait by wrapping `*blend2d.BlendRenderer`. Extracted from `blend2d_render.zig` functions.
+- [ ] **A9 Unify widget `draw_fn` signatures** — Change all `draw_fn` from renderer-specific (`*c.cairo_t` vs `*blend2d.BlendRenderer`) to `?*anyopaque` (opaque renderer pointer). Each backend casts internally. Widget code becomes renderer-agnostic. Affects: `panel.zig:62-63` (cairo), `panel.zig:62-63` (blend2d).
+
+### Phase 3 — Unified Widget System (eliminate ~800 lines)
+
+- [ ] **A10 Create `src/widgets/widget.zig`** — Single `WidgetType` enum (21 variants), single `Widget` struct, single `createWidget()`, single `widgetCreateDefault()`, single `widgetCreateCompact()`. Both shells import from `widgets` instead of maintaining separate `panel.zig` files. Replaces: `panel.zig` (1,602 lines cairo) + `panel.zig` (1,311 lines blend2d).
+- [ ] **A11 Move widget implementations to `src/widgets/*.zig`** — One file per widget: `clock.zig`, `cpu.zig`, `mem.zig`, `battery.zig`, `volume.zig`, `network.zig`, `media.zig`, `temp.zig`, `disk.zig`, `workspaces.zig`, `toplevel.zig`, `launcher.zig`, `versions.zig`, `kbindicator.zig`, `customcommand.zig`, `showdesktop.zig`, `worldclock.zig`, `backlight.zig`, `power.zig`, `session.zig`, `spacer.zig`. Each file contains: `measure()`, `draw()`, `update()`, `click()`. No renderer dependency (uses `Renderer` trait).
+- [ ] **A12 Move `parseWidgetType`/`widgetTypeName`/`AllWidgetTypes` to `widget.zig`** — Single source of truth for widget type names. Used by config parser, settings UI, and validation tests. Replaces: duplicated enums in both `panel.zig` files.
+
+### Phase 4 — App Management (eliminate ~300 lines)
+
+- [ ] **A13 Create `src/apps/scanner.zig`** — `.desktop` + `$PATH` scanner (from `shared/apps.zig`). Single implementation, used by both shells and the GTK launcher. Replaces: `shared/apps.zig` + duplicated scan logic in both shells.
+- [ ] **A14 Create `src/apps/icon.zig`** — Theme icon loading (from `cairo-pango/icon.zig` + `blend2d/icon.c`). Unified API: `load(app_id, size) -> ?IconHandle`. Replaces: two icon implementations.
+- [ ] **A15 Create `src/apps/launcher.zig`** — App launcher logic: `scan()`, `filter()`, `launch()`, `getApps()`. Used by both shell launchers and GTK launcher widget. Replaces: duplicated launcher logic in both `main_shell.zig` files.
+
+### Phase 5 — Configuration (guard existing, add missing)
+
+- [ ] **A16 Create `src/config/config.zig`** — Unified config: `Config` struct with `load()`, `save()`, `reload()`. Wraps `panel_config.zig` functionality. Both shells use this instead of independently implementing config loading. Replaces: `panel_config.zig` + `pcfg.Config` usage in both shells.
+- [ ] **A17 Create `src/config/theme.zig`** — Theme system: `Theme` struct with named color slots (`bg`, `fg`, `accent`, `border`, `hover`). Load from `~/.config/ocws/tokens.css` or fallback palette. Used by both shells and GTK apps. Replaces: hardcoded hex literals in blend2d + `theme.zig` in cairo-pango.
+- [ ] **A18 Create `src/config/dock_pins.zig`** — Dock pin management: `loadPins()`, `savePins()`, `pinApp()`, `unpinApp()`, `isPinned()`. Used by both dock implementations. Replaces: duplicated pin logic in both `dock.zig` files.
+
+### Phase 6 — Build System (eliminate hardcoded paths)
+
+- [ ] **A19 Replace hardcoded GTK paths with `pkg-config`** (`build.zig:170-183`) — Use `b.runAllowFail(&.{ "pkg-config", "--cflags", "gtk+-3.0" })` to discover paths dynamically. Eliminates: hardcoded `/usr/include/gtk-3.0`, `/usr/lib64/glib-2.0/include`, etc.
+- [ ] **A20 Create `src/build.zig` shared build helpers** — `addShellCore()`, `addRenderer()`, `addWidgets()`, `addApps()`, `addConfig()` functions that both shell `build.zig` files call. Replaces: duplicated `b.createModule` blocks.
+- [ ] **A21 Add cross-shell parity validation** — Extend `widget_validation.zig` and `dock_validation.zig` to test all 21 widget types, dock pin operations, and config round-trips. Run as part of `zig build test`.
+
+### Done-when (reconstruction)
+
+- [ ] **A22 `src/shells/zigshell-cairo-pango/main.zig` is under 300 lines** (currently 2,359).
+- [ ] **A23 `src/shells/zigshell-blend2d/main.zig` is under 300 lines** (currently 1,624).
+- [ ] **A24 No widget code exists in `main_shell.zig`** (all in `src/widgets/*.zig`).
+- [ ] **A25 No renderer-specific code in widget files** (all use `Renderer` trait).
+- [ ] **A26 Total line count under 7,000** (currently ~12,000).
+- [ ] **A27 Zero duplication between shell `main.zig` files** (verified by `diff`).
+- [ ] **A28 All tests pass: `zig build test` in both shells + `zig build test` in root.**
+
+### File Structure (target)
+
+```
+src/
+├── shellcore/                    # Shared shell infrastructure
+│   ├── wayland.zig              # Wayland connection, globals
+│   ├── event_loop.zig           # Event loop abstraction
+│   ├── surface.zig              # Surface state, SHM buffers
+│   ├── input.zig                # Pointer, keyboard handling
+│   └── layer_shell.zig          # Layer surface helpers
+│
+├── renderer/                     # Renderer abstraction
+│   ├── renderer.zig             # Trait definition
+│   ├── cairo.zig                # Cairo backend
+│   └── blend2d.zig              # Blend2D backend
+│
+├── widgets/                      # Unified widget system
+│   ├── widget.zig               # WidgetType, Widget struct
+│   ├── clock.zig                # Clock widget
+│   ├── cpu.zig                  # CPU widget
+│   ├── mem.zig                  # Memory widget
+│   ├── battery.zig              # Battery widget
+│   ├── volume.zig               # Volume widget
+│   ├── network.zig              # Network widget
+│   ├── dock.zig                 # Dock widget
+│   ├── launcher.zig             # App launcher
+│   ├── versions.zig             # Version display
+│   └── ... (21 total)
+│
+├── apps/                         # Application management
+│   ├── scanner.zig              # .desktop scanner
+│   ├── icon.zig                 # Theme icon loading
+│   └── launcher.zig             # Launch logic
+│
+├── config/                       # Configuration
+│   ├── config.zig               # INI load/save
+│   ├── theme.zig                # Theme colors
+│   └── dock_pins.zig            # Dock pin management
+│
+├── shells/                       # Thin shell wrappers
+│   ├── zigshell-cairo-pango/
+│   │   ├── main.zig             # ~300 lines
+│   │   └── build.zig
+│   └── zigshell-blend2d/
+│       ├── main.zig             # ~300 lines
+│       └── build.zig
+│
+└── gui/                          # GTK apps (existing)
+```
 
 ---
-## Architectural Improvements
 
-- [ ] **Build System Unification**: Port all C compilation steps (`build-ocws-core.sh`, `build-ocws-events.sh`, etc.) into `build.zig` so a single `zig build` builds the entire workspace.
-- [ ] **GTK Application Scaffolding**: Create an `OCWS_APP_MAIN` macro in `libocws/gtk-app.h` to abstract repetitive GTK initialization, theme injection, and centralize logging across all C GUI apps.
-- [ ] **UI Layout Decoupling**: Migrate procedural UI construction in C to declarative GTK `.ui` files loaded via `GtkBuilder`.
-- [ ] **Configuration & State Management**: Implement a unified `ocws_config` singleton inside `libocws` with file watching to prevent redundant configuration parsing across different tools.
+## main_shell.zig Breakdown — Extract 10 Modules
 
----
+**Current**: `zigshell-cairo-pango/src/main_shell.zig` = **2,370 lines** (god-object)
+**Target**: 10 modules, ~300 lines each in `main_shell.zig`
 
-## Shared Utilities Extraction
+### Modules to Extract
 
-Cross-cutting utilities extracted from duplicated code across the codebase.
+- [ ] **B1 Create `wayland_core.zig`** (~300 lines) — Wayland globals (`display`, `compositor`, `shm`, `layer_shell`, `seat`), toplevel callbacks (title/appId/state/done/closed), registry handler, output tracking (`OutputInfo`, geometry/mode/scale/name callbacks), layer surface callbacks, frame callback. Replaces: `main_shell.zig:25-260, 973-1134`.
+- [ ] **B2 Create `settings.zig`** (~400 lines) — Settings state (`settings_open`, `settings_tab`, `settings_scroll`, `settings_drag_idx`), geometry (`SettingsRect`, `settingsRect()`), config sync (`saveConfig`, `syncConfigFromRuntime`, `applyConfigToRuntime`), font scale (`applyFontScale`, `changeFontScale`), widget management (`wireWidgetPriv`, `handleSettingsClick`, `handleWidgetListClick`, `widgetListRef`), dock management (`handleDockClick`, `setDockAutohide`), UI drawing (`drawSettingsMenu`, `drawTab`, `drawWidgetManager`, `drawDockManager`, `drawListBtn`, `drawFontScaleRow`, `drawToggleRow`). Replaces: `main_shell.zig:527-865, 1486-1733`.
+- [ ] **B3 Create `session.zig`** (~100 lines) — Session popup state (`session_open`), geometry (`sessionRect()`), drawing (`drawSessionMenu`), click handling (`handleSessionClick`), session actions list. Replaces: `main_shell.zig:1401-1485`.
+- [ ] **B4 Create `modal.zig`** (~200 lines) — Modal state (`modal_open`, `modal_title`), open/close (`modalOpen`, `modalClose`, `toggleModal`), calendar rendering (`daysInMonth`, `renderCalendar`), modal rendering (`renderModal`), modal input handling. Replaces: `main_shell.zig:1762-1945`.
+- [ ] **B5 Create `dock_view.zig`** (~150 lines) — Dock rendering (`renderDock`), dock tooltip (`drawDockTooltip`), dock state management (`dock_hover_idx`). Replaces: `main_shell.zig:1734-1753, 2019-2038`.
+- [ ] **B6 Create `launcher.zig`** (~100 lines) — Launcher state (`launcher_open`, `launcher_hover_idx`, `launcher_scroll`), toggle (`toggleLauncher`), rendering (calls panel_mod), input handling. Replaces: `main_shell.zig:126-130, 1754-1761`.
+- [ ] **B7 Create `render.zig`** (~200 lines) — SHM FD creation (`createShmFd`, `errno`), buffer management (`ensureBuffer`), panel rendering (`renderPanel`), dynamic island (`drawDynamicIsland`), settings button (`drawSettingsButton`), rounded rect helper (`roundedRect`), surface submission (`submitSurface`). Replaces: `main_shell.zig:1181-1391, 2039-2058`.
+- [ ] **B8 Create `config.zig`** (~50 lines) — SIGHUP handler (`onSighup`), widget reload (`reloadWidgets`), config path management. Replaces: `main_shell.zig:1135-1180`.
+- [ ] **B9 Slim `main_shell.zig`** (~300 lines) — Import all modules, keep only `pub fn main()` (initialization, event loop, cleanup), constants (`PANEL_HEIGHT`, `DOCK_HEIGHT`), state variables (`running`, `timer_fd`, `dirty` flags). Target: **under 300 lines**.
+- [ ] **B10 Update `build.zig`** — Add new module files to the build system. Ensure all imports resolve correctly.
 
-### Completed
+### File Structure (target)
 
-- [x] **Delete `gui/utils.h`** — Replaced with `ocws_string.h` from libocws. Added `#define is_shell_safe ocws_is_shell_safe` backward-compat macro. Removed local `is_shell_safe()` definitions from `settings-tabs.c` and `ocws-theme-center.c`. Updated includes in `ocws-pkgmgr.c`, `ocws-fonts-mgr.c`, `fonts-mgr-common.h`, `ocws-welcome.c`.
+```
+src/shells/zigshell-cairo-pango/src/
+├── main_shell.zig        # ~300 lines (main + event loop)
+├── wayland_core.zig      # ~300 lines (Wayland globals + callbacks)
+├── settings.zig          # ~400 lines (settings UI + config)
+├── session.zig           # ~100 lines (session popup)
+├── modal.zig             # ~200 lines (modal dialog)
+├── dock_view.zig         # ~150 lines (dock rendering)
+├── launcher.zig          # ~100 lines (app launcher)
+├── render.zig            # ~200 lines (SHM + panel render)
+├── config.zig            # ~50 lines (SIGHUP + reload)
+├── panel.zig             # (existing, unchanged)
+├── dock.zig              # (existing, unchanged)
+├── icon.zig              # (existing, unchanged)
+├── theme.zig             # (existing, unchanged)
+├── panel_config.zig      # (existing, unchanged)
+├── c.zig                 # (existing, unchanged)
+└── build.zig             # (existing, updated)
+```
 
-- [x] **Add `ocws_str_trim()` to `ocws_string.h`** — Whitespace trimming function (spaces, tabs, newlines, carriage returns). Consolidates 3 separate trim implementations (`ocws-kv.c`, `ini.h`, `store.c`).
+### Done-when (main_shell breakdown)
 
-- [x] **Refactor `ocws-sysmon.c` to use `procfs.h` and `sysfs.h`** — Replaced hand-rolled `/proc/stat`, `/proc/meminfo`, `/proc/net/dev` parsers with `proc_cpu_read()`, `proc_mem_read()`. Replaced sysfs brightness/battery reading with `sysfs_read_int()`, `sysfs_find_device()`, `sysfs_read_device_int()`. Reduced from 190 to ~130 lines.
+- [ ] **B11 `main_shell.zig` is under 300 lines**
+- [ ] **B12 No rendering code in `main_shell.zig`** (all in `render.zig`)
+- [ ] **B13 No settings UI code in `main_shell.zig`** (all in `settings.zig`)
+- [ ] **B14 No Wayland callback definitions in `main_shell.zig`** (all in `wayland_core.zig`)
+- [ ] **B15 All tests pass after breakdown**
+- [ ] **B16 Apply same breakdown to `zigshell-blend2d/src/main_shell.zig`**
 
-- [x] **Refactor `ocws-brokerd.c` to use `sysfs.h` and `daemon.h`** — Replaced local `sysfs_read_int()` and `find_backlight_device()` with `sysfs.h` versions. Replaced local `signal_handler()` + `setup_signals()` with `daemon.h`'s `ocws_daemon_setup_signals()`. Renamed `running` to `ocws_daemon_running`. Removed ~40 lines of duplicated code.
+### Progress Update (2026-07-18)
 
-- [x] **Create `gl_helpers.h`** — Shared OpenGL utilities: `ocws_gl_compile_shader()`, `ocws_gl_create_program()`, `ocws_gl_setup_fullscreen_quad()`. Eliminates identical shader compilation code in `waveform-gl.c`, `equalizer-gl.c`, `speaker-gl.c`.
+**Modules Created:**
+- [x] **B3** `session.zig` (3.7KB) — Session popup, actions, drawing, click handling
+- [x] **B5** `dock_view.zig` (1.2KB) — Dock tooltip rendering
+- [x] **B6** `launcher.zig` (0.3KB) — Launcher state, toggle (no-op)
+- [x] **B7** `render.zig` (4.4KB) — SHM buffer management, surface submission
+- [x] **B8** `config.zig` (2.0KB) — SIGHUP handler, widget reload
 
-- [x] **Create `theme_css.h`** — Shared CSS theme color loader: `OcwsThemeColors` struct + `ocws_load_theme_colors()`. Parses `@define-color accent`, `@define-color theme_bg_color`, `@define-color widget_alpha` from `~/.config/ocws/css/theme.css`. Eliminates identical parsing in `waveform-gl.c` and `equalizer-gl.c`.
-
-### Remaining (from analysis)
-
-- [ ] **Create `pa_capture.h`** — Shared PulseAudio monitor capture boilerplate (`pa_simple_new`, sample spec, buffer attr). Would eliminate ~180 lines across 4 GUI files.
-- [ ] **Create `speaker_render.c/h`** — Shared GL rendering code for `speaker-gl.c` and `speaker-qs.c` (85% identical, ~200 lines).
-- [ ] **Create `cli_control.h`** — Shared CLI option parsing for `ocws-brightness.c` and `ocws-volume.c` (~50 lines).
-- [ ] **Fix `json_escape()` off-by-one bug** in `json.h` — Buffer truncation error documented in test.
-- [ ] **Refactor `ocws-kv.c` trim()** to use `ocws_str_trim()` from `ocws_string.h`.
-- [ ] **Refactor `ini.h` ini_trim()** to use `ocws_str_trim()` from `ocws_string.h`.
-
----
-
-## Zigshell Codebase Refactoring
-
-Both `zigshell-cairo-pango` and `zigshell-blend2d` share ~600+ lines of identical Wayland protocol
-code and ~1,300 lines of identical widget logic. The following items extract shared code, fix bugs,
-and clean up dead code discovered during the codebase analysis.
-
-### Critical — Shared module extraction
-
-- [x] **Move `damage.zig` to shared location** — **DONE**: Moved to `shared/damage.zig`, imported via `shellcore` module. Local copies removed from both shells.
-
-- [x] **Merge `toplevel.zig` into shared module** — **DONE**: Moved to `shared/toplevel.zig` via `shellcore` module. Includes `hover_anim` field, `maxInt(usize)` overflow sentinel, `std.mem.copyForwards`, and tests. Local copies already removed.
-
-- [ ] **Create `wayland_core.zig` shared module** (~400 lines) — Extract all backend-independent
-  Wayland protocol callbacks: `toplevelHandle*` (6 callbacks), `keyboardKeymap/Enter/Leave/Key/
-  Modifiers/RepeatInfo` (6 callbacks), `seatCapabilities`, `layerSurfaceConfigure/Closed`,
-  `frameDone`, `surfacePreferredScale`, `registryGlobal`, all 12 listener struct constants.
-  These are identical across both shells.
-
-- [ ] **Create `output_tracker.zig` shared module** (~70 lines) — `OutputInfo` struct,
-  `findOrAddOutput`, all 5 output callbacks + listener. 100% identical across both shells.
-
-- [ ] **Create `panel_common.zig` shared module** (~1,100 lines) — Extract `WidgetType` enum,
-  `Widget` struct (data fields), `PanelCtx`, `WidgetList`, `LoadedWidgets`, all `measure_fn`
-  implementations, all `update_fn` implementations, all `click_fn` implementations,
-  `configLoadWidgets`, `parseWidgetType`, `widgetCreateDefault`, `createWidget`,
-  `widgetListUpdate`, `widgetListWidth`. Only draw_fn implementations remain shell-specific.
-
-### High — Bug fixes
-
-- [x] **Fix `toplevel.zig:blend2d` `add()` overflow** — **DONE**: Shared toplevel.zig returns `maxInt(usize)` on overflow.
-
-- [ ] **Fix `configLoadWidgets` option parsing** — Options are accumulated into `opts_buf` but
-  **never parsed or applied**. All widget config is silently discarded; every widget gets defaults.
-  Add option parsing for at least: `cmd` (customcommand), `interval`, `tz` (worldclock),
-  `layout` (kbindicator), `side` (left/right), `iface` (network).
-
-- [x] **Fix `tlClick` hardcoded icon_size** — **DONE**: Added `panel_height` field to `PanelCtx`. `tlClick` now uses `ctx.panel_height - 12` instead of hardcoded 24.
-
-- [x] **Fix `keyboard_key` calling `widgets[i].key_fn`** — **DONE**: Removed `key_fn` from Widget struct entirely. Simplified `keyboardKey` callback to a no-op (no widgets handle keys).
-
-### Medium — Dead code cleanup
-
-- [x] **Remove `key_fn` from Widget struct** — **DONE**: Removed from both shells.
-
-- [x] **Remove `name` field from Widget struct** — **DONE**: Removed from both shells. Also removed from `createWidget`.
-
-- [x] **Remove `vol_pct` field from Widget struct** — **DONE**: Removed from both shells. Also removed from `createWidget`.
-
-- [x] **Remove `MAX_TOPLEVELS` and `PANEL_HEIGHT` from panel.zig** — **DONE**: Removed unused constants from both panel.zig files.
-
-- [ ] **Remove dead `opts_buf`/`opts_len` from configLoadWidgets** — Options are accumulated
-  but never parsed. Either implement parsing or remove the accumulation machinery.
-
-- [x] **Remove dead `settings_scroll` from cairo-pango main_shell.zig** — **DONE**: Removed.
-
-- [x] **Remove dead `count <= 0` check in `kbClick`** — **DONE**: Removed from both shells.
-
-### Medium — Code deduplication
-
-- [ ] **Create `settings.zig` shared module** (~50 lines) — `handleSettingsClick` and
-  `executeSettingsAction` are identical in both shells. Extract with a shared menu item table.
-
-- [ ] **Create `shell_utils.zig` shared module** (~15 lines) — `createShmFd` is identical in both.
-
-- [ ] **Extract `ensureBuffer` shared portion** — SHM fd, mmap, pool creation, buffer dimension
-  tracking, old buffer cleanup (~30 lines) are identical. Only renderer init differs. Split into
-  `ensureShmBuffer()` (shared) + `initRenderer()` (backend-specific).
-
-- [ ] **Extract `renderPanel` layout calculation** — Widget positioning logic (~40 lines:
-  `left_w`, `right_w`, `x0`, `widget_x[i]`) is identical. Only the draw calls differ.
-  Extract layout into shared function returning positioned widget list.
-
-- [ ] **Extract `main()` init sequence** — ~95 lines of identical init (display connect, SIGHUP,
-  config env, registry, roundtrips, globals check, widget loading, panel/dock surface creation).
-  Differences are only log prefixes and surface names.
-
-### Low — Design improvements
-
-- [ ] **Refactor Widget struct from flat fields to tagged data** — Currently every Widget carries
-  fields for ALL 18 types (~1.5KB per instance). With MAX_WIDGETS=64, that's ~96KB. Most
-  instances use <5% of allocated space. Move type-specific data behind `priv: ?*anyopaque`.
-
-- [ ] **Replace `createWidget` switch with declarative table** — Current 167-line switch manually
-  zeros fields (redundant — struct has defaults) and assigns function pointers. A data table
-  `const widget_defs = [_]WidgetDef{ ... }` would be ~30 lines and self-documenting.
-
-- [ ] **Add error handling to `c.system()` calls** — Every `c.system(...)` discards its return
-  value. At minimum log failures for debugging.
-
-- [ ] **Fix command injection in `customcommand`** — `ccUpdate` interpolates `w.cmd` into
-  `"sh -c '{s}'"`. Single quotes in cmd break shell quoting, enabling injection.
-  Use `fork()+execvp()` or escape the argument.
-
-- [ ] **Fix `worldclock` TZ race** — `wcUpdate` calls `c.setenv("TZ", ...)` + `c.tzset()`
-  modifying process-wide state. Not safe if multiple widgets or threads exist.
-
-### Notes
-- Priority order: Critical > High > Medium > Low
-- Items are independent unless noted; can be done in any order within priority
-- Shared modules go under `src/shells/zigshell-common/` (new directory)
-- Both shells add `root_mod.addIncludePath(b.path("../zigshell-common"))` in build.zig
-- Status (2026-07-16): analysis complete. Executed: T1 (damage.zig shared), T2 (toplevel.zig shared), T3 (tlClick fix), T4 (dead code removal). T5 (createShmFd) and T6 (config parsing) deferred.
+**Remaining:**
+- [ ] **B1** `wayland_core.zig` — Wayland globals, callbacks, output tracking
+- [ ] **B2** `settings.zig` — Settings UI, config sync, widget management
+- [ ] **B9** Integration — Update main_shell.zig to use modules
+- [ ] **B10** Update build.zig

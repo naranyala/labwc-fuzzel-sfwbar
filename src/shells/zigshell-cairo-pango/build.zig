@@ -51,6 +51,22 @@ pub fn build(b: *std.Build) void {
 
     b.installArtifact(exe);
 
+    // === settings_gtk — out-of-process GTK3 settings panel (C + thin Zig entry) ===
+    // Edits the shared INI config file and signals the running shell via SIGHUP.
+    // Launched on demand from the shell's gear button. No Wayland coupling.
+    const gtk_mod = b.createModule(.{
+        .root_source_file = b.path("src/settings_gtk_main.zig"),
+        .target = target,
+        .optimize = optimize,
+        .link_libc = true,
+    });
+    gtk_mod.addCSourceFiles(.{ .files = &.{"src/settings_gtk.c"}, .flags = c_flags });
+    gtk_mod.linkSystemLibrary("gtk+-3.0", .{});
+    gtk_mod.linkSystemLibrary("glib-2.0", .{});
+    gtk_mod.linkSystemLibrary("gobject-2.0", .{});
+    const gtk_exe = b.addExecutable(.{ .name = "zigshell-settings-gtk", .root_module = gtk_mod });
+    b.installArtifact(gtk_exe);
+
     const run_cmd = b.addRunArtifact(exe);
     run_cmd.step.dependOn(b.getInstallStep());
     if (b.args) |args| run_cmd.addArgs(args);
@@ -89,6 +105,52 @@ pub fn build(b: *std.Build) void {
     const apps_api_tests = b.addTest(.{ .root_module = apps_api_mod });
     const run_apps_api_tests = b.addRunArtifact(apps_api_tests);
     test_step.dependOn(&run_apps_api_tests.step);
+
+    // Cross-shell dock contract tests — the SAME assertions run against this
+    // shell's dock.zig and against zigshell-blend2d's, guarding click/hit-test
+    // parity. The `dock` import alias points at this shell's implementation.
+    const dock_mod = b.createModule(.{
+        .root_source_file = b.path("src/dock.zig"),
+        .target = target,
+        .optimize = optimize,
+        .link_libc = true,
+    });
+    dock_mod.addImport("shellcore", shellcore);
+    const dock_val_mod = b.createModule(.{
+        .root_source_file = b.path("../shared/dock_validation.zig"),
+        .target = target,
+        .optimize = optimize,
+        .link_libc = true,
+    });
+    dock_val_mod.addImport("shellcore", shellcore);
+    dock_val_mod.addImport("dock", dock_mod);
+    const dock_val_tests = b.addTest(.{ .root_module = dock_val_mod });
+    const run_dock_val_tests = b.addRunArtifact(dock_val_tests);
+    test_step.dependOn(&run_dock_val_tests.step);
+
+    // Cross-shell widget contract tests — the SAME assertions run against this
+    // shell's panel.zig and against zigshell-blend2d's, guarding widget
+    // creation/type/structure parity.
+    const panel_for_val = b.createModule(.{
+        .root_source_file = b.path("src/panel.zig"),
+        .target = target,
+        .optimize = optimize,
+        .link_libc = true,
+    });
+    panel_for_val.addImport("shellcore", shellcore);
+    linkDeps(panel_for_val, b);
+    addProtocolSources(panel_for_val, b, &.{ "-std=gnu11", "-Wall" });
+    const widget_val_mod = b.createModule(.{
+        .root_source_file = b.path("../shared/widget_validation.zig"),
+        .target = target,
+        .optimize = optimize,
+        .link_libc = true,
+    });
+    widget_val_mod.addImport("panel", panel_for_val);
+    widget_val_mod.addImport("shellcore", shellcore);
+    const widget_val_tests = b.addTest(.{ .root_module = widget_val_mod });
+    const run_widget_val_tests = b.addRunArtifact(widget_val_tests);
+    test_step.dependOn(&run_widget_val_tests.step);
 }
 
 fn linkDeps(root_mod: *std.Build.Module, b: *std.Build) void {

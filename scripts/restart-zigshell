@@ -63,6 +63,7 @@ stop_shell() {
 }
 
 start_shell() {
+    export ZIGSHELL_ROOT="$PROJECT_DIR"
     if [ -x "$SHELL_BIN" ]; then
         info "Starting $SHELL_NAME..."
         if [ -n "$LD_PRELOAD_DIR" ]; then

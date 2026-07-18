@@ -599,44 +599,106 @@ void apply_css(GtkApplication *app) {
     GtkCssProvider *provider = gtk_css_provider_new();
     char css[8192] = {0};
 
-    /* Fallback tokens — used when tokens.css is absent, overridden if file exists */
+    /* Premium Theme Tokens */
     snprintf(css, sizeof(css),
-        "@define-color ocws_bg #1e1e2e;"
-        "@define-color ocws_fg #cdd6f4;"
-        "@define-color ocws_mantle #181825;"
-        "@define-color ocws_surface0 #313244;"
-        "@define-color ocws_surface1 #45475a;"
-        "@define-color ocws_accent #89b4fa;"
-        "@define-color ocws_subtext0 #a6adc8;"
-        "@define-color ocws_sapphire #74c7ec;"
+        "@define-color ocws_bg #09090b;"
+        "@define-color ocws_fg #f8fafc;"
+        "@define-color ocws_mantle #020617;"
+        "@define-color ocws_surface0 rgba(30, 41, 59, 0.4);"
+        "@define-color ocws_surface1 rgba(51, 65, 85, 0.5);"
+        "@define-color ocws_accent #3b82f6;"
+        "@define-color ocws_accent_glow rgba(59, 130, 246, 0.4);"
+        "@define-color ocws_subtext0 #94a3b8;"
+        "@define-color ocws_sapphire #0ea5e9;"
     );
     int pos = (int)strlen(css);
 
-    /* Load tokens.css if available (overrides fallbacks) */
+    /* Load tokens.css if available */
     char tokpath[1024];
     snprintf(tokpath, sizeof(tokpath), "%s/tokens.css", OCWS_HOME);
     FILE *f = fopen(tokpath, "r");
     if (f) {
-        size_t n = fread(css + pos, 1, sizeof(css) - pos - 2048, f);
+        size_t n = fread(css + pos, 1, sizeof(css) - pos - 4096, f);
         fclose(f);
         pos += (int)n;
     }
 
-    /* Application CSS — references @ocws_* variables defined above */
+    /* Premium Application CSS */
     snprintf(css + pos, sizeof(css) - pos,
-        ".settings-card { background-color: alpha(@ocws_bg, 0.85); border: 1px solid alpha(@ocws_fg, 0.08); border-radius: 16px; padding: 16px; box-shadow: 0 4px 12px alpha(black, 0.2); transition: all 200ms ease; }"
-        ".settings-card:hover { box-shadow: 0 6px 16px alpha(black, 0.3); border-color: alpha(@ocws_accent, 0.2); }"
-        ".collapsible-header { cursor: pointer; transition: all 150ms ease; }"
-        ".collapsible-header:hover { background-color: alpha(@ocws_accent, 0.1); border-radius: 8px; }"
-        ".shell-card { padding: 20px; border-radius: 12px; border: 1px solid alpha(@ocws_fg, 0.08); background-color: alpha(@ocws_surface0, 0.75); transition: all 200ms ease; box-shadow: 0 4px 12px alpha(black, 0.2); }"
-        ".shell-card:hover { background-color: alpha(@ocws_accent, 0.15); border-color: alpha(@ocws_accent, 0.4); box-shadow: 0 8px 24px alpha(black, 0.4); }"
-        ".dim-label { opacity: 0.7; font-size: 0.9em; }"
-        "textview.terminal { font-family: 'Noto Sans Mono', monospace; font-size: 12px; background-color: @ocws_mantle; color: @ocws_fg; padding: 12px; border-radius: 8px; border: 1px solid alpha(@ocws_fg, 0.1); box-shadow: inset 0 2px 4px alpha(black, 0.2); }"
-        "notebook tab { padding: 8px 16px; }"
-        "switch { min-width: 48px; min-height: 24px; }"
-        "scale trough { min-height: 6px; border-radius: 3px; }"
-        "scale slider { min-width: 18px; min-height: 18px; border-radius: 9px; }"
-        "* { font-family: 'Noto Sans', sans-serif; }"
+        "* { font-family: 'Inter', 'Roboto', sans-serif; }"
+        
+        "window { background-color: @ocws_bg; }"
+        "headerbar { background-color: alpha(@ocws_mantle, 0.9); box-shadow: 0 1px 0 alpha(white, 0.05); }"
+        
+        ".settings-card { "
+        "  background: linear-gradient(135deg, alpha(@ocws_surface1, 0.8), alpha(@ocws_surface0, 0.6)); "
+        "  border: 1px solid alpha(white, 0.08); "
+        "  border-radius: 20px; "
+        "  padding: 16px; "
+        "  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4); "
+        "  transition: all 300ms cubic-bezier(0.25, 0.8, 0.25, 1); "
+        "}"
+        ".settings-card:hover { "
+        "  background: linear-gradient(135deg, alpha(@ocws_surface1, 0.95), alpha(@ocws_surface0, 0.8)); "
+        "  border-color: alpha(@ocws_accent, 0.3); "
+        "  box-shadow: 0 15px 40px rgba(0, 0, 0, 0.5), 0 0 15px @ocws_accent_glow; "
+        "}"
+        
+        ".collapsible-header { "
+        "  cursor: pointer; "
+        "  border-radius: 12px; "
+        "  transition: all 200ms ease; "
+        "}"
+        ".collapsible-header:hover { "
+        "  background: linear-gradient(90deg, alpha(@ocws_accent, 0.15), transparent); "
+        "}"
+        
+        ".shell-card { "
+        "  padding: 24px; "
+        "  border-radius: 16px; "
+        "  border: 1px solid alpha(white, 0.05); "
+        "  background-color: alpha(@ocws_surface0, 0.6); "
+        "  transition: all 300ms ease; "
+        "}"
+        ".shell-card:hover { "
+        "  background-color: alpha(@ocws_accent, 0.1); "
+        "  border-color: alpha(@ocws_accent, 0.5); "
+        "  box-shadow: 0 8px 25px @ocws_accent_glow; "
+        "}"
+        
+        ".dim-label { opacity: 0.65; font-size: 0.9em; font-weight: 400; }"
+        
+        "textview.terminal { "
+        "  font-family: 'Fira Code', 'JetBrains Mono', monospace; "
+        "  font-size: 13px; "
+        "  background-color: @ocws_mantle; "
+        "  color: @ocws_fg; "
+        "  padding: 16px; "
+        "  border-radius: 12px; "
+        "  border: 1px solid alpha(white, 0.05); "
+        "  box-shadow: inset 0 2px 10px rgba(0,0,0,0.5); "
+        "}"
+        
+        "button { "
+        "  border-radius: 8px; "
+        "  transition: all 200ms ease; "
+        "}"
+        "button:hover { "
+        "  background-color: alpha(@ocws_accent, 0.2); "
+        "  box-shadow: 0 4px 12px @ocws_accent_glow; "
+        "}"
+        
+        "notebook tab { padding: 10px 20px; transition: all 200ms ease; }"
+        "notebook tab:checked { color: @ocws_accent; }"
+        
+        "switch { min-width: 52px; min-height: 28px; border-radius: 14px; transition: all 250ms ease; }"
+        "switch:checked { background-color: @ocws_accent; box-shadow: 0 0 12px @ocws_accent_glow; }"
+        "switch slider { background-color: white; border-radius: 50%; box-shadow: 0 2px 6px rgba(0,0,0,0.3); }"
+        
+        "scale trough { min-height: 6px; border-radius: 3px; background-color: alpha(@ocws_surface1, 0.8); }"
+        "scale highlight { background-image: linear-gradient(to right, @ocws_sapphire, @ocws_accent); border-radius: 3px; }"
+        "scale slider { min-width: 20px; min-height: 20px; border-radius: 50%; background-color: white; box-shadow: 0 2px 8px rgba(0,0,0,0.4); transition: all 200ms ease; }"
+        "scale slider:hover { transform: scale(1.15); box-shadow: 0 0 10px @ocws_accent_glow; }"
     );
 
     gtk_css_provider_load_from_data(provider, css, -1, NULL);

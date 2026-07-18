@@ -4,7 +4,32 @@ const toplevel = @import("shellcore").toplevel;
 const sysread = @import("shellcore").sysread;
 const icon = @import("icon.zig");
 
-const MAX_WIDGETS = 64;
+pub const MAX_WIDGETS = 64;
+
+/// Every widget type, used to populate the "Add Widget" menu in settings.
+pub const AllWidgetTypes = [_]WidgetType{
+    .workspaces,
+    .toplevel_task,
+    .launcher,
+    .cpu,
+    .mem,
+    .temp,
+    .disk,
+    .battery,
+    .volume,
+    .network,
+    .media,
+    .clock,
+    .power,
+    .spacer,
+    .kbindicator,
+    .customcommand,
+    .showdesktop,
+    .worldclock,
+    .backlight,
+    .session,
+    .versions,
+};
 
 const spawn_log = std.log.scoped(.spawn);
 
@@ -23,6 +48,12 @@ fn spawn(cmd: [*c]const u8) bool {
         return false;
     }
     return true;
+}
+
+/// Public wrapper around spawn() for firing shell commands from the shell core
+/// (e.g. propagating font-scale changes to the rest of the system).
+pub fn spawnCmd(cmd: [*c]const u8) bool {
+    return spawn(cmd);
 }
 
 // ---- Widget System ----
@@ -47,6 +78,8 @@ pub const WidgetType = enum {
     showdesktop,
     worldclock,
     backlight,
+    session,
+    versions,
 };
 
 pub const Widget = struct {
@@ -54,8 +87,9 @@ pub const Widget = struct {
     side: u8, // 0 = left, 1 = right
     cached_w: i32,
 
-    // measure: returns width needed
-    measure_fn: ?*const fn (*Widget, i32) i32 = null,
+    // measure: returns width needed (cr provided so text widgets can measure
+    // real glyph widths instead of guessing — issue #18)
+    measure_fn: ?*const fn (*Widget, i32, *c.cairo_t) i32 = null,
     // draw: render at (x, y) with height h
     draw_fn: ?*const fn (*Widget, *c.cairo_t, i32, i32, i32) void = null,
     // update: refresh data from system
@@ -132,6 +166,10 @@ pub const Widget = struct {
     net_iface: [32]u8 = std.mem.zeroes([32]u8),
     net_hist_rx: [16]f64 = std.mem.zeroes([16]f64),
     net_hist_tx: [16]f64 = std.mem.zeroes([16]f64),
+
+    // Visibility — when true the widget is omitted from the bar but still
+    // listed (and reorderable) in the settings panel.
+    hidden: bool = false,
 };
 
 pub const PanelCtx = struct {
@@ -147,14 +185,33 @@ pub fn widgetText(cr: *c.cairo_t, text: [*:0]const u8, x: i32, h: i32, font_desc
     return c.widget_text_c(cr, text, x, h, font_desc, r, g, b);
 }
 
+/// Measure the rendered pixel width of `text` in `font_desc` (no painting).
+/// Used by measure functions so allocated widths match actual drawn glyphs
+/// (issue #18).
+pub fn widgetTextWidth(cr: *c.cairo_t, text: [*:0]const u8, font_desc: [*:0]const u8) i32 {
+    return c.widget_text_width_c(cr, text, font_desc);
+}
+
 pub fn widgetIconGlyph(cr: *c.cairo_t, glyph: [*:0]const u8, x: i32, h: i32, r: f64, g: f64, b: f64) void {
     c.widget_icon_glyph_c(cr, glyph, x, h, r, g, b);
 }
 
+/// Set the global panel font-scale factor (1.0 = no scaling). Applied to every
+/// text glyph painted by the panel so the whole bar rescales together with
+/// labwc/GTK/Qt (see scripts/font-scale.sh).
+pub fn setFontScale(scale: f64) void {
+    c.widget_set_font_scale(scale);
+}
+
 // ---- Widget Measure/Draw Functions ----
 
-fn wsMeasure(w: *Widget, h: i32) i32 {
+fn wsMeasure(w: *Widget, h: i32, cr: *c.cairo_t) i32 {
     _ = h;
+    // Measure the actual rendered width so allocation matches what wsDraw
+    // paints (issue #18). Falls back to a rough estimate if measuring fails.
+    const labels = @as([*:0]const u8, @ptrCast(&w.ws_labels));
+    const wpx = widgetTextWidth(cr, labels, "Sans 10");
+    if (wpx > 0) return wpx + 8;
     const len = std.mem.indexOfScalar(u8, &w.ws_labels, 0) orelse w.ws_labels.len;
     return @intCast(len * 7 + 8);
 }
@@ -172,7 +229,8 @@ fn wsClick(w: *Widget, btn: u32, _: i32, _: i32) bool {
     return true;
 }
 
-fn tlMeasure(w: *Widget, h: i32) i32 {
+fn tlMeasure(w: *Widget, h: i32, cr: *c.cairo_t) i32 {
+    _ = cr;
     if (w.priv == null) return 0;
     const ctx: *PanelCtx = @ptrCast(@alignCast(w.priv.?));
     const icon_size = h - 6;
@@ -192,7 +250,11 @@ fn tlDraw(w: *Widget, cr: *c.cairo_t, x: i32, y: i32, h: i32) void {
         const title_slice = ctx.toplevels[i].title[0..std.mem.indexOfScalar(u8, &ctx.toplevels[i].title, 0) orelse ctx.toplevels[i].title.len];
         const name = if (name_slice.len > 0) name_slice else title_slice;
 
-        const icon_surf = icon.load(@ptrCast(name.ptr), icon_size);
+        // Null-terminate before icon.load so we don't rely on the backing
+        // buffer being NUL-terminated (issue #21).
+        var name_buf: [256]u8 = std.mem.zeroes([256]u8);
+        const name_z = std.fmt.bufPrintZ(&name_buf, "{s}", .{name}) catch "unknown";
+        const icon_surf = icon.load(name_z, icon_size);
 
         c.cairo_set_source_surface(cr, icon_surf, @floatFromInt(icon_x), @floatFromInt(cy));
         c.cairo_paint(cr);
@@ -226,7 +288,8 @@ fn tlClick(w: *Widget, btn: u32, lx: i32, ly: i32) bool {
     return false;
 }
 
-fn launcherMeasure(w: *Widget, h: i32) i32 {
+fn launcherMeasure(w: *Widget, h: i32, cr: *c.cairo_t) i32 {
+    _ = cr;
     _ = w;
     _ = h;
     return 150;
@@ -255,7 +318,8 @@ fn cpuUpdate(w: *Widget) void {
     w.cpu_prev_idle = @intCast(pi);
 }
 
-fn cpuMeasure(w: *Widget, h: i32) i32 {
+fn cpuMeasure(w: *Widget, h: i32, cr: *c.cairo_t) i32 {
+    _ = cr;
     _ = w;
     _ = h;
     return 60;
@@ -299,7 +363,8 @@ fn memUpdate(w: *Widget) void {
     sysread.mem(&w.mem_txt);
 }
 
-fn memMeasure(w: *Widget, h: i32) i32 {
+fn memMeasure(w: *Widget, h: i32, cr: *c.cairo_t) i32 {
+    _ = cr;
     _ = w;
     _ = h;
     return 70;
@@ -338,7 +403,8 @@ fn tempUpdate(w: *Widget) void {
     sysread.temp(&w.temp_txt);
 }
 
-fn tempMeasure(w: *Widget, h: i32) i32 {
+fn tempMeasure(w: *Widget, h: i32, cr: *c.cairo_t) i32 {
+    _ = cr;
     _ = w;
     _ = h;
     return 56;
@@ -359,7 +425,8 @@ fn tempClick(w: *Widget, btn: u32, x: i32, y: i32) bool {
     return true;
 }
 
-fn diskMeasure(w: *Widget, h: i32) i32 {
+fn diskMeasure(w: *Widget, h: i32, cr: *c.cairo_t) i32 {
+    _ = cr;
     _ = w;
     _ = h;
     return 64;
@@ -380,7 +447,8 @@ fn diskClick(w: *Widget, btn: u32, x: i32, y: i32) bool {
     return true;
 }
 
-fn batMeasure(w: *Widget, h: i32) i32 {
+fn batMeasure(w: *Widget, h: i32, cr: *c.cairo_t) i32 {
+    _ = cr;
     _ = w;
     _ = h;
     return 64;
@@ -430,7 +498,8 @@ fn batClick(w: *Widget, btn: u32, x: i32, y: i32) bool {
     return true;
 }
 
-fn volMeasure(w: *Widget, h: i32) i32 {
+fn volMeasure(w: *Widget, h: i32, cr: *c.cairo_t) i32 {
+    _ = cr;
     _ = w;
     _ = h;
     return 64;
@@ -454,7 +523,8 @@ fn volClick(w: *Widget, btn: u32, x: i32, y: i32) bool {
     return true;
 }
 
-fn netMeasure(w: *Widget, h: i32) i32 {
+fn netMeasure(w: *Widget, h: i32, cr: *c.cairo_t) i32 {
+    _ = cr;
     _ = w;
     _ = h;
     return 110;
@@ -528,7 +598,8 @@ fn netClick(w: *Widget, btn: u32, x: i32, y: i32) bool {
     return true;
 }
 
-fn mediaMeasure(w: *Widget, h: i32) i32 {
+fn mediaMeasure(w: *Widget, h: i32, cr: *c.cairo_t) i32 {
+    _ = cr;
     _ = h;
     const len = std.mem.indexOfScalar(u8, &w.media_txt, 0) orelse w.media_txt.len;
     return @intCast(len * 6 + 20);
@@ -550,7 +621,8 @@ fn mediaClick(w: *Widget, btn: u32, x: i32, y: i32) bool {
     return true;
 }
 
-fn clkMeasure(w: *Widget, h: i32) i32 {
+fn clkMeasure(w: *Widget, h: i32, cr: *c.cairo_t) i32 {
+    _ = cr;
     _ = h;
     const len = std.mem.indexOfScalar(u8, &w.clock_txt, 0) orelse w.clock_txt.len;
     return @intCast(len * 7 + 16);
@@ -561,16 +633,19 @@ fn clkDraw(w: *Widget, cr: *c.cairo_t, x: i32, y: i32, h: i32) void {
     _ = widgetText(cr, @ptrCast(&w.clock_txt), x, h, "Sans 10", 0.85, 0.85, 0.85);
 }
 
+pub var request_calendar_modal: bool = false;
+
 fn clkClick(w: *Widget, btn: u32, x: i32, y: i32) bool {
     _ = w;
     _ = x;
     _ = y;
     if (btn != 1) return false;
-    _ = spawn("foot calcurse &");
+    request_calendar_modal = true;
     return true;
 }
 
-fn pwrMeasure(w: *Widget, h: i32) i32 {
+fn pwrMeasure(w: *Widget, h: i32, cr: *c.cairo_t) i32 {
+    _ = cr;
     _ = w;
     _ = h;
     return 22;
@@ -590,10 +665,71 @@ fn pwrClick(w: *Widget, btn: u32, x: i32, y: i32) bool {
     return true;
 }
 
+// Global toggle for the session-action popup, owned by the widget module so both
+// the session widget's click_fn and the main shell (which draws/handles the
+// popup) can read and flip it without a circular dependency.
+pub var session_open: bool = false;
+
+fn sessionMeasure(w: *Widget, h: i32, cr: *c.cairo_t) i32 {
+    _ = w;
+    _ = h;
+    _ = cr;
+    return 22;
+}
+
+fn sessionDraw(w: *Widget, cr: *c.cairo_t, x: i32, y: i32, h: i32) void {
+    _ = w;
+    _ = y;
+    const c_open = session_open;
+    if (c_open) {
+        widgetIconGlyph(cr, "⏻", x + 4, h, 1.0, 0.85, 0.3);
+    } else {
+        widgetIconGlyph(cr, "⏻", x + 4, h, 0.9, 0.5, 0.5);
+    }
+}
+
+fn sessionClick(w: *Widget, btn: u32, x: i32, y: i32) bool {
+    _ = w;
+    _ = x;
+    _ = y;
+    if (btn != 1) return false;
+    session_open = true;
+    return true;
+}
+
+// ---- Versions widget (wayland + labwc) ----
+
+fn versionsMeasure(w: *Widget, h: i32, cr: *c.cairo_t) i32 {
+    _ = w;
+    _ = h;
+    _ = cr;
+    return 80; // Fixed width for "WL:1.26.90 LC:0.8.0"
+}
+
+fn versionsDraw(w: *Widget, cr: *c.cairo_t, x: i32, y: i32, h: i32) void {
+    _ = y;
+    // Display wayland and labwc versions
+    const text = w.net_txt[0..std.mem.indexOfScalar(u8, &w.net_txt, 0) orelse w.net_txt.len];
+    _ = widgetText(cr, @ptrCast(text.ptr), x, h, "Sans 9", 0.6, 0.7, 0.8);
+}
+
+fn versionsUpdate(w: *Widget) void {
+    std.mem.copyForwards(u8, &w.net_txt, "WL:? LC:?");
+}
+
+fn versionsClick(w: *Widget, btn: u32, x: i32, y: i32) bool {
+    _ = w;
+    _ = x;
+    _ = y;
+    _ = btn;
+    return false;
+}
+
 // ===== New widgets extracted from lxqt-panel plugins =====
 
 // ---- Spacer (plugin-spacer) ----
-fn spacerMeasure(w: *Widget, h: i32) i32 {
+fn spacerMeasure(w: *Widget, h: i32, cr: *c.cairo_t) i32 {
+    _ = cr;
     _ = h;
     return w.spacer_w;
 }
@@ -615,7 +751,8 @@ fn spacerClick(w: *Widget, btn: u32, x: i32, y: i32) bool {
 }
 
 // ---- Keyboard layout indicator (plugin-kbindicator) ----
-fn kbMeasure(w: *Widget, h: i32) i32 {
+fn kbMeasure(w: *Widget, h: i32, cr: *c.cairo_t) i32 {
+    _ = cr;
     _ = h;
     const len = std.mem.indexOfScalar(u8, &w.kb_txt, 0) orelse w.kb_txt.len;
     return @intCast(len * 8 + 12);
@@ -674,7 +811,8 @@ fn kbClick(w: *Widget, btn: u32, x: i32, y: i32) bool {
 }
 
 // ---- Custom command (plugin-customcommand) ----
-fn ccMeasure(w: *Widget, h: i32) i32 {
+fn ccMeasure(w: *Widget, h: i32, cr: *c.cairo_t) i32 {
+    _ = cr;
     _ = h;
     const len = std.mem.indexOfScalar(u8, &w.cc_out, 0) orelse w.cc_out.len;
     return @intCast(len * 7 + 12);
@@ -688,6 +826,9 @@ fn ccUpdate(w: *Widget) void {
     };
     const fd = c.mkstemp(@ptrCast(&tmpl));
     if (fd < 0) return;
+    // Restrict temp file to owner-only (issue #19): mkstemp creates it with
+    // 0600 by default, but harden explicitly in case umask/impl differs.
+    _ = c.fchmod(fd, 0o600);
     _ = c.close(fd);
     var cmd: [320]u8 = std.mem.zeroes([320]u8);
     const cmd_slice = std.mem.sliceTo(&w.cmd, 0);
@@ -732,7 +873,8 @@ fn ccClick(w: *Widget, btn: u32, x: i32, y: i32) bool {
 }
 
 // ---- Show Desktop (plugin-showdesktop) ----
-fn sdMeasure(w: *Widget, h: i32) i32 {
+fn sdMeasure(w: *Widget, h: i32, cr: *c.cairo_t) i32 {
+    _ = cr;
     _ = w;
     _ = h;
     return 22;
@@ -753,7 +895,8 @@ fn sdClick(w: *Widget, btn: u32, x: i32, y: i32) bool {
 }
 
 // ---- World clock (plugin-worldclock) ----
-fn wcMeasure(w: *Widget, h: i32) i32 {
+fn wcMeasure(w: *Widget, h: i32, cr: *c.cairo_t) i32 {
+    _ = cr;
     _ = h;
     const lbl_len = std.mem.indexOfScalar(u8, &w.wc_label, 0) orelse w.wc_label.len;
     return @intCast(lbl_len * 7 + 56);
@@ -791,7 +934,8 @@ fn wcDraw(w: *Widget, cr: *c.cairo_t, x: i32, y: i32, h: i32) void {
 }
 
 // ---- Backlight (plugin-backlight) ----
-fn blMeasure(w: *Widget, h: i32) i32 {
+fn blMeasure(w: *Widget, h: i32, cr: *c.cairo_t) i32 {
+    _ = cr;
     _ = w;
     _ = h;
     return 64;
@@ -897,47 +1041,36 @@ fn blClick(w: *Widget, btn: u32, x: i32, y: i32) bool {
 // ---- Widget Creation ----
 
 pub const WidgetList = struct {
-    widgets: [MAX_WIDGETS]Widget,
-    count: i32,
+    widgets: *[MAX_WIDGETS]Widget,
+    count: *i32,
 };
 
-pub fn widgetCreateDefault() WidgetList {
-    var result = WidgetList{
-        .widgets = std.mem.zeroes([MAX_WIDGETS]Widget),
-        .count = 0,
-    };
-
-    // Compact default: only essential widgets. Additional widgets (temp, disk,
+pub fn widgetCreateDefault(out: *[MAX_WIDGETS]Widget) i32 {
+    // Default: essential widgets on each side. Additional widgets (temp, disk,
     // network, media, world clock, backlight, etc.) remain available via the
     // config file but are omitted from the default bar to keep it slim.
     const defaults = [_]struct { wtype: WidgetType, side: u8 }{
         .{ .wtype = .workspaces, .side = 0 },
         .{ .wtype = .toplevel_task, .side = 0 },
+        .{ .wtype = .versions, .side = 0 },
         .{ .wtype = .cpu, .side = 1 },
         .{ .wtype = .mem, .side = 1 },
         .{ .wtype = .battery, .side = 1 },
         .{ .wtype = .volume, .side = 1 },
         .{ .wtype = .clock, .side = 1 },
         .{ .wtype = .power, .side = 1 },
+        .{ .wtype = .session, .side = 1 },
     };
 
-    for (defaults) |d| {
-        const idx: usize = @intCast(result.count);
-        result.widgets[idx] = createWidget(d.wtype);
-        result.widgets[idx].side = d.side;
-        result.count += 1;
+    for (defaults, 0..) |d, i| {
+        out[i] = createWidget(d.wtype);
+        out[i].side = d.side;
     }
 
-    return result;
+    return @intCast(defaults.len);
 }
 
-
-pub fn widgetCreateCompact() WidgetList {
-    var result = WidgetList{
-        .widgets = std.mem.zeroes([MAX_WIDGETS]Widget),
-        .count = 0,
-    };
-
+pub fn widgetCreateCompact(out: *[MAX_WIDGETS]Widget) i32 {
     // Compact layout: only essential widgets
     // Left: workspaces + launcher
     // Right: clock + battery + volume + network
@@ -950,17 +1083,15 @@ pub fn widgetCreateCompact() WidgetList {
         .{ .wtype = .network, .side = 1 },
     };
 
-    for (compact) |d| {
-        const idx: usize = @intCast(result.count);
-        result.widgets[idx] = createWidget(d.wtype);
-        result.widgets[idx].side = d.side;
-        result.count += 1;
+    for (compact, 0..) |d, i| {
+        out[i] = createWidget(d.wtype);
+        out[i].side = d.side;
     }
 
-    return result;
+    return @intCast(compact.len);
 }
 
-fn createWidget(wtype: WidgetType) Widget {
+pub fn createWidget(wtype: WidgetType) Widget {
     var w: Widget = undefined;
     w.wtype = wtype;
     w.side = 0;
@@ -1082,6 +1213,18 @@ fn createWidget(wtype: WidgetType) Widget {
             w.draw_fn = pwrDraw;
             w.click_fn = pwrClick;
         },
+        .session => {
+            w.measure_fn = sessionMeasure;
+            w.draw_fn = sessionDraw;
+            w.click_fn = sessionClick;
+        },
+        .versions => {
+            std.mem.copyForwards(u8, &w.net_txt, "WL:? LC:?");
+            w.measure_fn = versionsMeasure;
+            w.draw_fn = versionsDraw;
+            w.update_fn = versionsUpdate;
+            w.click_fn = versionsClick;
+        },
         .spacer => {
             w.spacer_w = 20;
             w.measure_fn = spacerMeasure;
@@ -1139,18 +1282,94 @@ fn clkUpdate(w: *Widget) void {
 
 pub fn widgetListUpdate(widgets: []Widget) void {
     for (widgets) |*w| {
+        if (w.hidden) continue;
         if (w.update_fn) |fn_ptr| fn_ptr(w);
     }
 }
 
-pub fn widgetListWidth(widgets: []Widget, h: i32, pad: i32) i32 {
+pub fn widgetListWidth(widgets: []Widget, h: i32, pad: i32, cr: *c.cairo_t) i32 {
     var total: i32 = 0;
     for (widgets) |*w| {
-        const width = if (w.measure_fn) |fn_ptr| fn_ptr(w, h) else 0;
+        if (w.hidden) {
+            w.cached_w = 0;
+            continue;
+        }
+        const width = if (w.measure_fn) |fn_ptr| fn_ptr(w, h, cr) else 0;
         w.cached_w = width;
         total += width + pad;
     }
     return total;
+}
+
+/// Append a new widget of `wtype` to a WidgetList (used by the settings
+/// "Add Widget" menu). No-op if the list is full.
+pub fn widgetListAdd(list: *WidgetList, wtype: WidgetType) void {
+    const n = list.count.*;
+    if (n >= MAX_WIDGETS) return;
+    list.widgets[@intCast(n)] = createWidget(wtype);
+    list.count.* = n + 1;
+}
+
+/// Remove the widget at `idx`, shifting the rest down.
+pub fn widgetListRemoveAt(list: *WidgetList, idx: i32) void {
+    const n = list.count.*;
+    if (idx < 0 or idx >= n) return;
+    var i = idx;
+    while (i < n - 1) : (i += 1) {
+        list.widgets[@intCast(i)] = list.widgets[@intCast(i + 1)];
+    }
+    list.count.* = n - 1;
+}
+
+/// Move the widget at `idx` by `dir` (-1 = up, +1 = down), clamped.
+pub fn widgetListMove(list: *WidgetList, idx: i32, dir: i32) void {
+    const n = list.count.*;
+    if (idx < 0 or idx >= n) return;
+    const j = idx + dir;
+    if (j < 0 or j >= n) return;
+    const tmp = list.widgets[@intCast(idx)];
+    list.widgets[@intCast(idx)] = list.widgets[@intCast(j)];
+    list.widgets[@intCast(j)] = tmp;
+}
+
+/// Toggle the visibility of the widget at `idx`. Returns the new hidden state.
+pub fn widgetListToggleHidden(list: *WidgetList, idx: i32) bool {
+    if (idx < 0 or idx >= list.count.*) return false;
+    list.widgets[@intCast(idx)].hidden = !list.widgets[@intCast(idx)].hidden;
+    return list.widgets[@intCast(idx)].hidden;
+}
+
+/// True if the widget at `idx` is hidden.
+pub fn widgetListIsHidden(list: *WidgetList, idx: i32) bool {
+    if (idx < 0 or idx >= list.count.*) return false;
+    return list.widgets[@intCast(idx)].hidden;
+}
+
+/// Human-readable name for a widget type (used in the settings UI).
+pub fn widgetTypeName(wt: WidgetType) []const u8 {
+    return switch (wt) {
+        .workspaces => "Workspaces",
+        .toplevel_task => "Tasks",
+        .launcher => "Launcher",
+        .cpu => "CPU",
+        .mem => "Memory",
+        .temp => "Temperature",
+        .disk => "Disk",
+        .battery => "Battery",
+        .volume => "Volume",
+        .network => "Network",
+        .media => "Media",
+        .clock => "Clock",
+        .power => "Power",
+        .spacer => "Spacer",
+        .kbindicator => "Keyboard",
+        .customcommand => "Command",
+        .showdesktop => "Show Desktop",
+        .worldclock => "World Clock",
+        .backlight => "Backlight",
+        .session => "Session",
+        .versions => "Versions",
+    };
 }
 
 // ---- Config Loading ----
@@ -1225,7 +1444,7 @@ pub fn configLoadWidgets(allocator: std.mem.Allocator, path: []const u8) ?Loaded
     return result;
 }
 
-fn parseWidgetType(name: []const u8) ?WidgetType {
+pub fn parseWidgetType(name: []const u8) ?WidgetType {
     const map = [_]struct { n: []const u8, t: WidgetType }{
         .{ .n = "workspaces", .t = .workspaces },
         .{ .n = "toplevel", .t = .toplevel_task },
@@ -1246,6 +1465,8 @@ fn parseWidgetType(name: []const u8) ?WidgetType {
         .{ .n = "showdesktop", .t = .showdesktop },
         .{ .n = "worldclock", .t = .worldclock },
         .{ .n = "backlight", .t = .backlight },
+        .{ .n = "session", .t = .session },
+        .{ .n = "versions", .t = .versions },
     };
     for (map) |entry| {
         if (std.mem.eql(u8, name, entry.n)) return entry.t;
@@ -1257,6 +1478,45 @@ test "panel parseWidgetType" {
     try std.testing.expectEqual(WidgetType.clock, parseWidgetType("clock").?);
     try std.testing.expectEqual(WidgetType.cpu, parseWidgetType("cpu").?);
     try std.testing.expectEqual(@as(?WidgetType, null), parseWidgetType("unknown"));
+}
+
+test "widgetListToggleHidden flips visibility" {
+    var list: [MAX_WIDGETS]Widget = undefined;
+    var count: i32 = 0;
+    var wl = WidgetList{ .widgets = &list, .count = &count };
+    widgetListAdd(&wl, .cpu);
+    widgetListAdd(&wl, .clock);
+    try std.testing.expect(!widgetListIsHidden(&wl, 0));
+    // Hide the first widget.
+    try std.testing.expect(widgetListToggleHidden(&wl, 0));
+    try std.testing.expect(widgetListIsHidden(&wl, 0));
+    // Unhide it again.
+    try std.testing.expect(!widgetListToggleHidden(&wl, 0));
+    try std.testing.expect(!widgetListIsHidden(&wl, 0));
+    // Out-of-range indices are safe no-ops.
+    try std.testing.expect(!widgetListToggleHidden(&wl, 99));
+}
+
+test "widgetListWidth skips hidden widgets" {
+    var list: [MAX_WIDGETS]Widget = undefined;
+    var count: i32 = 0;
+    var wl = WidgetList{ .widgets = &list, .count = &count };
+    // Use a trivial measure fn (no cairo deref) so the test needs no cr.
+    const measure = struct {
+        fn f(_: *Widget, _: i32, _: *c.cairo_t) i32 {
+            return 40;
+        }
+    }.f;
+    widgetListAdd(&wl, .cpu);
+    widgetListAdd(&wl, .clock);
+    list[0].measure_fn = measure;
+    list[1].measure_fn = measure;
+    const full = widgetListWidth(list[0..@as(usize, @intCast(count))], 24, 8, undefined);
+    // Hide one and remeasure — total must drop.
+    _ = widgetListToggleHidden(&wl, 0);
+    const hidden_one = widgetListWidth(list[0..@as(usize, @intCast(count))], 24, 8, undefined);
+    try std.testing.expect(hidden_one < full);
+    try std.testing.expectEqual(@as(i32, 96), full); // 2 * (40 + 8)
 }
 
 test "configLoadWidgets parses sections" {

@@ -141,7 +141,7 @@ void blend_renderer_fill_rect(BlendRenderer* r, double x, double y, double w, do
 }
 
 void blend_renderer_draw_text(BlendRenderer* r, const char* text, int text_len, double x, double y, uint32_t color) {
-    if (!r || !r->initialized || !text || text_len <= 0) return;
+    if (!r || !r->initialized || !text || text_len <= 0 || !r->font_loaded) return;
 
     BLGlyphBufferCore gb;
     bl_glyph_buffer_init(&gb);
@@ -158,7 +158,7 @@ void blend_renderer_draw_text(BlendRenderer* r, const char* text, int text_len, 
 
 TextMetrics blend_renderer_measure_text(BlendRenderer* r, const char* text, int text_len) {
     TextMetrics tm = { 0, 0 };
-    if (!r || !r->initialized || !text || text_len <= 0) return tm;
+    if (!r || !r->initialized || !text || text_len <= 0 || !r->font_loaded) return tm;
 
     BLGlyphBufferCore gb;
     bl_glyph_buffer_init(&gb);
@@ -179,6 +179,13 @@ void blend_renderer_draw_image(BlendRenderer* r, void* img, double x, double y) 
     if (!r || !r->initialized || !img) return;
     BLPoint origin = { x, y };
     bl_context_blit_image_d(&r->ctx, &origin, (BLImageCore*)img, NULL);
+}
+
+void blend_renderer_draw_image_scaled(BlendRenderer* r, void* img, double x, double y, double w, double h) {
+    if (!r || !r->initialized || !img) return;
+    BLImageCore* image = (BLImageCore*)img;
+    BLRect dst_rect = { x, y, w, h };
+    bl_context_blit_scaled_image_d(&r->ctx, &dst_rect, image, NULL);
 }
 
 void blend_renderer_draw_circle(BlendRenderer* r, double cx, double cy, double radius, uint32_t color) {
@@ -202,6 +209,42 @@ void blend_renderer_draw_circle(BlendRenderer* r, double cx, double cy, double r
     bl_path_destroy(&path);
 }
 
+static void build_round_rect_path(BLPathCore* path, double x, double y, double w, double h, double r) {
+    bl_path_move_to(path, x + r, y);
+    bl_path_line_to(path, x + w - r, y);
+    bl_path_quad_to(path, x + w, y, x + w, y + r);
+    bl_path_line_to(path, x + w, y + h - r);
+    bl_path_quad_to(path, x + w, y + h, x + w - r, y + h);
+    bl_path_line_to(path, x + r, y + h);
+    bl_path_quad_to(path, x, y + h, x, y + h - r);
+    bl_path_line_to(path, x, y + r);
+    bl_path_quad_to(path, x, y, x + r, y);
+    bl_path_close(path);
+}
+
+void blend_renderer_fill_round_rect(BlendRenderer* r, double x, double y, double w, double h, double radius, uint32_t color) {
+    if (!r || !r->initialized) return;
+    BLPathCore path;
+    bl_path_init(&path);
+    build_round_rect_path(&path, x, y, w, h, radius);
+    bl_context_set_fill_style_rgba32(&r->ctx, color);
+    BLPoint origin = { 0, 0 };
+    bl_context_fill_path_d(&r->ctx, &origin, &path);
+    bl_path_destroy(&path);
+}
+
+void blend_renderer_draw_round_rect(BlendRenderer* r, double x, double y, double w, double h, double radius, uint32_t color) {
+    if (!r || !r->initialized) return;
+    BLPathCore path;
+    bl_path_init(&path);
+    build_round_rect_path(&path, x, y, w, h, radius);
+    bl_context_set_stroke_style_rgba32(&r->ctx, color);
+    bl_context_set_stroke_width(&r->ctx, 1.0);
+    BLPoint origin = { 0, 0 };
+    bl_context_stroke_path_d(&r->ctx, &origin, &path);
+    bl_path_destroy(&path);
+}
+
 void blend_renderer_draw_border(BlendRenderer* r, double x, double y, double w, double h, uint32_t color) {
     if (!r || !r->initialized) return;
     bl_context_set_stroke_style_rgba32(&r->ctx, color);
@@ -221,21 +264,40 @@ double blend_renderer_get_font_size(BlendRenderer* r) {
 }
 
 void blend_renderer_load_bold_font(BlendRenderer* r) {
-    if (!r || !r->initialized) return;
+    if (!r || !r->initialized || !r->font_loaded) return;
 
     BLFontFaceCore bold_face;
+    bl_font_face_init(&bold_face);
     double current_size = bl_font_get_size(&r->font);
 
     for (int i = 0; bold_paths[i] != NULL; i++) {
         if (bl_font_face_create_from_file(&bold_face, bold_paths[i], 0) == BL_SUCCESS) {
-            bl_font_destroy(&r->font);
-            bl_font_create_from_face(&r->font, &bold_face, (float)current_size);
+            // Try to create bold font; on failure, keep the original.
+            if (bl_font_create_from_face(&r->font, &bold_face, (float)current_size) == BL_SUCCESS) {
+                bl_font_face_destroy(&bold_face);
+                return;
+            }
             bl_font_face_destroy(&bold_face);
-            return;
+            bl_font_face_init(&bold_face);
         }
     }
 }
 
 bool blend_renderer_font_loaded(BlendRenderer* r) {
     return r ? r->font_loaded : false;
+}
+
+void blend_renderer_write_to_png(BlendRenderer* r, const char* path) {
+    if (!r || !r->initialized || !path) return;
+    
+    bl_context_flush(&r->ctx, BL_CONTEXT_FLUSH_SYNC);
+
+    BLImageCodecCore codec;
+    bl_image_codec_init(&codec);
+    if (bl_image_codec_find_by_name(&codec, "PNG", SIZE_MAX, NULL) == BL_SUCCESS) {
+        bl_image_write_to_file(&r->image, path, &codec);
+    } else {
+        bl_image_write_to_file(&r->image, path, NULL);
+    }
+    bl_image_codec_destroy(&codec);
 }

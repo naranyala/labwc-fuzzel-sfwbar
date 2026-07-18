@@ -20,13 +20,14 @@ pub const ToplevelInfo = struct {
 };
 
 pub fn findIndex(infos: []ToplevelInfo, count: i32, handle: ?*anyopaque) i32 {
-    for (0..@intCast(count)) |i| {
+    for (0..@intCast(@max(0, count))) |i| {
         if (infos[i].handle == handle) return @intCast(i);
     }
     return -1;
 }
 
 pub fn add(infos: []ToplevelInfo, count: *i32, handle: ?*anyopaque) usize {
+    if (count.* < 0) count.* = 0;
     if (count.* >= MAX_TOPLEVELS) return std.math.maxInt(usize);
     const idx: usize = @intCast(count.*);
     count.* += 1;
@@ -35,7 +36,7 @@ pub fn add(infos: []ToplevelInfo, count: *i32, handle: ?*anyopaque) usize {
 }
 
 pub fn removeAt(infos: []ToplevelInfo, count: *i32, idx: i32) void {
-    if (idx < 0 or idx >= count.*) return;
+    if (idx < 0 or idx >= count.* or count.* <= 0) return;
     count.* -= 1;
     const ui: usize = @intCast(idx);
     const uc: usize = @intCast(count.*);

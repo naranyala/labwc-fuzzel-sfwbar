@@ -143,6 +143,7 @@ pub fn battery(out: []u8, lvl: *i32, charging: *bool) void {
 }
 
 fn writeZ(out: []u8, s: []const u8) void {
+    if (out.len == 0) return;
     const n = @min(s.len, out.len - 1);
     std.mem.copyForwards(u8, out[0..n], s[0..n]);
     out[n] = 0;

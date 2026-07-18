@@ -179,10 +179,9 @@ BLImageCore* icon_fallback(const char* app_id, int size) {
     int prev_count = fb_cache_count;
     cache_fallback(app_id, img);
     if (fb_cache_count > prev_count) return &fb_cache[fb_cache_count-1].img;
-    // Cache full — destroy the image we just drew and return a static zeroed image
+    // Cache full — destroy the image we just drew and return NULL (skip drawing)
     bl_image_destroy(&img);
-    static BLImageCore null_img = {0};
-    return &null_img;
+    return NULL;
 }
 
 bool icon_load(const char* app_id, int size, BLImageCore* out) {

@@ -24,13 +24,14 @@ test "widgetCreateDefault — correct count" {
 test "widgetCreateDefault — correct sides" {
     const result = panel.widgetCreateDefault();
 
-    // Left side: workspaces, toplevel_task, launcher
+    // Left side: workspaces, toplevel_task, launcher, versions
     try std.testing.expectEqual(@as(u8, 0), result.widgets[0].side); // workspaces
     try std.testing.expectEqual(@as(u8, 0), result.widgets[1].side); // toplevel_task
     try std.testing.expectEqual(@as(u8, 0), result.widgets[2].side); // launcher
+    try std.testing.expectEqual(@as(u8, 0), result.widgets[3].side); // versions
 
     // Right side: cpu through power
-    for (3..13) |i| {
+    for (4..14) |i| {
         try std.testing.expectEqual(@as(u8, 1), result.widgets[i].side);
     }
 }
@@ -89,7 +90,7 @@ test "widgetCreateDefault — launcher command" {
 
 test "widgetCreateDefault — CPU initial text" {
     const result = panel.widgetCreateDefault();
-    const cpu = &result.widgets[3];
+    const cpu = &result.widgets[4];
     try std.testing.expectEqual(panel.WidgetType.cpu, cpu.wtype);
     const txt = std.mem.sliceTo(&cpu.cpu_txt, 0);
     try std.testing.expectEqualStrings("CPU --", txt);
@@ -97,7 +98,7 @@ test "widgetCreateDefault — CPU initial text" {
 
 test "widgetCreateDefault — MEM initial text" {
     const result = panel.widgetCreateDefault();
-    const mem = &result.widgets[4];
+    const mem = &result.widgets[5];
     try std.testing.expectEqual(panel.WidgetType.mem, mem.wtype);
     const txt = std.mem.sliceTo(&mem.mem_txt, 0);
     try std.testing.expectEqualStrings("MEM --", txt);
@@ -105,7 +106,7 @@ test "widgetCreateDefault — MEM initial text" {
 
 test "widgetCreateDefault — clock format" {
     const result = panel.widgetCreateDefault();
-    const clk = &result.widgets[11];
+    const clk = &result.widgets[12];
     try std.testing.expectEqual(panel.WidgetType.clock, clk.wtype);
     const fmt = std.mem.sliceTo(&clk.clock_fmt, 0);
     try std.testing.expectEqualStrings("%H:%M", fmt);

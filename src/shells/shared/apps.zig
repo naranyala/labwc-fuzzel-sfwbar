@@ -80,12 +80,11 @@ fn trimNewline(s: []const u8) []const u8 {
     return s[0..end];
 }
 
-fn stripFieldCode(exec: []const u8) []const u8 {
+fn stripFieldCode(exec: []const u8, out: []u8) []const u8 {
     // Remove common .desktop field codes like %f, %F, %u, %U, %i, %c, %k, %%.
-    var out: [256]u8 = std.mem.zeroes([256]u8);
     var olen: usize = 0;
     var i: usize = 0;
-    while (i < exec.len) : (i += 1) {
+    while (i < exec.len) {
         const ch = exec[i];
         if (ch == '%' and i + 1 < exec.len) {
             const n = exec[i + 1];
@@ -94,20 +93,30 @@ fn stripFieldCode(exec: []const u8) []const u8 {
                     out[olen] = '%';
                     olen += 1;
                 }
-                i += 1;
+                i += 2;
                 continue;
             }
             // Skip the whole token until whitespace.
             i += 1;
             while (i < exec.len and exec[i] != ' ' and exec[i] != '\t') i += 1;
+            
+            // If the preceding char was a space, and we skipped a % code,
+            // we remove the preceding space from the output so we don't leave double spaces.
+            if (olen > 0 and (out[olen - 1] == ' ' or out[olen - 1] == '\t')) {
+                olen -= 1;
+            }
             continue;
         }
         if (olen < out.len) {
             out[olen] = ch;
             olen += 1;
         }
+        i += 1;
     }
-    _ = trimNewline(out[0..olen]);
+    // Trim any trailing whitespace (not just newlines)
+    while (olen > 0 and (out[olen - 1] == ' ' or out[olen - 1] == '\t' or out[olen - 1] == '\n' or out[olen - 1] == '\r')) {
+        olen -= 1;
+    }
     return out[0..olen];
 }
 
@@ -146,9 +155,8 @@ fn parseDesktopFile(path: [*:0]const u8) void {
             name_len = @min(v.len, name.len - 1);
             @memcpy(name[0..name_len], v[0..name_len]);
         } else if (std.mem.startsWith(u8, line, "Exec=")) {
-            const v = stripFieldCode(line[5..]);
-            exec_len = @min(v.len, exec.len - 1);
-            @memcpy(exec[0..exec_len], v[0..exec_len]);
+            const v = stripFieldCode(line[5..], exec[0..]);
+            exec_len = v.len;
         } else if (std.mem.startsWith(u8, line, "Icon=")) {
             const v = line[5..];
             icon_len = @min(v.len, icon.len - 1);
@@ -314,18 +322,25 @@ test "addEntry truncates over-long fields" {
 }
 
 test "stripFieldCode removes field codes" {
-    try std.testing.expectEqualStrings("firefox ", stripFieldCode("firefox %u"));
-    try std.testing.expectEqualStrings("foot ", stripFieldCode("foot %F"));
-    try std.testing.expectEqualStrings("app arg", stripFieldCode("app %f arg"));
+    var buf: [256]u8 = undefined;
+    buf = std.mem.zeroes([256]u8);
+    try std.testing.expectEqualStrings("firefox", stripFieldCode("firefox %u", &buf));
+    buf = std.mem.zeroes([256]u8);
+    try std.testing.expectEqualStrings("foot", stripFieldCode("foot %F", &buf));
+    buf = std.mem.zeroes([256]u8);
+    try std.testing.expectEqualStrings("app arg", stripFieldCode("app %f arg", &buf));
 }
 
 test "stripFieldCode keeps literal percent" {
-    try std.testing.expectEqualStrings("100% cpu", stripFieldCode("100%% cpu"));
+    var buf: [256]u8 = std.mem.zeroes([256]u8);
+    try std.testing.expectEqualStrings("100% cpu", stripFieldCode("100%% cpu", &buf));
 }
 
 test "stripFieldCode leaves plain commands intact" {
-    try std.testing.expectEqualStrings("gimp", stripFieldCode("gimp"));
-    try std.testing.expectEqualStrings("code --new-window", stripFieldCode("code --new-window"));
+    var buf: [256]u8 = std.mem.zeroes([256]u8);
+    try std.testing.expectEqualStrings("gimp", stripFieldCode("gimp", &buf));
+    buf = std.mem.zeroes([256]u8);
+    try std.testing.expectEqualStrings("code --new-window", stripFieldCode("code --new-window", &buf));
 }
 
 test "trimNewline strips trailing CR/LF" {

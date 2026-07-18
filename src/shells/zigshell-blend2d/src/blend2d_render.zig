@@ -66,9 +66,24 @@ pub const BlendRenderer = struct {
         if (self.handle) |h| c.blend_renderer_draw_image(h, @ptrCast(img), x * s, y * s);
     }
 
+    pub fn drawImageScaled(self: *BlendRenderer, img: *c.BLImageCore, x: f64, y: f64, w: f64, h: f64) void {
+        const s = self.scale;
+        if (self.handle) |handle| c.blend_renderer_draw_image_scaled(handle, @ptrCast(img), x * s, y * s, w * s, h * s);
+    }
+
     pub fn drawCircle(self: *BlendRenderer, cx: f64, cy: f64, radius: f64, color: u32) void {
         const s = self.scale;
         if (self.handle) |h| c.blend_renderer_draw_circle(h, cx * s, cy * s, radius * s, color);
+    }
+
+    pub fn fillRoundRect(self: *BlendRenderer, x: f64, y: f64, w: f64, h: f64, radius: f64, color: u32) void {
+        const s = self.scale;
+        if (self.handle) |handle| c.blend_renderer_fill_round_rect(handle, x * s, y * s, w * s, h * s, radius * s, color);
+    }
+
+    pub fn drawRoundRect(self: *BlendRenderer, x: f64, y: f64, w: f64, h: f64, radius: f64, color: u32) void {
+        const s = self.scale;
+        if (self.handle) |handle| c.blend_renderer_draw_round_rect(handle, x * s, y * s, w * s, h * s, radius * s, color);
     }
 
     pub fn drawBorder(self: *BlendRenderer, x: f64, y: f64, w: f64, h: f64, color: u32) void {
@@ -92,5 +107,9 @@ pub const BlendRenderer = struct {
     pub fn font_loaded(self: *BlendRenderer) bool {
         if (self.handle) |h| return c.blend_renderer_font_loaded(h);
         return false;
+    }
+
+    pub fn writeToPng(self: *BlendRenderer, path: [:0]const u8) void {
+        if (self.handle) |h| c.blend_renderer_write_to_png(h, path.ptr);
     }
 };

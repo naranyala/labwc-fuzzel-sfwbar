@@ -62,6 +62,7 @@ var dock_surface = SurfaceState{ .height = DOCK_HEIGHT };
 var dirty = true;
 var running = true;
 var timer_fd: i32 = -1;
+// Written from signal handler; accessed via volatile pointer in main loop.
 var reload_config: bool = false;
 var config_path: ?[]const u8 = null;
 var autohide_dock: bool = false;
@@ -134,6 +135,7 @@ fn toplevelHandleState(data: ?*anyopaque, handle: ?*c.zwlr_foreign_toplevel_hand
         for (0..count) |i| {
             if (states[i] == c.ZWLR_FOREIGN_TOPLEVEL_HANDLE_V1_STATE_ACTIVATED) info.focused = true;
             if (states[i] == c.ZWLR_FOREIGN_TOPLEVEL_HANDLE_V1_STATE_MINIMIZED) info.minimized = true;
+            if (states[i] == c.ZWLR_FOREIGN_TOPLEVEL_HANDLE_V1_STATE_MAXIMIZED) info.maximized = true;
         }
     }
     dirty = true;
@@ -432,7 +434,7 @@ fn pointerButton(data: ?*anyopaque, p: ?*c.wl_pointer, serial: u32, time: u32, b
             const info = &toplevels[@intCast(dock_hover_idx)];
             const handle: ?*c.zwlr_foreign_toplevel_handle_v1 = @ptrCast(@alignCast(info.handle));
 
-            if (button == 274 or button == 3) { // Right-click or BTN_RIGHT
+            if (button == 273 or button == 3) { // BTN_RIGHT or fallback
                 // Show context menu
                 dock_ctx_menu_open = true;
                 dock_ctx_menu_idx = dock_hover_idx;
@@ -449,21 +451,31 @@ fn pointerButton(data: ?*anyopaque, p: ?*c.wl_pointer, serial: u32, time: u32, b
     }
 
     if (pointer_on_panel) {
-        const settings_x = panel_surface.width - 32;
-        if (pointer_x >= settings_x and pointer_x < settings_x + 28) {
+        // Settings gear button (right edge) — generous click area
+        const settings_x = panel_surface.width - 36;
+        const settings_w = 32;
+        if (pointer_x >= settings_x and pointer_x < settings_x + settings_w and
+            pointer_y >= 0 and pointer_y < panel_surface.height)
+        {
             settings_open = !settings_open;
             dirty = true;
             return;
         }
 
+        // Settings menu clicks
         if (settings_open) {
             handleSettingsClick(pointer_x, pointer_y);
             dirty = true;
             return;
         }
 
-        for (0..@intCast(widget_count)) |i| {
-            if (pointer_x >= widget_x[i] and pointer_x < widget_x[i] + widgets[i].cached_w) {
+        // Widget clicks — each widget gets at least MIN_WIDGET_CLICK_W of clickable width
+        const MIN_WIDGET_CLICK_W: i32 = 24;
+        for (0..@intCast(@max(0, widget_count))) |i| {
+            const click_w = @max(widgets[i].cached_w, MIN_WIDGET_CLICK_W);
+            if (pointer_x >= widget_x[i] and pointer_x < widget_x[i] + click_w and
+                pointer_y >= 0 and pointer_y < panel_surface.height)
+            {
                 if (widgets[i].click_fn) |fn_ptr| {
                     _ = fn_ptr(&widgets[i], button, pointer_x - widget_x[i], pointer_y);
                 }
@@ -489,7 +501,8 @@ fn handleSettingsClick(x: i32, y: i32) void {
     const item_h: i32 = 28;
 
     for (menu_items, 0..) |item, i| {
-        const iy = menu_y + @as(i32, @intCast(i)) * item_h;
+        // +4 offset matches drawSettingsMenu's item positioning
+        const iy = menu_y + 4 + @as(i32, @intCast(i)) * item_h;
         if (x >= menu_x and x < menu_x + 190 and y >= iy and y < iy + item_h) {
             executeSettingsAction(item.action);
             return;
@@ -624,10 +637,16 @@ fn seatCapabilities(data: ?*anyopaque, s: ?*c.wl_seat, caps: u32) callconv(.c) v
     if ((caps & c.WL_SEAT_CAPABILITY_POINTER) != 0 and pointer == null) {
         pointer = c.wl_seat_get_pointer(s);
         _ = c.wl_pointer_add_listener(pointer, &pointer_listener, null);
+    } else if ((caps & c.WL_SEAT_CAPABILITY_POINTER) == 0 and pointer != null) {
+        c.wl_pointer_destroy(pointer);
+        pointer = null;
     }
     if ((caps & c.WL_SEAT_CAPABILITY_KEYBOARD) != 0 and keyboard == null) {
         keyboard = c.wl_seat_get_keyboard(s);
         _ = c.wl_keyboard_add_listener(keyboard, &keyboard_listener, null);
+    } else if ((caps & c.WL_SEAT_CAPABILITY_KEYBOARD) == 0 and keyboard != null) {
+        c.wl_keyboard_destroy(keyboard);
+        keyboard = null;
     }
 }
 
@@ -645,8 +664,11 @@ fn layerSurfaceConfigure(data: ?*anyopaque, surface: ?*c.zwlr_layer_surface_v1, 
     const ss = if (surface == panel_surface.layer_surface) &panel_surface
         else if (surface == launcher_surface.layer_surface) &launcher_surface
         else &dock_surface;
-    const wi: i32 = @intCast(w);
-    const hi: i32 = @intCast(h);
+    // Clamp to sane bounds to prevent absurd SHM allocations from a
+    // misbehaving compositor.
+    // Clamp u32 first to prevent panic on values > maxInt(i32).
+    const wi: i32 = @intCast(@min(w, 16384));
+    const hi: i32 = @intCast(@min(h, 16384));
     if (wi != 0 and hi != 0 and (wi != ss.width or hi != ss.height)) {
         ss.width = wi;
         ss.height = hi;
@@ -791,6 +813,14 @@ const output_listener = c.wl_output_listener{
 
 // ==== LIVE CONFIG RELOAD (SIGHUP) ====
 
+fn wireWidgetPriv() void {
+    for (0..@intCast(@max(0, widget_count))) |i| {
+        if (widgets[i].wtype == .toplevel_task) {
+            widgets[i].priv = @ptrCast(&pctx);
+        }
+    }
+}
+
 fn onSighup(_: c_int) callconv(.c) void {
     reload_config = true;
 }
@@ -800,9 +830,45 @@ fn reloadWidgets() void {
     const res = panel_mod.configLoadWidgets(std.heap.page_allocator, path) orelse return;
     if (res.count <= 0) return;
     for (0..@intCast(res.count)) |i| {
-        widgets[i] = res.widgets[i];
+        const new_w = res.widgets[i];
+        // Preserve accumulated state from the old widget if the type matches
+        for (0..@intCast(@max(0, widget_count))) |j| {
+            if (widgets[j].wtype == new_w.wtype) {
+                var merged = new_w;
+                // Copy accumulated / sampled fields
+                merged.cpu_prev_total = widgets[j].cpu_prev_total;
+                merged.cpu_prev_idle = widgets[j].cpu_prev_idle;
+                merged.cpu_txt = widgets[j].cpu_txt;
+                merged.mem_txt = widgets[j].mem_txt;
+                merged.temp_txt = widgets[j].temp_txt;
+                merged.disk_txt = widgets[j].disk_txt;
+                merged.bat_lvl = widgets[j].bat_lvl;
+                merged.bat_charging = widgets[j].bat_charging;
+                merged.bat_txt = widgets[j].bat_txt;
+                merged.vol_mute = widgets[j].vol_mute;
+                merged.vol_txt = widgets[j].vol_txt;
+                merged.net_txt = widgets[j].net_txt;
+                merged.net_rx_prev = widgets[j].net_rx_prev;
+                merged.net_tx_prev = widgets[j].net_tx_prev;
+                merged.net_iface = widgets[j].net_iface;
+                merged.net_hist_rx = widgets[j].net_hist_rx;
+                merged.net_hist_tx = widgets[j].net_hist_tx;
+                merged.media_txt = widgets[j].media_txt;
+                merged.media_playing = widgets[j].media_playing;
+                merged.clock_txt = widgets[j].clock_txt;
+                merged.bl_lvl = widgets[j].bl_lvl;
+                merged.kb_idx = widgets[j].kb_idx;
+                merged.kb_txt = widgets[j].kb_txt;
+                merged.cc_out = widgets[j].cc_out;
+                widgets[i] = merged;
+                break;
+            }
+        } else {
+            widgets[i] = new_w;
+        }
     }
     widget_count = res.count;
+    wireWidgetPriv();
     dirty = true;
     std.log.info("zigshell-blend2d: reloaded {d} widgets from {s}", .{ widget_count, path });
 }
@@ -881,6 +947,9 @@ fn ensureBuffer(ss: *SurfaceState) void {
         };
         if (ss.renderer) |*r| r.setScale(@as(f64, @floatFromInt(ss.scale)));
 
+        // Apply buffer scale to surface for HiDPI
+        if (ss.surface) |s| c.wl_surface_set_buffer_scale(s, @intCast(ss.scale));
+
         ss.buf_width = w;
         ss.buf_height = h;
         ss.buf_size = size;
@@ -901,42 +970,53 @@ fn renderPanel() void {
     renderer.fillRect(0, @as(f64, @floatFromInt(h - 2)), @as(f64, @floatFromInt(w)), 2, 0xFF3399DB);
 
     // Measure and layout widgets
-    const pad: i32 = 12;
-    _ = panel_mod.widgetListWidth(widgets[0..@intCast(widget_count)], h, pad);
+    const pad: i32 = 8;
+    _ = panel_mod.widgetListWidth(widgets[0..@intCast(@max(0, widget_count))], h, pad);
     const x0: i32 = 10;
 
     var left_w: i32 = 0;
     var right_w: i32 = 0;
-    for (0..@intCast(widget_count)) |i| {
+    for (0..@intCast(@max(0, widget_count))) |i| {
         if (widgets[i].side == 1) right_w += widgets[i].cached_w + pad
         else left_w += widgets[i].cached_w + pad;
     }
     if (left_w > 0) left_w -= pad;
     if (right_w > 0) right_w -= pad;
 
-    const settings_btn_w: i32 = 32;
+    const settings_btn_w: i32 = 36;
     var x: i32 = x0;
-    for (0..@intCast(widget_count)) |i| {
+    for (0..@intCast(@max(0, widget_count))) |i| {
         if (widgets[i].side == 1) continue;
         widget_x[i] = x;
         x += widgets[i].cached_w + pad;
     }
 
     var rx: i32 = w - x0 - right_w - settings_btn_w;
-    if (rx < x) rx = x;
-    for (0..@intCast(widget_count)) |i| {
+    if (rx < x + 16) rx = x + 16; // min 16px gap between left and right widgets
+    for (0..@intCast(@max(0, widget_count))) |i| {
         if (widgets[i].side != 1) continue;
         widget_x[i] = rx;
         rx += widgets[i].cached_w + pad;
     }
 
     // Draw widgets
-    for (0..@intCast(widget_count)) |i| {
+    for (0..@intCast(@max(0, widget_count))) |i| {
         if (widgets[i].draw_fn) |fn_ptr| fn_ptr(&widgets[i], &renderer, widget_x[i], 0, h);
     }
 
     // Draw settings gear icon
     drawSettingsButton(&renderer, w, h);
+
+    // Dynamic Island Enrichment
+    const target_pill_w: f64 = if (pointer_on_panel and pointer_x > @divTrunc(w, 2) - 100 and pointer_x < @divTrunc(w, 2) + 100) 240.0 else 80.0;
+    const pill_w: f64 = target_pill_w;
+    const pill_h: f64 = if (target_pill_w > 100.0) 24.0 else 16.0;
+    const pill_x: f64 = @as(f64, @floatFromInt(w)) / 2.0 - pill_w / 2.0;
+    const pill_y: f64 = 4.0;
+    renderer.fillRoundRect(pill_x, pill_y, pill_w, pill_h, pill_h / 2.0, 0xDD000000);
+    if (pill_w > 100.0) {
+        _ = panel_mod.widgetText(&renderer, "Dynamic Island", @intFromFloat(pill_x + 60.0), h, 11.0, 1.0, 1.0, 1.0);
+    }
 
     if (settings_open) {
         drawSettingsMenu(&renderer, w, h);
@@ -948,9 +1028,9 @@ fn renderPanel() void {
 }
 
 fn drawSettingsButton(renderer: *blend2d.BlendRenderer, w: i32, h: i32) void {
-    const btn_x = w - 32;
-    renderer.fillRect(@as(f64, @floatFromInt(btn_x)), 0, 28, @as(f64, @floatFromInt(h)), 0xCC4D4D59);
-    renderer.drawText("\xe2\x9a\x99", @as(f64, @floatFromInt(btn_x + 8)), @as(f64, @floatFromInt(h)) / 2.0 - 6, 0xFFD9D9E0); // ⚙
+    const btn_x = w - 36;
+    renderer.fillRect(@as(f64, @floatFromInt(btn_x)), 0, 32, @as(f64, @floatFromInt(h)), 0xCC4D4D59);
+    renderer.drawText("\xe2\x9a\x99", @as(f64, @floatFromInt(btn_x + 10)), @as(f64, @floatFromInt(h)) / 2.0 - 6, 0xFFD9D9E0); // ⚙
 }
 
 fn drawSettingsMenu(renderer: *blend2d.BlendRenderer, w: i32, _: i32) void {
@@ -990,12 +1070,18 @@ fn drawSettingsMenu(renderer: *blend2d.BlendRenderer, w: i32, _: i32) void {
     }
 }
 
-fn renderDock() void {
-    if (dock_surface.height <= 0) return;
+fn renderDock() bool {
+    if (dock_surface.height <= 0) {
+        // Clear the dock surface if it was previously visible
+        if (dock_surface.buffer != null) {
+            submitSurface(&dock_surface);
+        }
+        return true; // already submitted
+    }
     ensureBuffer(&dock_surface);
-    var renderer = dock_surface.renderer orelse return;
+    var renderer = dock_surface.renderer orelse return false;
 
-dock_mod.draw(
+    dock_mod.draw(
         &renderer,
         dock_surface.width,
         dock_surface.height,
@@ -1014,6 +1100,7 @@ dock_mod.draw(
     // Flush Blend2D operations to the pixel buffer
     renderer.flush();
     dock_surface.dirty_region.add(0, 0, dock_surface.buf_width, dock_surface.buf_height);
+    return false;
 }
 
 // ---- App launcher (floating panel) ----
@@ -1107,21 +1194,24 @@ fn launcherItemAt(mx: i32, my: i32) i32 {
     if (!launcher_open) return -1;
     const list = apps_mod.list();
     const rows = launcherVisibleRows();
-    const start = @as(usize, @intCast(launcher_scroll)) * @as(usize, LAUNCHER_COLS);
+    const start = @as(usize, @intCast(@max(launcher_scroll, 0))) * @as(usize, LAUNCHER_COLS);
+    const end = @min(start + @as(usize, @intCast(rows)) * @as(usize, LAUNCHER_COLS), list.len);
+
     var col: i32 = 0;
     var row: i32 = 0;
     var idx: usize = start;
-    while (col < LAUNCHER_COLS) : (col += 1) {
-        row = 0;
-        while (row < rows) : (row += 1) {
-            if (idx >= list.len) return -1;
-            const y = LAUNCHER_PAD + row * LAUNCHER_ROW_H;
-            if (my >= y and my < y + LAUNCHER_ROW_H - 4) {
-                if (mx >= LAUNCHER_X + col * @divTrunc(LAUNCHER_W, 2) and mx < LAUNCHER_X + col * @divTrunc(LAUNCHER_W, 2) + (@divTrunc(LAUNCHER_W, 2) - LAUNCHER_PAD)) {
-                    return @intCast(idx);
-                }
+    while (idx < end) : (idx += 1) {
+        const y = LAUNCHER_PAD + row * LAUNCHER_ROW_H;
+        if (my >= y and my < y + LAUNCHER_ROW_H - 4) {
+            const bx = LAUNCHER_X + col * @divTrunc(LAUNCHER_W, 2);
+            if (mx >= bx and mx < bx + (@divTrunc(LAUNCHER_W, 2) - LAUNCHER_PAD)) {
+                return @intCast(idx);
             }
-            idx += 1;
+        }
+        col += 1;
+        if (col >= LAUNCHER_COLS) {
+            col = 0;
+            row += 1;
         }
     }
     return -1;
@@ -1161,7 +1251,7 @@ fn renderLauncher() void {
     const list = apps_mod.list();
     const rows = launcherVisibleRows();
     const max_show = @as(usize, @intCast(rows)) * @as(usize, LAUNCHER_COLS);
-    const start = @as(usize, @intCast(launcher_scroll)) * @as(usize, LAUNCHER_COLS);
+    const start = @as(usize, @intCast(@max(launcher_scroll, 0))) * @as(usize, LAUNCHER_COLS);
     const end = @min(start + max_show, list.len);
 
     var col: i32 = 0;
@@ -1258,6 +1348,7 @@ fn drawDockTooltip(renderer: *blend2d.BlendRenderer, surf_w: i32, surf_h: i32) v
 }
 
 fn submitSurface(ss: *SurfaceState) void {
+    if (ss.buffer == null or ss.surface == null) return;
     c.wl_surface_attach(ss.surface, ss.buffer, 0, 0);
     const r = ss.dirty_region;
     if (r.active) {
@@ -1275,6 +1366,34 @@ fn submitSurface(ss: *SurfaceState) void {
 // ==== MAIN ====
 
 pub fn main() !void {
+    var arena = std.heap.ArenaAllocator.init(std.heap.page_allocator);
+    defer arena.deinit();
+    const allocator = arena.allocator();
+    
+    var render_to_png_path: ?[]const u8 = null;
+    if (c.getenv("RENDER_TO_PNG")) |env_ptr| {
+        render_to_png_path = std.mem.span(env_ptr);
+    }
+    
+    if (render_to_png_path) |path| {
+        const width = 800;
+        const height = 100;
+        const stride = width * 4;
+        const buf = try allocator.alloc(u8, @intCast(height * stride));
+        defer allocator.free(buf);
+        
+        @memset(buf, 0);
+        
+        var renderer = try blend2d.BlendRenderer.init(buf.ptr, width, height, stride);
+        defer renderer.deinit();
+
+        dock_mod.draw(&renderer, width, height, &toplevels, toplevel_count, -1);
+        
+        const path_z = try allocator.dupeZ(u8, path);
+        renderer.writeToPng(path_z);
+        return;
+    }
+
     display = c.wl_display_connect(null) orelse {
         std.log.err("zigshell-blend2d: failed to connect to Wayland display", .{});
         return error.WaylandConnectFailed;
@@ -1320,6 +1439,7 @@ pub fn main() !void {
         .count = &toplevel_count,
         .seat = seat,
     };
+    wireWidgetPriv();
 
     // Create panel surface (TOP)
     panel_surface.surface = c.wl_compositor_create_surface(compositor) orelse {
@@ -1398,7 +1518,10 @@ pub fn main() !void {
         return error.WaylandProtocolError;
     }
 
-    if (panel_surface.width == 0) panel_surface.width = 1920;
+    if (panel_surface.width == 0) {
+        // Fallback: use first output's width if available, else 1920
+        panel_surface.width = if (output_count > 0) outputs[0].w else 1920;
+    }
     if (panel_surface.height == 0) panel_surface.height = PANEL_HEIGHT;
     if (dock_surface.width == 0) dock_surface.width = panel_surface.width;
     if (dock_surface.height == 0) dock_surface.height = DOCK_HEIGHT;
@@ -1432,11 +1555,11 @@ pub fn main() !void {
             renderPanel();
             submitSurface(&panel_surface);
 
-            renderDock();
-            submitSurface(&dock_surface);
+            const dock_already_submitted = renderDock();
+            if (!dock_already_submitted) submitSurface(&dock_surface);
 
             renderLauncher();
-            submitSurface(&launcher_surface);
+            if (launcher_surface.buffer != null) submitSurface(&launcher_surface);
 
             dirty = false;
         }
@@ -1450,13 +1573,15 @@ pub fn main() !void {
 
         const poll_ret = c.poll(&pfds, 2, 3000);
         if (poll_ret > 0) {
-            if ((pfds[0].revents & c.POLLIN) != 0) {
+            if ((pfds[0].revents & (c.POLLERR | c.POLLHUP)) != 0) {
+                running = false;
+            } else if ((pfds[0].revents & c.POLLIN) != 0) {
                 if (c.wl_display_dispatch(display) < 0) { running = false; }
             }
             if ((pfds[1].revents & c.POLLIN) != 0) {
                 var exp: u64 = 0;
                 _ = c.read(timer_fd, &exp, @sizeOf(u64));
-                panel_mod.widgetListUpdate(widgets[0..@intCast(widget_count)]);
+                panel_mod.widgetListUpdate(widgets[0..@intCast(@max(0, widget_count))]);
                 dirty = true;
             }
         } else {
@@ -1485,6 +1610,12 @@ pub fn main() !void {
     if (launcher_surface.frame_cb) |cb| c.wl_callback_destroy(cb);
     if (launcher_surface.layer_surface) |ls| c.zwlr_layer_surface_v1_destroy(ls);
     if (launcher_surface.surface) |s| c.wl_surface_destroy(s);
+
+    if (keyboard_keymap_mapped) |m| {
+        _ = c.munmap(@ptrCast(m), keyboard_keymap_size);
+        keyboard_keymap_mapped = null;
+    }
+    if (keyboard_keymap_fd >= 0) _ = c.close(keyboard_keymap_fd);
 
     icon.clearCache();
     if (display) |d| _ = c.wl_display_disconnect(d);

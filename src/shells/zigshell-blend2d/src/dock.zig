@@ -16,27 +16,19 @@ pub fn draw(
     top_count: i32,
     hover_idx: i32,
 ) void {
-    // Convert ToplevelInfo arrays to C string arrays
-    var app_ids: [64]?[*:0]const u8 = undefined;
-    var titles: [64]?[*:0]const u8 = undefined;
-    var focused: [64]i32 = undefined;
-
-    for (0..@intCast(top_count)) |i| {
-        const app_id_slice = tops[i].app_id[0..std.mem.indexOfScalar(u8, &tops[i].app_id, 0) orelse tops[i].app_id.len];
-        const title_slice = tops[i].title[0..std.mem.indexOfScalar(u8, &tops[i].title, 0) orelse tops[i].title.len];
-        app_ids[i] = @ptrCast(app_id_slice.ptr);
-        titles[i] = @ptrCast(title_slice.ptr);
-        focused[i] = if (tops[i].focused) 1 else 0;
-    }
-
-    // Build C-compatible arrays
     var c_app_ids: [64]?[*:0]const u8 = undefined;
     var c_titles: [64]?[*:0]const u8 = undefined;
     var c_focused: [64]c_int = undefined;
-    for (0..@intCast(top_count)) |i| {
-        c_app_ids[i] = app_ids[i];
-        c_titles[i] = titles[i];
-        c_focused[i] = focused[i];
+
+    const safe_count: usize = @min(@as(usize, @intCast(@max(top_count, 0))), 64);
+    for (0..safe_count) |i| {
+        const app_id_idx = std.mem.indexOfScalar(u8, &tops[i].app_id, 0) orelse @max(tops[i].app_id.len, 1) - 1;
+        const title_idx = std.mem.indexOfScalar(u8, &tops[i].title, 0) orelse @max(tops[i].title.len, 1) - 1;
+        const app_id_slice = tops[i].app_id[0..app_id_idx];
+        const title_slice = tops[i].title[0..title_idx];
+        c_app_ids[i] = @ptrCast(app_id_slice.ptr);
+        c_titles[i] = @ptrCast(title_slice.ptr);
+        c_focused[i] = if (tops[i].focused) 1 else 0;
     }
 
     c.dock_draw(
@@ -46,7 +38,7 @@ pub fn draw(
         @ptrCast(&c_app_ids),
         @ptrCast(&c_titles),
         @ptrCast(&c_focused),
-        @intCast(top_count),
+        @intCast(safe_count),
         @intCast(hover_idx),
     );
 }
