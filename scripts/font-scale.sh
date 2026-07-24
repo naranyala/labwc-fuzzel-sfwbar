@@ -178,7 +178,6 @@ update_gtk_ini() {
   [[ -z "$family" ]] && family="Noto Sans"
 
   sed -i "s/^gtk-font-name=.*/gtk-font-name=$family, $fsize/" "$ini_file"
-  sed -i "s/^gtk-monospace-font-name=.*/gtk-monospace-font-name=Noto Sans Mono, $fsize/" "$ini_file"
   pass "$label: $family, $fsize"
 }
 

@@ -40,7 +40,6 @@ cat > ~/.config/gtk-3.0/settings.ini << 'GTK3_EOF'
 gtk-theme-name=Catppuccin-Mocha-Standard-Dark
 gtk-icon-theme-name=Papirus-Dark
 gtk-font-name=Noto Sans 10
-gtk-monospace-font-name=Noto Sans Mono 10
 gtk-cursor-theme-name=Catppuccin-Mocha-Dark
 gtk-cursor-theme-size=24
 gtk-xft-antialias=1
@@ -65,7 +64,6 @@ gtk-theme-name=Catppuccin-Mocha-Standard-Dark
 gtk-application-prefer-dark-theme=true
 gtk-icon-theme-name=Papirus-Dark
 gtk-font-name=Noto Sans 10
-gtk-monospace-font-name=Noto Sans Mono 10
 gtk-cursor-theme-name=Catppuccin-Mocha-Dark
 gtk-cursor-theme-size=24
 gtk-xft-antialias=1

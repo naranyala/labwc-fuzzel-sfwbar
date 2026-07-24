@@ -2,4 +2,4 @@
  * OCWS GTK4 Theme — imports shared base from gtk/gtk-base.css
  * Do NOT edit directly — modify gtk/gtk-base.css instead
  * ============================================================ */
-@import url("../gtk/gtk-base.css");
+@import url("gtk-base.css");
